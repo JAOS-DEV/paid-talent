@@ -1,3 +1,6 @@
+-- ============================================================================
+-- PHASE 1: Create types (idempotent)
+-- ============================================================================
 DO $$ BEGIN
     CREATE TYPE "public"."doc_type" AS ENUM('passport', 'thai_id', 'drivers_license', 'other');
 EXCEPTION
@@ -33,6 +36,10 @@ DO $$ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;--> statement-breakpoint
+
+-- ============================================================================
+-- PHASE 2: Create tables (idempotent)
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS "accounts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -188,6 +195,55 @@ CREATE TABLE IF NOT EXISTS "worker_profiles" (
 	CONSTRAINT "worker_profiles_user_id_unique" UNIQUE("user_id")
 );
 --> statement-breakpoint
+
+-- ============================================================================
+-- PHASE 3: Add verification columns to worker_profiles for existing DBs
+-- MUST run BEFORE indexes that reference these columns
+-- ============================================================================
+DO $$ BEGIN
+    ALTER TABLE "worker_profiles" ADD COLUMN "verification_status" "verification_status" DEFAULT 'unverified' NOT NULL;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "worker_profiles" ADD COLUMN "id_document_key" text;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "worker_profiles" ADD COLUMN "liveness_video_key" text;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "worker_profiles" ADD COLUMN "challenge_code" text;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "worker_profiles" ADD COLUMN "challenge_issued_at" timestamp;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "worker_profiles" ADD COLUMN "id_document_submitted_at" timestamp;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "worker_profiles" ADD COLUMN "verification_reviewed_at" timestamp;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "worker_profiles" ADD COLUMN "verification_reviewed_by" text;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;--> statement-breakpoint
+
+-- ============================================================================
+-- PHASE 4: Add foreign key constraints (idempotent)
+-- ============================================================================
 DO $$ BEGIN
     ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
@@ -248,6 +304,11 @@ DO $$ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;--> statement-breakpoint
+
+-- ============================================================================
+-- PHASE 5: Create indexes (idempotent)
+-- Now safe to create verification_status index since column exists
+-- ============================================================================
 CREATE UNIQUE INDEX IF NOT EXISTS "accounts_provider_account_idx" ON "accounts" USING btree ("provider","provider_account_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "profile_interests_recruiter_idx" ON "profile_interests" USING btree ("recruiter_user_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "profile_interests_worker_idx" ON "profile_interests" USING btree ("worker_profile_id");--> statement-breakpoint
@@ -269,45 +330,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS "verification_tokens_identifier_token_idx" ON 
 CREATE INDEX IF NOT EXISTS "worker_profiles_user_id_idx" ON "worker_profiles" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "worker_profiles_area_idx" ON "worker_profiles" USING btree ("area");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "worker_profiles_is_published_idx" ON "worker_profiles" USING btree ("is_published");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "worker_profiles_verification_status_idx" ON "worker_profiles" USING btree ("verification_status");--> statement-breakpoint
--- Add verification columns to worker_profiles if they don't exist (for DBs created before #11)
-DO $$ BEGIN
-    ALTER TABLE "worker_profiles" ADD COLUMN "verification_status" "verification_status" DEFAULT 'unverified' NOT NULL;
-EXCEPTION
-    WHEN duplicate_column THEN null;
-END $$;--> statement-breakpoint
-DO $$ BEGIN
-    ALTER TABLE "worker_profiles" ADD COLUMN "id_document_key" text;
-EXCEPTION
-    WHEN duplicate_column THEN null;
-END $$;--> statement-breakpoint
-DO $$ BEGIN
-    ALTER TABLE "worker_profiles" ADD COLUMN "liveness_video_key" text;
-EXCEPTION
-    WHEN duplicate_column THEN null;
-END $$;--> statement-breakpoint
-DO $$ BEGIN
-    ALTER TABLE "worker_profiles" ADD COLUMN "challenge_code" text;
-EXCEPTION
-    WHEN duplicate_column THEN null;
-END $$;--> statement-breakpoint
-DO $$ BEGIN
-    ALTER TABLE "worker_profiles" ADD COLUMN "challenge_issued_at" timestamp;
-EXCEPTION
-    WHEN duplicate_column THEN null;
-END $$;--> statement-breakpoint
-DO $$ BEGIN
-    ALTER TABLE "worker_profiles" ADD COLUMN "id_document_submitted_at" timestamp;
-EXCEPTION
-    WHEN duplicate_column THEN null;
-END $$;--> statement-breakpoint
-DO $$ BEGIN
-    ALTER TABLE "worker_profiles" ADD COLUMN "verification_reviewed_at" timestamp;
-EXCEPTION
-    WHEN duplicate_column THEN null;
-END $$;--> statement-breakpoint
-DO $$ BEGIN
-    ALTER TABLE "worker_profiles" ADD COLUMN "verification_reviewed_by" text;
-EXCEPTION
-    WHEN duplicate_column THEN null;
-END $$;
+CREATE INDEX IF NOT EXISTS "worker_profiles_verification_status_idx" ON "worker_profiles" USING btree ("verification_status");
