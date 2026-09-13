@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, Suspense, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button, Card, CardContent, Input } from "@/components/ui";
@@ -8,8 +8,15 @@ import { Button, Card, CardContent, Input } from "@/components/ui";
 const errorMessages: Record<string, string> = {
   CredentialsSignin: "No account found with that email. Please check your email or sign up.",
   OAuthAccountNotLinked: "Email already associated with another account.",
+  EmailSignin: "Could not send sign-in email. Please check your email address or try again.",
+  EmailNotConfigured: "Email sign-in is not available. Please use Google to sign in.",
   Default: "An error occurred during sign in.",
 };
+
+interface AuthConfig {
+  emailEnabled: boolean;
+  devBypassEnabled: boolean;
+}
 
 function SignInForm(): React.ReactElement {
   const searchParams = useSearchParams();
@@ -23,8 +30,19 @@ function SignInForm(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(errorParam);
   const [formError, setFormError] = useState<string | null>(null);
+  const [authConfig, setAuthConfig] = useState<AuthConfig>({ 
+    emailEnabled: false, 
+    devBypassEnabled: false 
+  });
 
   const isSignupMode = Boolean(role && dob);
+
+  useEffect(() => {
+    fetch("/api/auth/config")
+      .then((res) => res.json())
+      .then((data: AuthConfig) => setAuthConfig(data))
+      .catch(() => {});
+  }, []);
 
   const handleGoogleSignIn = async (): Promise<void> => {
     setIsLoading(true);
@@ -45,6 +63,7 @@ function SignInForm(): React.ReactElement {
     setFormError(null);
     setIsLoading(true);
 
+    // In signup mode, register the user first via POST API
     if (isSignupMode) {
       try {
         const response = await fetch("/api/auth/register", {
@@ -73,25 +92,56 @@ function SignInForm(): React.ReactElement {
       : callbackUrl;
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        redirect: false,
-      });
+      // If dev bypass is enabled, use credentials provider for immediate sign-in
+      if (authConfig.devBypassEnabled) {
+        const result = await signIn("credentials", {
+          email,
+          redirect: false,
+        });
 
-      if (result?.error) {
-        if (isSignupMode) {
-          setFormError("Account created but sign-in failed. Please try signing in again.");
-        } else {
-          setError(result.error);
+        if (result?.error) {
+          if (isSignupMode) {
+            setFormError("Account created but sign-in failed. Please try signing in again.");
+          } else {
+            setError(result.error);
+          }
+          setIsLoading(false);
+          return;
         }
-        setIsLoading(false);
+
+        if (result?.ok) {
+          router.push(finalCallbackUrl);
+          router.refresh();
+        }
         return;
       }
 
-      if (result?.ok) {
-        router.push(finalCallbackUrl);
-        router.refresh();
+      // If email provider is configured, use magic link flow
+      if (authConfig.emailEnabled) {
+        const result = await signIn("email", {
+          email,
+          callbackUrl: finalCallbackUrl,
+          redirect: false,
+        });
+
+        if (result?.error) {
+          if (isSignupMode) {
+            setFormError("Account created but could not send sign-in email. Please try signing in again.");
+          } else {
+            setError(result.error);
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        // Redirect to verify-request page to tell user to check their email
+        router.push("/auth/verify-request");
+        return;
       }
+
+      // Neither provider is available - show error
+      setError("EmailNotConfigured");
+      setIsLoading(false);
     } catch {
       setError("Default");
       setIsLoading(false);
@@ -103,6 +153,14 @@ function SignInForm(): React.ReactElement {
     : error 
       ? (errorMessages[error] || errorMessages.Default) 
       : null;
+
+  const emailButtonText = authConfig.devBypassEnabled 
+    ? (isSignupMode ? "Create Account (Dev)" : "Continue with Email (Dev)")
+    : (isSignupMode ? "Create Account & Send Link" : "Send Sign-in Link");
+
+  const emailHelperText = authConfig.devBypassEnabled
+    ? null
+    : "We'll send a secure sign-in link to your email.";
 
   return (
     <>
@@ -163,15 +221,30 @@ function SignInForm(): React.ReactElement {
               required
             />
 
+            {emailHelperText && (
+              <p className="text-charcoal-500 text-sm flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                {emailHelperText}
+              </p>
+            )}
+
             <Button
               type="submit"
               fullWidth
               size="lg"
               loading={isLoading}
-              disabled={!email}
+              disabled={!email || (!authConfig.emailEnabled && !authConfig.devBypassEnabled)}
             >
-              {isSignupMode ? "Create Account" : "Continue with Email"}
+              {emailButtonText}
             </Button>
+
+            {!authConfig.emailEnabled && !authConfig.devBypassEnabled && (
+              <p className="text-charcoal-500 text-xs text-center">
+                Email sign-in is not configured. Please use Google.
+              </p>
+            )}
           </form>
         </CardContent>
       </Card>

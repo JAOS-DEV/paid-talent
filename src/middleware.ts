@@ -11,6 +11,7 @@ const publicRoutes = [
   "/auth/signin",
   "/auth/role-select",
   "/auth/age-verification",
+  "/auth/verify-request",
   "/auth/error",
   "/api/auth",
 ];

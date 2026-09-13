@@ -573,13 +573,18 @@ async function seed(): Promise<void> {
     console.log("=".repeat(60));
     console.log("🔐 HOW TO SIGN IN (Development Only):");
     console.log("=".repeat(60));
-    console.log("\n1. Start the dev server: npm run dev");
-    console.log("2. Go to: http://localhost:3000/auth/signin");
-    console.log("3. Click 'Sign in with Email'");
-    console.log("4. Enter one of the seed emails above");
-    console.log("5. You'll be signed in immediately (no password needed)\n");
-    console.log("NOTE: The Credentials provider allows email-only sign-in");
-    console.log("      for existing users in development mode.\n");
+    console.log("\n1. Set environment variables:");
+    console.log("   NODE_ENV=development");
+    console.log("   AUTH_DEV_BYPASS=true");
+    console.log("\n2. Start the dev server: npm run dev");
+    console.log("3. Go to: http://localhost:3000/auth/signin");
+    console.log("4. Click 'Continue with Email'");
+    console.log("5. Enter one of the seed emails above");
+    console.log("6. You'll be signed in (dev bypass enabled)\n");
+    console.log("⚠️  SECURITY: Email-only sign-in requires BOTH:");
+    console.log("   - NODE_ENV=development");
+    console.log("   - AUTH_DEV_BYPASS=true");
+    console.log("\n   This is BLOCKED in production to prevent account hijacking.\n");
   } catch (error) {
     console.error("\n❌ Seed failed:", error);
     process.exit(1);
