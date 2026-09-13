@@ -272,6 +272,28 @@ interface RankingCriteria {
 - `whatsappNumber` - WhatsApp phone number
 - `phoneNumber` - Direct phone number
 
+### Profile Text Filtering
+
+Free-text profile fields are protected against contact information leakage to enforce the Top Talent paywall. The text filter (`src/lib/helpers/text-filter.ts`) blocks:
+
+- Phone numbers (international and Thai formats, including obfuscated patterns)
+- LINE IDs and links (line.me, LINE ID mentions)
+- WhatsApp contacts (wa.me links, WhatsApp number mentions)
+- Telegram contacts (t.me links)
+- URLs (http/https/www)
+- Social media handles (@username patterns)
+- Platform URLs (Instagram, Facebook, TikTok, etc.)
+- Email addresses
+
+**Protected fields** (validated on create/update, rejects with error):
+- `displayName` - Worker display name
+- `bio` - Worker bio text
+- `experience` - Work experience description
+- `location` - Location text
+- `area` - Area/neighborhood text
+
+**API**: The helper exports `validateProfileText(text)` for rejection with typed reason, `containsBlockedContact(text)` for boolean check, and `sanitizeProfileText(text)` for stripping matches.
+
 ### Visibility Logic
 
 | Condition | Can View Contact |

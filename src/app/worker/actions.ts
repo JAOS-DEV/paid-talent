@@ -5,6 +5,7 @@ import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { validateProfileText } from "@/lib/helpers/text-filter";
 
 const photoSchema = z.object({
   photoKey: z.string().min(1),
@@ -101,6 +102,11 @@ export async function updateProfileName(
     return { success: false, error: validation.error.issues[0].message };
   }
 
+  const textError = validateProfileText(validation.data.displayName);
+  if (textError) {
+    return { success: false, error: textError.message };
+  }
+
   await db
     .update(workerProfiles)
     .set({
@@ -153,6 +159,13 @@ export async function updateProfileExperience(
   const validation = experienceSchema.safeParse(data);
   if (!validation.success) {
     return { success: false, error: validation.error.issues[0].message };
+  }
+
+  if (validation.data.experience) {
+    const textError = validateProfileText(validation.data.experience);
+    if (textError) {
+      return { success: false, error: textError.message };
+    }
   }
 
   await db
@@ -210,6 +223,11 @@ export async function updateProfileBio(
     return { success: false, error: validation.error.issues[0].message };
   }
 
+  const textError = validateProfileText(validation.data.bio);
+  if (textError) {
+    return { success: false, error: textError.message };
+  }
+
   await db
     .update(workerProfiles)
     .set({
@@ -235,6 +253,18 @@ export async function updateProfileLocation(
   const validation = locationSchema.safeParse(data);
   if (!validation.success) {
     return { success: false, error: validation.error.issues[0].message };
+  }
+
+  const locationError = validateProfileText(validation.data.location);
+  if (locationError) {
+    return { success: false, error: locationError.message };
+  }
+
+  if (validation.data.area) {
+    const areaError = validateProfileText(validation.data.area);
+    if (areaError) {
+      return { success: false, error: areaError.message };
+    }
   }
 
   await db
