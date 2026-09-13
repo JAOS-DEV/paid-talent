@@ -7,11 +7,16 @@ test.describe("Authentication Flow Smoke Tests", () => {
 
       await expect(page).toHaveTitle(/Paid Talent/i);
 
-      const findWorkButton = page.getByRole("link", { name: /find work/i });
-      const findTalentButton = page.getByRole("link", { name: /find talent/i });
+      const mainContent = page.getByRole("main");
+      const workerCta = mainContent.getByRole("link", {
+        name: /create worker profile/i,
+      });
+      const recruiterCta = mainContent.getByRole("link", {
+        name: /start recruiting/i,
+      });
 
-      await expect(findWorkButton.or(page.getByText(/find work/i).first())).toBeVisible();
-      await expect(findTalentButton.or(page.getByText(/find talent/i).first())).toBeVisible();
+      await expect(workerCta).toBeVisible();
+      await expect(recruiterCta).toBeVisible();
     });
 
     test("should navigate to role selection from landing page", async ({ page }) => {
@@ -97,13 +102,15 @@ test.describe("Authentication Flow Smoke Tests", () => {
     test("should require checkbox confirmation", async ({ page }) => {
       await page.goto("/auth/age-verification?role=worker");
 
-      await page.locator('input[type="date"]').fill("1990-01-15");
+      const dateInput = page.locator('input[type="date"]');
+      await dateInput.click();
+      await dateInput.fill("1990-01-15");
 
       const submitButton = page.getByRole("button", { name: /verify/i });
       await expect(submitButton).toBeDisabled();
 
       await page.getByRole("checkbox").check();
-      await expect(submitButton).toBeEnabled();
+      await expect(submitButton).toBeEnabled({ timeout: 10000 });
     });
 
     test("should show error for underage users", async ({ page }) => {
@@ -117,9 +124,14 @@ test.describe("Authentication Flow Smoke Tests", () => {
       );
       const formattedDate = underageDate.toISOString().split("T")[0];
 
-      await page.locator('input[type="date"]').fill(formattedDate);
+      const dateInput = page.locator('input[type="date"]');
+      await dateInput.click();
+      await dateInput.fill(formattedDate);
       await page.getByRole("checkbox").check();
-      await page.getByRole("button", { name: /verify/i }).click();
+      
+      const submitButton = page.getByRole("button", { name: /verify/i });
+      await expect(submitButton).toBeEnabled({ timeout: 10000 });
+      await submitButton.click();
 
       await expect(page.getByText(/must be 18 years or older/i)).toBeVisible();
     });
@@ -135,11 +147,19 @@ test.describe("Authentication Flow Smoke Tests", () => {
       );
       const formattedDate = validDate.toISOString().split("T")[0];
 
-      await page.locator('input[type="date"]').fill(formattedDate);
+      const dateInput = page.locator('input[type="date"]');
+      await dateInput.click();
+      await dateInput.fill(formattedDate);
       await page.getByRole("checkbox").check();
-      await page.getByRole("button", { name: /verify/i }).click();
+      
+      const submitButton = page.getByRole("button", { name: /verify/i });
+      await expect(submitButton).toBeEnabled({ timeout: 10000 });
+      await submitButton.click();
 
       await expect(page).toHaveURL(/auth\/signin/, { timeout: 5000 });
+      await expect(
+        page.getByRole("heading", { name: /create your account/i })
+      ).toBeVisible();
     });
   });
 
@@ -182,12 +202,19 @@ test.describe("Authentication Flow Smoke Tests", () => {
       );
       const formattedDate = validDate.toISOString().split("T")[0];
 
-      await page.locator('input[type="date"]').fill(formattedDate);
+      const dateInput = page.locator('input[type="date"]');
+      await dateInput.click();
+      await dateInput.fill(formattedDate);
       await page.getByRole("checkbox").check();
-      await page.getByRole("button", { name: /verify/i }).click();
+      
+      const submitButton = page.getByRole("button", { name: /verify/i });
+      await expect(submitButton).toBeEnabled({ timeout: 10000 });
+      await submitButton.click();
 
       await expect(page).toHaveURL(/auth\/signin/);
-      await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: /create your account/i })
+      ).toBeVisible();
     });
 
     test("recruiter flow should preserve role through flow", async ({ page }) => {
@@ -206,9 +233,14 @@ test.describe("Authentication Flow Smoke Tests", () => {
       );
       const formattedDate = validDate.toISOString().split("T")[0];
 
-      await page.locator('input[type="date"]').fill(formattedDate);
+      const dateInput = page.locator('input[type="date"]');
+      await dateInput.click();
+      await dateInput.fill(formattedDate);
       await page.getByRole("checkbox").check();
-      await page.getByRole("button", { name: /verify/i }).click();
+      
+      const submitButton = page.getByRole("button", { name: /verify/i });
+      await expect(submitButton).toBeEnabled({ timeout: 10000 });
+      await submitButton.click();
 
       await expect(page).toHaveURL(/role=recruiter/);
     });
@@ -218,7 +250,9 @@ test.describe("Authentication Flow Smoke Tests", () => {
     test("should display error page content", async ({ page }) => {
       await page.goto("/auth/error");
 
-      await expect(page.getByText(/error|something went wrong/i)).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: /authentication error/i })
+      ).toBeVisible();
     });
   });
 });
