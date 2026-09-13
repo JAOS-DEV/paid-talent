@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db, workerProfiles } from "@/lib/db";
 import { eq, and, ilike, sql, type SQL } from "drizzle-orm";
 import { isProfileTopTalent } from "@/lib/ranking";
+import { isSearchableWorker } from "@/lib/verification";
 import {
   validateSearchParams,
   buildFilterCriteria,
@@ -16,8 +17,11 @@ export interface SearchWorkerResult {
   photoUrl: string | null;
   location: string | null;
   area: string | null;
+  bio: string | null;
   jobRoles: string[];
   availability: string | null;
+  experienceYears: number | null;
+  languages: string[];
   isVerified: boolean;
   isTopTalent: boolean;
 }
@@ -39,8 +43,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const { searchParams } = new URL(request.url);
     const validation = validateSearchParams({
-      query: searchParams.get("query") || undefined,
-      role: searchParams.get("role") || undefined,
+      query: searchParams.get("query") || searchParams.get("q") || undefined,
+      role: searchParams.get("role") || searchParams.get("jobRole") || undefined,
       area: searchParams.get("area") || undefined,
       availability: searchParams.get("availability") || undefined,
       verified: searchParams.get("verified") || undefined,
@@ -58,11 +62,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const { limit, offset } = validation.data!;
     const filters = buildFilterCriteria(validation.data!);
 
-    const conditions: SQL[] = [eq(workerProfiles.isPublished, true)];
+    const conditions: SQL[] = [
+      eq(workerProfiles.isPublished, true),
+      eq(workerProfiles.verificationStatus, "verified"),
+    ];
 
     if (filters.query) {
       conditions.push(
-        sql`(${ilike(workerProfiles.displayName, `%${filters.query}%`)} OR ${ilike(workerProfiles.description, `%${filters.query}%`)})`
+        sql`(${ilike(workerProfiles.displayName, `%${filters.query}%`)} OR ${ilike(workerProfiles.description, `%${filters.query}%`)} OR ${ilike(workerProfiles.bio, `%${filters.query}%`)})`
       );
     }
 
@@ -80,27 +87,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       conditions.push(ilike(workerProfiles.availability, `%${filters.availability}%`));
     }
 
-    if (filters.verifiedOnly) {
-      conditions.push(eq(workerProfiles.isVerified, true));
-    }
-
     const profiles = await db
-      .select({
-        id: workerProfiles.id,
-        userId: workerProfiles.userId,
-        displayName: workerProfiles.displayName,
-        photoUrl: workerProfiles.photoUrl,
-        location: workerProfiles.location,
-        area: workerProfiles.area,
-        jobRoles: workerProfiles.jobRoles,
-        availability: workerProfiles.availability,
-        isVerified: workerProfiles.isVerified,
-      })
+      .select()
       .from(workerProfiles)
       .where(and(...conditions))
       .orderBy(workerProfiles.createdAt)
       .limit(limit)
       .offset(offset);
+
+    const searchableProfiles = profiles.filter((profile) => {
+      const result = isSearchableWorker(profile);
+      return result.isSearchable;
+    });
 
     const totalResult = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -109,20 +107,32 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const total = totalResult[0]?.count ?? 0;
 
     const results: SearchWorkerResult[] = await Promise.all(
-      profiles.map(async (profile) => ({
-        ...profile,
+      searchableProfiles.map(async (profile) => ({
+        id: profile.id,
+        userId: profile.userId,
+        displayName: profile.displayName,
+        photoUrl: profile.photoUrl,
+        location: profile.location,
+        area: profile.area,
+        bio: profile.bio,
         jobRoles: (profile.jobRoles as string[]) ?? [],
+        availability: profile.availability,
+        experienceYears: profile.experienceYears,
+        languages: (profile.languages as string[]) ?? [],
+        isVerified: profile.verificationStatus === "verified",
         isTopTalent: await isProfileTopTalent(profile.id),
       }))
     );
 
     return NextResponse.json({
       workers: results,
+      total: searchableProfiles.length,
+      hasMore: offset + results.length < total,
       pagination: {
         total,
         limit,
         offset,
-        hasMore: offset + profiles.length < total,
+        hasMore: offset + results.length < total,
       },
     });
   } catch (error) {
