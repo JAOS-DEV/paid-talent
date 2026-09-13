@@ -15,6 +15,13 @@
       "when": 1789320153960,
       "tag": "0001_chilly_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789324116215,
+      "tag": "0002_late_texas_twister",
+      "breakpoints": true
     }
   ]
 }

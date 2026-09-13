@@ -4,6 +4,8 @@ import postgres from "postgres";
 import { eq } from "drizzle-orm";
 import * as schema from "./schema";
 
+type HireOutcomeStatusType = "interested" | "hired" | "started";
+
 type VerificationStatusType = "unverified" | "pending" | "verified" | "rejected";
 
 const SEED_USERS = {
@@ -534,8 +536,129 @@ async function seed(): Promise<void> {
       console.log(`   ${status}: ${worker.email} (${viewCount} views)`);
     }
 
-    console.log("\n📦 Skipping profile interests seeding (recruiters start fresh)...");
-    console.log("   ℹ️  Recruiters will see all profiles as 'unsent' until they express interest");
+    console.log("\n📦 Seeding profile interests (for hire outcome demos)...");
+
+    const topTalentWorkers = createdWorkers.filter((w) => w.isTopTalent);
+    const normalWorkers = createdWorkers.filter((w) => !w.isTopTalent);
+    const createdInterests: Array<{ interestId: string; recruiterEmail: string; workerEmail: string }> = [];
+
+    for (const recruiter of createdRecruiters) {
+      const workersToInterest = recruiter.hasSubscription
+        ? [...topTalentWorkers.slice(0, 2), ...normalWorkers.slice(0, 1)]
+        : normalWorkers.slice(0, 2);
+
+      for (const worker of workersToInterest) {
+        const existing = await db
+          .select()
+          .from(schema.profileInterests)
+          .where(
+            and(
+              eq(schema.profileInterests.recruiterUserId, recruiter.userId),
+              eq(schema.profileInterests.workerProfileId, worker.profileId)
+            )
+          )
+          .limit(1);
+
+        let interestId: string;
+        if (existing.length === 0) {
+          const [newInterest] = await db.insert(schema.profileInterests).values({
+            recruiterUserId: recruiter.userId,
+            workerProfileId: worker.profileId,
+            message: recruiter.hasSubscription
+              ? "We have an exciting opportunity for you at our venue!"
+              : "Interested in discussing a position with you.",
+            createdAt: new Date(),
+          }).returning();
+
+          interestId = newInterest.id;
+          console.log(`   ✅ ${recruiter.email} → ${worker.email}`);
+        } else {
+          interestId = existing[0].id;
+        }
+
+        createdInterests.push({
+          interestId,
+          recruiterEmail: recruiter.email,
+          workerEmail: worker.email,
+        });
+      }
+    }
+
+    console.log("\n📦 Seeding hire outcomes...");
+
+    const hireOutcomesSeed: Array<{
+      recruiterEmail: string;
+      workerEmail: string;
+      status: HireOutcomeStatusType;
+      notes: string;
+    }> = [
+      {
+        recruiterEmail: "recruiter-pro@example.com",
+        workerEmail: "worker1@example.com",
+        status: "started",
+        notes: "Started as bartender at Sukhumvit location on Monday shifts",
+      },
+      {
+        recruiterEmail: "recruiter-pro@example.com",
+        workerEmail: "worker2@example.com",
+        status: "hired",
+        notes: "Hired for hostess position, starting next month",
+      },
+      {
+        recruiterEmail: "recruiter-free@example.com",
+        workerEmail: "worker4@example.com",
+        status: "interested",
+        notes: null as unknown as string,
+      },
+    ];
+
+    for (const outcomeSeed of hireOutcomesSeed) {
+      const interest = createdInterests.find(
+        (i) =>
+          i.recruiterEmail === outcomeSeed.recruiterEmail &&
+          i.workerEmail === outcomeSeed.workerEmail
+      );
+
+      if (!interest) {
+        console.log(`   ⚠️  Interest not found for ${outcomeSeed.recruiterEmail} → ${outcomeSeed.workerEmail}`);
+        continue;
+      }
+
+      const existingOutcome = await db
+        .select()
+        .from(schema.hireOutcomes)
+        .where(eq(schema.hireOutcomes.interestId, interest.interestId))
+        .limit(1);
+
+      const now = new Date();
+      const hiredAt = outcomeSeed.status === "hired" || outcomeSeed.status === "started" ? now : null;
+      const startedAt = outcomeSeed.status === "started" ? now : null;
+
+      if (existingOutcome.length === 0) {
+        await db.insert(schema.hireOutcomes).values({
+          interestId: interest.interestId,
+          status: outcomeSeed.status,
+          hiredAt,
+          startedAt,
+          notes: outcomeSeed.notes,
+          createdAt: now,
+          updatedAt: now,
+        });
+        console.log(`   ✅ ${outcomeSeed.status.toUpperCase()}: ${outcomeSeed.recruiterEmail} → ${outcomeSeed.workerEmail}`);
+      } else {
+        await db
+          .update(schema.hireOutcomes)
+          .set({
+            status: outcomeSeed.status,
+            hiredAt,
+            startedAt,
+            notes: outcomeSeed.notes,
+            updatedAt: now,
+          })
+          .where(eq(schema.hireOutcomes.id, existingOutcome[0].id));
+        console.log(`   ♻️  ${outcomeSeed.status.toUpperCase()}: ${outcomeSeed.recruiterEmail} → ${outcomeSeed.workerEmail}`);
+      }
+    }
 
     console.log("\n" + "=".repeat(60));
     console.log("🎉 SEED COMPLETED SUCCESSFULLY!");
