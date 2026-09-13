@@ -17,7 +17,8 @@
     "db:migrate": "tsx src/lib/db/migrate.ts",
     "db:seed": "tsx src/lib/db/seed.ts",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "job:retention": "tsx src/lib/jobs/run-retention.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

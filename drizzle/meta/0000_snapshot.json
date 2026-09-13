@@ -1,5 +1,5 @@
 {
-  "id": "02b8c3d3-9673-4f1e-ac06-89243cab5c10",
+  "id": "bf8e482c-bdb5-4b0c-bd1e-c35f668da564",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -845,6 +845,261 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.verification_events": {
+      "name": "verification_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "worker_profile_id": {
+          "name": "worker_profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decision": {
+          "name": "decision",
+          "type": "verification_decision",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actor_type": {
+          "name": "actor_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'admin'"
+        },
+        "method": {
+          "name": "method",
+          "type": "verification_method",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "doc_type": {
+          "name": "doc_type",
+          "type": "doc_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_document_key": {
+          "name": "id_document_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_document_sha256": {
+          "name": "id_document_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "liveness_video_key": {
+          "name": "liveness_video_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "liveness_video_sha256": {
+          "name": "liveness_video_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "challenge_code": {
+          "name": "challenge_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last4": {
+          "name": "last4",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issuing_country": {
+          "name": "issuing_country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retention_expires_at": {
+          "name": "retention_expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_document_deleted_at": {
+          "name": "id_document_deleted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "liveness_video_deleted_at": {
+          "name": "liveness_video_deleted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "verification_events_user_id_idx": {
+          "name": "verification_events_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_events_worker_profile_id_idx": {
+          "name": "verification_events_worker_profile_id_idx",
+          "columns": [
+            {
+              "expression": "worker_profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_events_decision_idx": {
+          "name": "verification_events_decision_idx",
+          "columns": [
+            {
+              "expression": "decision",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_events_created_at_idx": {
+          "name": "verification_events_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_events_retention_expires_idx": {
+          "name": "verification_events_retention_expires_idx",
+          "columns": [
+            {
+              "expression": "retention_expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "verification_events_user_id_users_id_fk": {
+          "name": "verification_events_user_id_users_id_fk",
+          "tableFrom": "verification_events",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "verification_events_worker_profile_id_worker_profiles_id_fk": {
+          "name": "verification_events_worker_profile_id_worker_profiles_id_fk",
+          "tableFrom": "verification_events",
+          "tableTo": "worker_profiles",
+          "columnsFrom": [
+            "worker_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "verification_events_actor_user_id_users_id_fk": {
+          "name": "verification_events_actor_user_id_users_id_fk",
+          "tableFrom": "verification_events",
+          "tableTo": "users",
+          "columnsFrom": [
+            "actor_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.verification_tokens": {
       "name": "verification_tokens",
       "schema": "",
@@ -1048,6 +1303,56 @@
           "notNull": true,
           "default": false
         },
+        "verification_status": {
+          "name": "verification_status",
+          "type": "verification_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unverified'"
+        },
+        "id_document_key": {
+          "name": "id_document_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "liveness_video_key": {
+          "name": "liveness_video_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "challenge_code": {
+          "name": "challenge_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "challenge_issued_at": {
+          "name": "challenge_issued_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_document_submitted_at": {
+          "name": "id_document_submitted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "verification_reviewed_at": {
+          "name": "verification_reviewed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "verification_reviewed_by": {
+          "name": "verification_reviewed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -1108,6 +1413,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "worker_profiles_verification_status_idx": {
+          "name": "worker_profiles_verification_status_idx",
+          "columns": [
+            {
+              "expression": "verification_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1141,6 +1461,16 @@
     }
   },
   "enums": {
+    "public.doc_type": {
+      "name": "doc_type",
+      "schema": "public",
+      "values": [
+        "passport",
+        "thai_id",
+        "drivers_license",
+        "other"
+      ]
+    },
     "public.subscription_plan": {
       "name": "subscription_plan",
       "schema": "public",
@@ -1166,6 +1496,34 @@
       "values": [
         "worker",
         "recruiter"
+      ]
+    },
+    "public.verification_decision": {
+      "name": "verification_decision",
+      "schema": "public",
+      "values": [
+        "pending_submitted",
+        "approved",
+        "rejected",
+        "revoked"
+      ]
+    },
+    "public.verification_method": {
+      "name": "verification_method",
+      "schema": "public",
+      "values": [
+        "manual_id_review",
+        "system"
+      ]
+    },
+    "public.verification_status": {
+      "name": "verification_status",
+      "schema": "public",
+      "values": [
+        "unverified",
+        "pending",
+        "verified",
+        "rejected"
       ]
     }
   },

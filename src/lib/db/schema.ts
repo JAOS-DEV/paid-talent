@@ -26,6 +26,32 @@ export const subscriptionPlanEnum = pgEnum("subscription_plan", [
   "top_talent_unlock",
 ]);
 
+export const verificationStatusEnum = pgEnum("verification_status", [
+  "unverified",
+  "pending",
+  "verified",
+  "rejected",
+]);
+
+export const verificationDecisionEnum = pgEnum("verification_decision", [
+  "pending_submitted",
+  "approved",
+  "rejected",
+  "revoked",
+]);
+
+export const verificationMethodEnum = pgEnum("verification_method", [
+  "manual_id_review",
+  "system",
+]);
+
+export const docTypeEnum = pgEnum("doc_type", [
+  "passport",
+  "thai_id",
+  "drivers_license",
+  "other",
+]);
+
 export const users = pgTable(
   "users",
   {
@@ -129,6 +155,20 @@ export const workerProfiles = pgTable(
     phoneNumber: text("phone_number"),
     isPublished: boolean("is_published").notNull().default(false),
     isVerified: boolean("is_verified").notNull().default(false),
+    verificationStatus: verificationStatusEnum("verification_status")
+      .notNull()
+      .default("unverified"),
+    idDocumentKey: text("id_document_key"),
+    livenessVideoKey: text("liveness_video_key"),
+    challengeCode: text("challenge_code"),
+    challengeIssuedAt: timestamp("challenge_issued_at", { mode: "date" }),
+    idDocumentSubmittedAt: timestamp("id_document_submitted_at", {
+      mode: "date",
+    }),
+    verificationReviewedAt: timestamp("verification_reviewed_at", {
+      mode: "date",
+    }),
+    verificationReviewedBy: text("verification_reviewed_by"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -136,6 +176,9 @@ export const workerProfiles = pgTable(
     index("worker_profiles_user_id_idx").on(table.userId),
     index("worker_profiles_area_idx").on(table.area),
     index("worker_profiles_is_published_idx").on(table.isPublished),
+    index("worker_profiles_verification_status_idx").on(
+      table.verificationStatus
+    ),
   ]
 );
 
@@ -229,6 +272,52 @@ export const subscriptions = pgTable(
   ]
 );
 
+export const verificationEvents = pgTable(
+  "verification_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workerProfileId: uuid("worker_profile_id").references(
+      () => workerProfiles.id,
+      { onDelete: "set null" }
+    ),
+    decision: verificationDecisionEnum("decision").notNull(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorType: text("actor_type").notNull().default("admin"),
+    method: verificationMethodEnum("method").notNull(),
+    docType: docTypeEnum("doc_type"),
+    idDocumentKey: text("id_document_key"),
+    idDocumentSha256: text("id_document_sha256"),
+    livenessVideoKey: text("liveness_video_key"),
+    livenessVideoSha256: text("liveness_video_sha256"),
+    challengeCode: text("challenge_code"),
+    last4: text("last4"),
+    issuingCountry: text("issuing_country"),
+    notes: text("notes"),
+    retentionExpiresAt: timestamp("retention_expires_at", { mode: "date" }),
+    idDocumentDeletedAt: timestamp("id_document_deleted_at", { mode: "date" }),
+    livenessVideoDeletedAt: timestamp("liveness_video_deleted_at", {
+      mode: "date",
+    }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("verification_events_user_id_idx").on(table.userId),
+    index("verification_events_worker_profile_id_idx").on(
+      table.workerProfileId
+    ),
+    index("verification_events_decision_idx").on(table.decision),
+    index("verification_events_created_at_idx").on(table.createdAt),
+    index("verification_events_retention_expires_idx").on(
+      table.retentionExpiresAt
+    ),
+  ]
+);
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   workerProfile: one(workerProfiles, {
     fields: [users.id],
@@ -315,6 +404,24 @@ export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   }),
 }));
 
+export const verificationEventsRelations = relations(
+  verificationEvents,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [verificationEvents.userId],
+      references: [users.id],
+    }),
+    workerProfile: one(workerProfiles, {
+      fields: [verificationEvents.workerProfileId],
+      references: [workerProfiles.id],
+    }),
+    actor: one(users, {
+      fields: [verificationEvents.actorUserId],
+      references: [users.id],
+    }),
+  })
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type WorkerProfile = typeof workerProfiles.$inferSelect;
@@ -324,3 +431,9 @@ export type NewRecruiterProfile = typeof recruiterProfiles.$inferInsert;
 export type ProfileView = typeof profileViews.$inferSelect;
 export type ProfileInterest = typeof profileInterests.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
+export type VerificationEvent = typeof verificationEvents.$inferSelect;
+export type NewVerificationEvent = typeof verificationEvents.$inferInsert;
+export type VerificationStatus = (typeof verificationStatusEnum.enumValues)[number];
+export type VerificationDecision = (typeof verificationDecisionEnum.enumValues)[number];
+export type VerificationMethod = (typeof verificationMethodEnum.enumValues)[number];
+export type DocType = (typeof docTypeEnum.enumValues)[number];

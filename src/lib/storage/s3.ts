@@ -127,4 +127,231 @@ export function generateProfilePhotoKey(userId: string, extension: string): stri
   return `profiles/${userId}/${uuidv4()}.${extension}`;
 }
 
-export { s3Client, BUCKET_NAME, ALLOWED_IMAGE_TYPES, MAX_FILE_SIZE };
+const PRIVATE_BUCKET_NAME =
+  process.env.S3_PRIVATE_BUCKET_NAME || "paid-talent-private";
+const ALLOWED_ID_DOCUMENT_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+];
+const MAX_ID_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB for ID documents
+
+export function generateIdDocumentKey(userId: string, extension: string): string {
+  return `verification-docs/${userId}/${uuidv4()}.${extension}`;
+}
+
+export async function generatePresignedIdUploadUrl(
+  userId: string,
+  contentType: string
+): Promise<PresignedUploadResult> {
+  if (!ALLOWED_ID_DOCUMENT_TYPES.includes(contentType)) {
+    throw new Error(
+      `Invalid content type for ID document. Allowed: ${ALLOWED_ID_DOCUMENT_TYPES.join(", ")}`
+    );
+  }
+
+  const extension =
+    contentType === "application/pdf" ? "pdf" : contentType.split("/")[1];
+  const key = generateIdDocumentKey(userId, extension);
+
+  const command = new PutObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+    ContentType: contentType,
+  });
+
+  const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+
+  return { uploadUrl, key, publicUrl: "" };
+}
+
+export async function uploadIdDocument(
+  file: Buffer,
+  key: string,
+  contentType: string
+): Promise<UploadResult> {
+  if (file.length > MAX_ID_DOCUMENT_SIZE) {
+    throw new Error(
+      `ID document too large. Maximum size: ${MAX_ID_DOCUMENT_SIZE / 1024 / 1024}MB`
+    );
+  }
+
+  if (!ALLOWED_ID_DOCUMENT_TYPES.includes(contentType)) {
+    throw new Error(
+      `Invalid content type for ID document. Allowed: ${ALLOWED_ID_DOCUMENT_TYPES.join(", ")}`
+    );
+  }
+
+  const command = new PutObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+    Body: file,
+    ContentType: contentType,
+  });
+
+  await s3Client.send(command);
+
+  return {
+    key,
+    url: "",
+  };
+}
+
+export async function getSignedIdDocumentUrl(
+  key: string,
+  expiresIn: number = 300
+): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+  });
+
+  return getSignedUrl(s3Client, command, { expiresIn });
+}
+
+export async function deleteIdDocument(key: string): Promise<void> {
+  const command = new DeleteObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+  });
+
+  await s3Client.send(command);
+}
+
+export async function getIdDocumentBuffer(key: string): Promise<Buffer> {
+  const command = new GetObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+  });
+
+  const response = await s3Client.send(command);
+  const chunks: Uint8Array[] = [];
+
+  if (response.Body) {
+    const stream = response.Body as AsyncIterable<Uint8Array>;
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+  }
+
+  return Buffer.concat(chunks);
+}
+
+const ALLOWED_LIVENESS_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+const MAX_LIVENESS_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB for liveness videos
+
+export function generateLivenessVideoKey(
+  userId: string,
+  extension: string
+): string {
+  return `verification-liveness/${userId}/${uuidv4()}.${extension}`;
+}
+
+export async function generatePresignedLivenessVideoUploadUrl(
+  userId: string,
+  contentType: string
+): Promise<PresignedUploadResult> {
+  if (!ALLOWED_LIVENESS_VIDEO_TYPES.includes(contentType)) {
+    throw new Error(
+      `Invalid content type for liveness video. Allowed: ${ALLOWED_LIVENESS_VIDEO_TYPES.join(", ")}`
+    );
+  }
+
+  const extensionMap: Record<string, string> = {
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+    "video/quicktime": "mov",
+  };
+  const extension = extensionMap[contentType] || "mp4";
+  const key = generateLivenessVideoKey(userId, extension);
+
+  const command = new PutObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+    ContentType: contentType,
+  });
+
+  const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+
+  return { uploadUrl, key, publicUrl: "" };
+}
+
+export async function getSignedLivenessVideoUrl(
+  key: string,
+  expiresIn: number = 300
+): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+  });
+
+  return getSignedUrl(s3Client, command, { expiresIn });
+}
+
+export async function deleteLivenessVideo(key: string): Promise<void> {
+  const command = new DeleteObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+  });
+
+  await s3Client.send(command);
+}
+
+export async function getLivenessVideoBuffer(key: string): Promise<Buffer> {
+  const command = new GetObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+  });
+
+  const response = await s3Client.send(command);
+  const chunks: Uint8Array[] = [];
+
+  if (response.Body) {
+    const stream = response.Body as AsyncIterable<Uint8Array>;
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+  }
+
+  return Buffer.concat(chunks);
+}
+
+export async function getPrivateFileBuffer(key: string): Promise<Buffer> {
+  const command = new GetObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+  });
+
+  const response = await s3Client.send(command);
+  const chunks: Uint8Array[] = [];
+
+  if (response.Body) {
+    const stream = response.Body as AsyncIterable<Uint8Array>;
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+  }
+
+  return Buffer.concat(chunks);
+}
+
+export async function deletePrivateFile(key: string): Promise<void> {
+  const command = new DeleteObjectCommand({
+    Bucket: PRIVATE_BUCKET_NAME,
+    Key: key,
+  });
+
+  await s3Client.send(command);
+}
+
+export {
+  s3Client,
+  BUCKET_NAME,
+  PRIVATE_BUCKET_NAME,
+  ALLOWED_IMAGE_TYPES,
+  ALLOWED_ID_DOCUMENT_TYPES,
+  ALLOWED_LIVENESS_VIDEO_TYPES,
+  MAX_FILE_SIZE,
+  MAX_ID_DOCUMENT_SIZE,
+  MAX_LIVENESS_VIDEO_SIZE,
+};
