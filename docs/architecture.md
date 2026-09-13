@@ -916,3 +916,137 @@ Admin approve/reject is blocked if:
 - **Photo max 5**: James locked max 5 profile photos — photo schema change deferred to moderation/media PR
 - **KYC vendor integration**: Manual review only for private beta
 - **Dev owns search gate UI**: This PR provides foundation; Dev implements search filter
+
+---
+
+## Paid Talent: Recruiter Profile & Openings
+
+### Overview
+
+Recruiters can complete their profile (venue name, area, blurb) and create openings to attract workers. Workers see recruiter context when viewing interests, including venue info and optional opening tags.
+
+**Dev owns UX/wiring slice.** This foundation provides schema, server actions, and query helpers.
+
+### Recruiter Profile Completeness
+
+Required fields for a complete recruiter profile:
+- **Organization/Venue Name** (`organizationName`) — required
+- **Area** (`area`) — required  
+- **Blurb** (`blurb`) — required, max 240 characters
+
+Optional fields:
+- **Logo** (`logoUrl`, `logoKey`) — optional venue logo/photo
+- **Sub-area** (`subArea`) — optional district/soi
+- **Contact** (`contactEmail`, `contactPhone`) — optional
+
+### Location
+
+```
+src/lib/recruiter-profile/
+├── index.ts              # Completeness helper, constants
+└── actions.ts            # Server actions for profile & openings CRUD
+
+src/lib/interests/
+├── index.ts              # Exports + empty state copy
+└── context.ts            # Interest context helpers for workers
+```
+
+### Server Actions (Recruiter)
+
+| Action | Description |
+|--------|-------------|
+| `updateRecruiterProfile(data)` | Update profile fields (authz: owner only) |
+| `createOpening(data)` | Create new opening (authz: owner only) |
+| `updateOpening(data)` | Update existing opening (authz: owner only) |
+| `deleteOpening(openingId)` | Delete opening (authz: owner only) |
+| `publishOpening(openingId)` | Publish opening (authz: owner only) |
+| `unpublishOpening(openingId)` | Unpublish opening (authz: owner only) |
+| `getRecruiterOpenings()` | List all openings for current recruiter |
+| `getOpening(openingId)` | Get single opening (authz: owner only) |
+| `getRecruiterProfile()` | Get current recruiter's profile |
+
+### Query Helpers (Worker-facing)
+
+| Function | Description |
+|----------|-------------|
+| `getInterestContextForWorker(interestId)` | Get single interest with recruiter display context |
+| `getInterestsForWorkerProfile(workerProfileId)` | List all interests with recruiter context |
+| `getPublishedOpeningsForRecruiter(recruiterUserId)` | Get published openings for a recruiter |
+| `getRecruiterVenueInfo(recruiterUserId)` | Full venue info + openings for "View venue" CTA |
+
+### Recruiter Openings Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `role` | text | Job role (e.g., "Bartender", "Hostess") — required |
+| `area` | text | Area/location — required |
+| `payMin` | integer | Minimum pay (THB/night) — optional, **visible to workers** |
+| `payMax` | integer | Maximum pay (THB/night) — optional, **visible to workers** |
+| `payCurrency` | text | Currency (default "THB") |
+| `payPeriod` | text | Pay period (default "night") |
+| `notes` | text | Additional notes — max 500 chars |
+| `isPublished` | boolean | Whether opening is visible to workers |
+
+### Interest → Opening Link
+
+Interests can optionally link to an opening via `openingId`. When linked:
+- Worker sees "Interested in you for [Role]" tag
+- Pay info from the opening is visible (no paywall)
+
+### Interest Context Shape (for Workers)
+
+```typescript
+interface InterestContextForWorker {
+  interestId: string;
+  recruiter: {
+    recruiterUserId: string;
+    displayName: string | null;      // User's name
+    venueName: string | null;        // organizationName
+    logoUrl: string | null;
+    area: string | null;
+    subArea: string | null;
+    blurbSnippet: string | null;     // Truncated to 120 chars
+  };
+  opening: {
+    openingId: string;
+    role: string;
+    area: string;
+    payMin: number | null;           // Always visible (no paywall)
+    payMax: number | null;
+    payCurrency: string;
+    payPeriod: string;
+  } | null;                          // null if interest not linked to opening
+  message: string | null;
+  createdAt: Date;
+}
+```
+
+### Empty State Copy (Designer-Locked)
+
+| Context | Copy |
+|---------|------|
+| Recruiter: No openings | "No openings yet" |
+| Recruiter: No openings CTA | "Add openings to start hiring" |
+| Worker: No openings at venue | "No openings at this venue right now" |
+| Worker: No interests | "No interest yet — keep your profile fresh" |
+
+### Authorization Rules
+
+1. **Profile update**: Only the recruiter who owns the profile can update it
+2. **Opening CRUD**: Only the recruiter who owns the opening's profile can create/read/update/delete
+3. **Interest context**: Workers can view interest context for interests sent to their profile
+4. **Published openings**: Visible to all workers; unpublished openings only visible to owner
+
+### TODO: Dev UX Slice
+
+- Recruiter profile edit form (mobile-first)
+- Openings list with create/edit/delete/publish controls
+- Worker interest list with recruiter context cards
+- "View openings" / "View venue" CTAs from interest
+- Empty states with locked copy
+
+### Out of Scope
+
+- Worker → Recruiter browse/search marketplace (no directory)
+- Admin UI for recruiter management
+- Chat/messaging between workers and recruiters
