@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui";
+import { VerificationStatusBanner } from "@/components/verification";
 import {
   getProfileCompleteness,
   INCOMPLETE_PROFILE_REDIRECT_THRESHOLD,
@@ -69,6 +70,8 @@ export default function WorkerDashboardPage(): React.ReactElement {
   }
 
   const completeness = getProfileCompleteness(profile);
+  const verificationStatus = profile?.verificationStatus || "unverified";
+  const isPublished = profile?.isPublished || false;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -83,6 +86,13 @@ export default function WorkerDashboardPage(): React.ReactElement {
             <p className="text-charcoal-400 mt-1">
               Manage your profile and see who&apos;s interested
             </p>
+          </div>
+
+          <div className="mb-6">
+            <VerificationStatusBanner
+              status={verificationStatus}
+              isPublished={isPublished}
+            />
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

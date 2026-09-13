@@ -162,7 +162,6 @@ interface SearchFilters {
   role: string;
   area: string;
   availability: string;
-  verified: boolean;
 }
 
 export default function SearchPage(): React.ReactElement {
@@ -173,7 +172,6 @@ export default function SearchPage(): React.ReactElement {
     role: "",
     area: "",
     availability: "",
-    verified: false,
   });
   const [workers, setWorkers] = useState<SearchWorkerResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,13 +187,12 @@ export default function SearchPage(): React.ReactElement {
       if (filters.role) params.set("role", filters.role);
       if (filters.area) params.set("area", filters.area);
       if (filters.availability) params.set("availability", filters.availability);
-      if (filters.verified) params.set("verified", "true");
 
       const response = await fetch(`/api/workers/search?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setWorkers(data.workers);
-        setTotal(data.pagination.total);
+        setTotal(data.pagination?.total ?? data.total ?? 0);
       }
     } catch (error) {
       console.error("Failed to fetch workers:", error);
@@ -332,8 +329,9 @@ export default function SearchPage(): React.ReactElement {
                       <option value="">All roles</option>
                       <option value="Bartender">Bartender</option>
                       <option value="Server">Server</option>
-                      <option value="Host">Host</option>
+                      <option value="Host/Hostess">Host/Hostess</option>
                       <option value="Chef">Chef</option>
+                      <option value="Barista">Barista</option>
                       <option value="Manager">Manager</option>
                       <option value="DJ">DJ</option>
                     </select>
@@ -380,24 +378,6 @@ export default function SearchPage(): React.ReactElement {
                     </select>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="verified-only"
-                      checked={filters.verified}
-                      onChange={(e) =>
-                        setFilters((f) => ({ ...f, verified: e.target.checked }))
-                      }
-                      className="w-4 h-4 rounded border-charcoal-600 bg-charcoal-800 text-primary-600 focus:ring-primary-500"
-                    />
-                    <label
-                      htmlFor="verified-only"
-                      className="text-sm text-charcoal-300"
-                    >
-                      Verified only
-                    </label>
-                  </div>
-
                   <Button fullWidth onClick={handleApplyFilters}>
                     Apply Filters
                   </Button>
@@ -415,8 +395,8 @@ export default function SearchPage(): React.ReactElement {
                   {loading
                     ? "Searching..."
                     : total > 0
-                      ? `${total} worker${total !== 1 ? "s" : ""} found`
-                      : "No workers found"}
+                      ? `${total} verified worker${total !== 1 ? "s" : ""} found`
+                      : "No verified workers found"}
                 </p>
               </div>
 
@@ -452,7 +432,7 @@ export default function SearchPage(): React.ReactElement {
                       d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                     />
                   </svg>
-                  <p>No workers found matching your criteria</p>
+                  <p>No verified workers found matching your criteria</p>
                   <p className="text-sm mt-2">
                     Try adjusting your filters or check back later
                   </p>

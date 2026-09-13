@@ -29,6 +29,7 @@ import {
   getProfileCompleteness,
   INCOMPLETE_PROFILE_REDIRECT_THRESHOLD,
 } from "@/lib/profile";
+import { VerificationStatusBanner } from "@/components/verification";
 import type { WorkerProfile } from "@/lib/db/schema";
 
 export default function WorkerProfilePage(): React.ReactElement {
@@ -243,6 +244,8 @@ export default function WorkerProfilePage(): React.ReactElement {
   }
 
   const completeness = getProfileCompleteness(profile);
+  const verificationStatus = profile?.verificationStatus || "unverified";
+  const isPublished = profile?.isPublished || false;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -255,6 +258,13 @@ export default function WorkerProfilePage(): React.ReactElement {
               {successMessage}
             </div>
           )}
+
+          <div className="mb-6">
+            <VerificationStatusBanner
+              status={verificationStatus}
+              isPublished={isPublished}
+            />
+          </div>
 
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-charcoal-100">

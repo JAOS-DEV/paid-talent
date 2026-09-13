@@ -5,3 +5,10 @@ export * from "./interest-validation";
 export * from "./home-redirect";
 export * from "./search-filters";
 export * from "./text-filter";
+export {
+  filterSearchableWorkers,
+  applyWorkerSearchFilters,
+  getSearchableWorkersWithFilters,
+  type SearchableWorkerProfile,
+  type WorkerSearchFilters,
+} from "./search-gate";
