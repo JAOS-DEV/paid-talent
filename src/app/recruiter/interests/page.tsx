@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -181,7 +181,7 @@ function StatsBar({ stats }: { stats: OutcomeStats }): React.ReactElement {
   );
 }
 
-export default function RecruiterInterestsPage(): React.ReactElement {
+function RecruiterInterestsContent(): React.ReactElement {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -425,5 +425,21 @@ export default function RecruiterInterestsPage(): React.ReactElement {
 
       <Footer />
     </div>
+  );
+}
+
+function LoadingFallback(): React.ReactElement {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-charcoal-950">
+      <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />
+    </div>
+  );
+}
+
+export default function RecruiterInterestsPage(): React.ReactElement {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <RecruiterInterestsContent />
+    </Suspense>
   );
 }

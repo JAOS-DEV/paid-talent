@@ -262,7 +262,7 @@ export class AWSRekognitionProvider implements PhotoModerationProvider {
       .join("");
   }
 
-  private async hmac(key: ArrayBuffer, message: string): Promise<ArrayBuffer> {
+  private async hmac(key: BufferSource, message: string): Promise<ArrayBuffer> {
     const encoder = new TextEncoder();
     const cryptoKey = await crypto.subtle.importKey(
       "raw",
@@ -274,7 +274,7 @@ export class AWSRekognitionProvider implements PhotoModerationProvider {
     return crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(message));
   }
 
-  private async hmacHex(key: ArrayBuffer, message: string): Promise<string> {
+  private async hmacHex(key: BufferSource, message: string): Promise<string> {
     const result = await this.hmac(key, message);
     return Array.from(new Uint8Array(result))
       .map((b) => b.toString(16).padStart(2, "0"))

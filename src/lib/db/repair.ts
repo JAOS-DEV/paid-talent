@@ -7,7 +7,7 @@ import { sql } from "drizzle-orm";
 const MIGRATION_HASH = "0000_sticky_invisible_woman";
 const MIGRATION_TIMESTAMP = 1789318340493;
 
-interface MigrationRow {
+interface MigrationRow extends Record<string, unknown> {
   id: number;
   hash: string;
   created_at: string;

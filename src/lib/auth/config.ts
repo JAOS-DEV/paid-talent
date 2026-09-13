@@ -1,4 +1,5 @@
-import { type NextAuthConfig, type Provider } from "next-auth";
+import { type NextAuthConfig } from "next-auth";
+import type { Provider } from "@auth/core/providers";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
