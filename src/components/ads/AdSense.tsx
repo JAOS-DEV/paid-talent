@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import Script from "next/script";
 
 interface AdSenseProps {
   adSlot: string;
@@ -65,9 +66,9 @@ export function AdSenseScript(): React.ReactElement | null {
   }
 
   return (
-    <script
-      async
+    <Script
       src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+      strategy="afterInteractive"
       crossOrigin="anonymous"
     />
   );

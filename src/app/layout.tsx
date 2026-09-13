@@ -32,11 +32,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
     >
-      <head>
-        <AdSenseScript />
-      </head>
       <body className="min-h-full flex flex-col antialiased">
         <AuthProvider>{children}</AuthProvider>
+        <AdSenseScript />
       </body>
     </html>
   );
