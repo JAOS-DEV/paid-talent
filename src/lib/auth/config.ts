@@ -1,12 +1,37 @@
-import { type NextAuthConfig } from "next-auth";
+import { type NextAuthConfig, type Provider } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import Nodemailer from "next-auth/providers/nodemailer";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
 import { isOver18 } from "@/lib/helpers/age-verification";
+
+let cachedNodemailer: Provider | null = null;
+
+function getNodemailerProvider(): Provider | null {
+  if (!isEmailProviderConfigured()) return null;
+  
+  if (cachedNodemailer) return cachedNodemailer;
+  
+  try {
+    // Dynamic require to avoid loading nodemailer in edge runtime
+    // Nodemailer uses Node.js 'stream' module which isn't available in edge
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Nodemailer = require("next-auth/providers/nodemailer").default;
+    cachedNodemailer = Nodemailer({
+      id: "email",
+      name: "Email",
+      server: process.env.EMAIL_SERVER!,
+      from: process.env.EMAIL_FROM!,
+    });
+    return cachedNodemailer;
+  } catch {
+    // In edge runtime, nodemailer will fail to load - that's expected
+    // The email provider just won't be available in edge context
+    return null;
+  }
+}
 
 /**
  * SECURITY: Determines if the development-only email bypass is allowed.
@@ -50,15 +75,10 @@ function buildProviders(): NextAuthConfig["providers"] {
 
   // Add Email (magic link) provider if configured
   // This is the SECURE way to authenticate via email - sends a link, session only after click
-  if (isEmailProviderConfigured()) {
-    providers.push(
-      Nodemailer({
-        id: "email",
-        name: "Email",
-        server: process.env.EMAIL_SERVER!,
-        from: process.env.EMAIL_FROM!,
-      })
-    );
+  // Uses dynamic require to avoid loading nodemailer in edge runtime (middleware)
+  const nodemailerProvider = getNodemailerProvider();
+  if (nodemailerProvider) {
+    providers.push(nodemailerProvider);
   }
 
   // Add Credentials provider for dev bypass ONLY
