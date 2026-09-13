@@ -5,41 +5,13 @@ import { db, recruiterProfiles, recruiterOpenings } from "@/lib/db";
 import type { RecruiterOpening } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import {
-  BLURB_MAX_LENGTH,
-  OPENING_NOTES_MAX_LENGTH,
-} from "./index";
-
-const updateProfileSchema = z.object({
-  organizationName: z.string().min(1, "Venue/org name is required").max(100),
-  area: z.string().min(1, "Area is required").max(100),
-  subArea: z.string().max(100).optional(),
-  blurb: z.string().min(1, "Blurb is required").max(BLURB_MAX_LENGTH, `Blurb must be ${BLURB_MAX_LENGTH} characters or less`),
-  logoKey: z.string().optional(),
-  logoUrl: z.string().url().optional().or(z.literal("")),
-  contactEmail: z.string().email().optional().or(z.literal("")),
-  contactPhone: z.string().max(20).optional(),
-});
-
-const createOpeningSchema = z.object({
-  role: z.string().min(1, "Role is required").max(100),
-  area: z.string().min(1, "Area is required").max(100),
-  payMin: z.coerce.number().min(0).optional(),
-  payMax: z.coerce.number().min(0).optional(),
-  notes: z.string().max(OPENING_NOTES_MAX_LENGTH, `Notes must be ${OPENING_NOTES_MAX_LENGTH} characters or less`).optional(),
-  isPublished: z.boolean().default(false),
-});
-
-const updateOpeningSchema = z.object({
-  id: z.string().uuid(),
-  role: z.string().min(1, "Role is required").max(100),
-  area: z.string().min(1, "Area is required").max(100),
-  payMin: z.coerce.number().min(0).optional(),
-  payMax: z.coerce.number().min(0).optional(),
-  notes: z.string().max(OPENING_NOTES_MAX_LENGTH, `Notes must be ${OPENING_NOTES_MAX_LENGTH} characters or less`).optional(),
-  isPublished: z.boolean().default(false),
-});
+  createOpeningSchema,
+  normalizeOptionalPay,
+  normalizeOptionalText,
+  updateOpeningSchema,
+  updateProfileSchema,
+} from "./opening-validation";
 
 export interface ActionResult {
   success: boolean;
@@ -75,7 +47,7 @@ async function getAuthenticatedRecruiter(): Promise<{
 }
 
 export async function updateRecruiterProfile(
-  data: z.infer<typeof updateProfileSchema>
+  data: unknown
 ): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
   if (!recruiter) {
@@ -87,20 +59,28 @@ export async function updateRecruiterProfile(
     return { success: false, error: validation.error.issues[0].message };
   }
 
-  const { organizationName, area, subArea, blurb, logoKey, logoUrl, contactEmail, contactPhone } =
-    validation.data;
+  const {
+    organizationName,
+    area,
+    subArea,
+    blurb,
+    logoKey,
+    logoUrl,
+    contactEmail,
+    contactPhone,
+  } = validation.data;
 
   await db
     .update(recruiterProfiles)
     .set({
       organizationName,
       area,
-      subArea: subArea || null,
+      subArea: normalizeOptionalText(subArea),
       blurb,
-      logoKey: logoKey || null,
-      logoUrl: logoUrl || null,
-      contactEmail: contactEmail || null,
-      contactPhone: contactPhone || null,
+      logoKey: normalizeOptionalText(logoKey),
+      logoUrl: logoUrl ? logoUrl : null,
+      contactEmail: contactEmail ? contactEmail : null,
+      contactPhone: normalizeOptionalText(contactPhone),
       updatedAt: new Date(),
     })
     .where(eq(recruiterProfiles.id, recruiter.recruiterProfileId));
@@ -127,7 +107,7 @@ export async function getRecruiterProfile() {
 }
 
 export async function createOpening(
-  data: z.infer<typeof createOpeningSchema>
+  data: unknown
 ): Promise<ActionResultWithData<RecruiterOpening>> {
   const recruiter = await getAuthenticatedRecruiter();
   if (!recruiter) {
@@ -141,19 +121,15 @@ export async function createOpening(
 
   const { role, area, payMin, payMax, notes, isPublished } = validation.data;
 
-  if (payMin !== undefined && payMax !== undefined && payMin > payMax) {
-    return { success: false, error: "Minimum pay cannot exceed maximum pay" };
-  }
-
   const [opening] = await db
     .insert(recruiterOpenings)
     .values({
       recruiterProfileId: recruiter.recruiterProfileId,
       role,
       area,
-      payMin: payMin ?? null,
-      payMax: payMax ?? null,
-      notes: notes || null,
+      payMin: normalizeOptionalPay(payMin),
+      payMax: normalizeOptionalPay(payMax),
+      notes: normalizeOptionalText(notes),
       isPublished,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -166,9 +142,7 @@ export async function createOpening(
   return { success: true, data: opening };
 }
 
-export async function updateOpening(
-  data: z.infer<typeof updateOpeningSchema>
-): Promise<ActionResult> {
+export async function updateOpening(data: unknown): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
   if (!recruiter) {
     return { success: false, error: "Unauthorized" };
@@ -179,10 +153,11 @@ export async function updateOpening(
     return { success: false, error: validation.error.issues[0].message };
   }
 
-  const { id, role, area, payMin, payMax, notes, isPublished } = validation.data;
+  const { id, role, area, payMin, payMax, notes, isPublished } =
+    validation.data;
 
   const [existingOpening] = await db
-    .select()
+    .select({ id: recruiterOpenings.id })
     .from(recruiterOpenings)
     .where(
       and(
@@ -196,22 +171,23 @@ export async function updateOpening(
     return { success: false, error: "Opening not found or unauthorized" };
   }
 
-  if (payMin !== undefined && payMax !== undefined && payMin > payMax) {
-    return { success: false, error: "Minimum pay cannot exceed maximum pay" };
-  }
-
   await db
     .update(recruiterOpenings)
     .set({
       role,
       area,
-      payMin: payMin ?? null,
-      payMax: payMax ?? null,
-      notes: notes || null,
+      payMin: normalizeOptionalPay(payMin),
+      payMax: normalizeOptionalPay(payMax),
+      notes: normalizeOptionalText(notes),
       isPublished,
       updatedAt: new Date(),
     })
-    .where(eq(recruiterOpenings.id, id));
+    .where(
+      and(
+        eq(recruiterOpenings.id, id),
+        eq(recruiterOpenings.recruiterProfileId, recruiter.recruiterProfileId)
+      )
+    );
 
   revalidatePath("/recruiter/openings");
   revalidatePath("/recruiter/dashboard");
@@ -226,7 +202,7 @@ export async function deleteOpening(openingId: string): Promise<ActionResult> {
   }
 
   const [existingOpening] = await db
-    .select()
+    .select({ id: recruiterOpenings.id })
     .from(recruiterOpenings)
     .where(
       and(
@@ -242,7 +218,12 @@ export async function deleteOpening(openingId: string): Promise<ActionResult> {
 
   await db
     .delete(recruiterOpenings)
-    .where(eq(recruiterOpenings.id, openingId));
+    .where(
+      and(
+        eq(recruiterOpenings.id, openingId),
+        eq(recruiterOpenings.recruiterProfileId, recruiter.recruiterProfileId)
+      )
+    );
 
   revalidatePath("/recruiter/openings");
   revalidatePath("/recruiter/dashboard");
@@ -257,7 +238,7 @@ export async function publishOpening(openingId: string): Promise<ActionResult> {
   }
 
   const [existingOpening] = await db
-    .select()
+    .select({ id: recruiterOpenings.id })
     .from(recruiterOpenings)
     .where(
       and(
@@ -277,7 +258,12 @@ export async function publishOpening(openingId: string): Promise<ActionResult> {
       isPublished: true,
       updatedAt: new Date(),
     })
-    .where(eq(recruiterOpenings.id, openingId));
+    .where(
+      and(
+        eq(recruiterOpenings.id, openingId),
+        eq(recruiterOpenings.recruiterProfileId, recruiter.recruiterProfileId)
+      )
+    );
 
   revalidatePath("/recruiter/openings");
   revalidatePath("/recruiter/dashboard");
@@ -285,14 +271,16 @@ export async function publishOpening(openingId: string): Promise<ActionResult> {
   return { success: true };
 }
 
-export async function unpublishOpening(openingId: string): Promise<ActionResult> {
+export async function unpublishOpening(
+  openingId: string
+): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
   if (!recruiter) {
     return { success: false, error: "Unauthorized" };
   }
 
   const [existingOpening] = await db
-    .select()
+    .select({ id: recruiterOpenings.id })
     .from(recruiterOpenings)
     .where(
       and(
@@ -312,7 +300,12 @@ export async function unpublishOpening(openingId: string): Promise<ActionResult>
       isPublished: false,
       updatedAt: new Date(),
     })
-    .where(eq(recruiterOpenings.id, openingId));
+    .where(
+      and(
+        eq(recruiterOpenings.id, openingId),
+        eq(recruiterOpenings.recruiterProfileId, recruiter.recruiterProfileId)
+      )
+    );
 
   revalidatePath("/recruiter/openings");
   revalidatePath("/recruiter/dashboard");
@@ -333,7 +326,9 @@ export async function getRecruiterOpenings(): Promise<RecruiterOpening[]> {
     .orderBy(recruiterOpenings.createdAt);
 }
 
-export async function getOpening(openingId: string): Promise<RecruiterOpening | null> {
+export async function getOpening(
+  openingId: string
+): Promise<RecruiterOpening | null> {
   const recruiter = await getAuthenticatedRecruiter();
   if (!recruiter) {
     return null;

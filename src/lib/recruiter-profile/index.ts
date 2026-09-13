@@ -1,7 +1,13 @@
 import type { RecruiterProfile } from "@/lib/db/schema";
 
-export const BLURB_MAX_LENGTH = 240;
-export const OPENING_NOTES_MAX_LENGTH = 500;
+export {
+  BLURB_MAX_LENGTH,
+  OPENING_NOTES_MAX_LENGTH,
+} from "./opening-validation";
+import {
+  BLURB_MAX_LENGTH,
+  OPENING_NOTES_MAX_LENGTH,
+} from "./opening-validation";
 
 type FieldSpec =
   | keyof RecruiterProfile
@@ -144,3 +150,14 @@ export function validateBlurbLength(blurb: string): boolean {
 export function validateOpeningNotesLength(notes: string): boolean {
   return notes.length <= OPENING_NOTES_MAX_LENGTH;
 }
+
+export {
+  createOpeningSchema,
+  updateOpeningSchema,
+  updateProfileSchema,
+  emptyToUndefined,
+  isPayRangeValid,
+  normalizeOptionalPay,
+  normalizeOptionalText,
+  optionalNonNegativePaySchema,
+} from "./opening-validation";

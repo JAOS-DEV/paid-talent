@@ -9,6 +9,12 @@ export {
   type RecruiterVenueInfo,
 } from "./context";
 
+export {
+  resolveOpeningAttachment,
+  isOpeningVisibleToWorkers,
+  canWorkerAccessInterestContext,
+} from "./opening-attachment";
+
 export const EMPTY_STATE_COPY = {
   recruiterNoOpenings: "No openings yet",
   recruiterNoOpeningsCta: "Add openings to start hiring",

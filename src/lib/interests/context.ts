@@ -1,5 +1,16 @@
-import { db, profileInterests, recruiterProfiles, recruiterOpenings, users } from "@/lib/db";
-import { eq } from "drizzle-orm";
+import {
+  db,
+  profileInterests,
+  recruiterProfiles,
+  recruiterOpenings,
+  users,
+  workerProfiles,
+} from "@/lib/db";
+import { and, eq } from "drizzle-orm";
+import {
+  canWorkerAccessInterestContext,
+  isOpeningVisibleToWorkers,
+} from "./opening-attachment";
 
 export interface RecruiterDisplayContext {
   recruiterUserId: string;
@@ -37,22 +48,71 @@ function truncateBlurb(blurb: string | null): string | null {
   return blurb.slice(0, BLURB_SNIPPET_LENGTH).trim() + "…";
 }
 
+function toOpeningTag(openingData: {
+  id: string;
+  role: string;
+  area: string;
+  payMin: number | null;
+  payMax: number | null;
+  payCurrency: string;
+  payPeriod: string;
+  isPublished: boolean;
+}): OpeningTag | null {
+  if (!isOpeningVisibleToWorkers(openingData.isPublished)) {
+    return null;
+  }
+
+  return {
+    openingId: openingData.id,
+    role: openingData.role,
+    area: openingData.area,
+    payMin: openingData.payMin,
+    payMax: openingData.payMax,
+    payCurrency: openingData.payCurrency,
+    payPeriod: openingData.payPeriod,
+  };
+}
+
+/**
+ * Returns interest context for the authenticated worker who owns the interest.
+ * Other workers (or unauthenticated callers) receive null — no IDOR leak.
+ */
 export async function getInterestContextForWorker(
-  interestId: string
+  interestId: string,
+  requestingWorkerUserId: string
 ): Promise<InterestContextForWorker | null> {
+  if (!requestingWorkerUserId) {
+    return null;
+  }
+
   const [interest] = await db
     .select({
       id: profileInterests.id,
       recruiterUserId: profileInterests.recruiterUserId,
+      workerProfileId: profileInterests.workerProfileId,
       openingId: profileInterests.openingId,
       message: profileInterests.message,
       createdAt: profileInterests.createdAt,
+      workerUserId: workerProfiles.userId,
     })
     .from(profileInterests)
+    .innerJoin(
+      workerProfiles,
+      eq(profileInterests.workerProfileId, workerProfiles.id)
+    )
     .where(eq(profileInterests.id, interestId))
     .limit(1);
 
   if (!interest) return null;
+
+  if (
+    !canWorkerAccessInterestContext({
+      requestingWorkerUserId,
+      interestOwnerUserId: interest.workerUserId,
+    })
+  ) {
+    return null;
+  }
 
   const [user] = await db
     .select({
@@ -85,21 +145,14 @@ export async function getInterestContextForWorker(
         payMax: recruiterOpenings.payMax,
         payCurrency: recruiterOpenings.payCurrency,
         payPeriod: recruiterOpenings.payPeriod,
+        isPublished: recruiterOpenings.isPublished,
       })
       .from(recruiterOpenings)
       .where(eq(recruiterOpenings.id, interest.openingId))
       .limit(1);
 
     if (openingData) {
-      opening = {
-        openingId: openingData.id,
-        role: openingData.role,
-        area: openingData.area,
-        payMin: openingData.payMin,
-        payMax: openingData.payMax,
-        payCurrency: openingData.payCurrency,
-        payPeriod: openingData.payPeriod,
-      };
+      opening = toOpeningTag(openingData);
     }
   }
 
@@ -120,9 +173,36 @@ export async function getInterestContextForWorker(
   };
 }
 
+/**
+ * Lists interest context for a worker profile only when the requester owns it.
+ */
 export async function getInterestsForWorkerProfile(
-  workerProfileId: string
+  workerProfileId: string,
+  requestingWorkerUserId: string
 ): Promise<InterestContextForWorker[]> {
+  if (!requestingWorkerUserId) {
+    return [];
+  }
+
+  const [ownedProfile] = await db
+    .select({
+      id: workerProfiles.id,
+      userId: workerProfiles.userId,
+    })
+    .from(workerProfiles)
+    .where(eq(workerProfiles.id, workerProfileId))
+    .limit(1);
+
+  if (
+    !ownedProfile ||
+    !canWorkerAccessInterestContext({
+      requestingWorkerUserId,
+      interestOwnerUserId: ownedProfile.userId,
+    })
+  ) {
+    return [];
+  }
+
   const interests = await db
     .select({
       id: profileInterests.id,
@@ -142,42 +222,38 @@ export async function getInterestsForWorkerProfile(
     .map((i) => i.openingId)
     .filter((id): id is string => id !== null);
 
-  const usersData = await db
-    .select({ id: users.id, name: users.name })
-    .from(users)
-    .where(
-      recruiterUserIds.length > 0
-        ? eq(users.id, recruiterUserIds[0])
-        : undefined as never
-    );
-
-  const allUsers =
-    recruiterUserIds.length > 1
-      ? await Promise.all(
-          recruiterUserIds.map((id) =>
-            db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, id)).limit(1)
-          )
-        ).then((results) => results.flat())
-      : usersData;
+  const allUsers = (
+    await Promise.all(
+      recruiterUserIds.map((id) =>
+        db
+          .select({ id: users.id, name: users.name })
+          .from(users)
+          .where(eq(users.id, id))
+          .limit(1)
+      )
+    )
+  ).flat();
 
   const usersMap = new Map(allUsers.map((u) => [u.id, u]));
 
-  const profilesData = await Promise.all(
-    recruiterUserIds.map((id) =>
-      db
-        .select({
-          userId: recruiterProfiles.userId,
-          organizationName: recruiterProfiles.organizationName,
-          logoUrl: recruiterProfiles.logoUrl,
-          area: recruiterProfiles.area,
-          subArea: recruiterProfiles.subArea,
-          blurb: recruiterProfiles.blurb,
-        })
-        .from(recruiterProfiles)
-        .where(eq(recruiterProfiles.userId, id))
-        .limit(1)
+  const profilesData = (
+    await Promise.all(
+      recruiterUserIds.map((id) =>
+        db
+          .select({
+            userId: recruiterProfiles.userId,
+            organizationName: recruiterProfiles.organizationName,
+            logoUrl: recruiterProfiles.logoUrl,
+            area: recruiterProfiles.area,
+            subArea: recruiterProfiles.subArea,
+            blurb: recruiterProfiles.blurb,
+          })
+          .from(recruiterProfiles)
+          .where(eq(recruiterProfiles.userId, id))
+          .limit(1)
+      )
     )
-  ).then((results) => results.flat());
+  ).flat();
 
   const profilesMap = new Map(profilesData.map((p) => [p.userId, p]));
 
@@ -191,27 +267,31 @@ export async function getInterestsForWorkerProfile(
       payMax: number | null;
       payCurrency: string;
       payPeriod: string;
+      isPublished: boolean;
     }
   >();
 
   if (openingIds.length > 0) {
-    const openingsData = await Promise.all(
-      openingIds.map((id) =>
-        db
-          .select({
-            id: recruiterOpenings.id,
-            role: recruiterOpenings.role,
-            area: recruiterOpenings.area,
-            payMin: recruiterOpenings.payMin,
-            payMax: recruiterOpenings.payMax,
-            payCurrency: recruiterOpenings.payCurrency,
-            payPeriod: recruiterOpenings.payPeriod,
-          })
-          .from(recruiterOpenings)
-          .where(eq(recruiterOpenings.id, id))
-          .limit(1)
+    const openingsData = (
+      await Promise.all(
+        openingIds.map((id) =>
+          db
+            .select({
+              id: recruiterOpenings.id,
+              role: recruiterOpenings.role,
+              area: recruiterOpenings.area,
+              payMin: recruiterOpenings.payMin,
+              payMax: recruiterOpenings.payMax,
+              payCurrency: recruiterOpenings.payCurrency,
+              payPeriod: recruiterOpenings.payPeriod,
+              isPublished: recruiterOpenings.isPublished,
+            })
+            .from(recruiterOpenings)
+            .where(eq(recruiterOpenings.id, id))
+            .limit(1)
+        )
       )
-    ).then((results) => results.flat());
+    ).flat();
 
     openingsMap = new Map(openingsData.map((o) => [o.id, o]));
   }
@@ -219,7 +299,9 @@ export async function getInterestsForWorkerProfile(
   return interests.map((interest) => {
     const user = usersMap.get(interest.recruiterUserId);
     const profile = profilesMap.get(interest.recruiterUserId);
-    const openingData = interest.openingId ? openingsMap.get(interest.openingId) : null;
+    const openingData = interest.openingId
+      ? openingsMap.get(interest.openingId)
+      : null;
 
     return {
       interestId: interest.id,
@@ -232,23 +314,16 @@ export async function getInterestsForWorkerProfile(
         subArea: profile?.subArea || null,
         blurbSnippet: truncateBlurb(profile?.blurb || null),
       },
-      opening: openingData
-        ? {
-            openingId: openingData.id,
-            role: openingData.role,
-            area: openingData.area,
-            payMin: openingData.payMin,
-            payMax: openingData.payMax,
-            payCurrency: openingData.payCurrency,
-            payPeriod: openingData.payPeriod,
-          }
-        : null,
+      opening: openingData ? toOpeningTag(openingData) : null,
       message: interest.message,
       createdAt: interest.createdAt,
     };
   });
 }
 
+/**
+ * Worker-facing published openings only. Drafts must never appear here.
+ */
 export async function getPublishedOpeningsForRecruiter(
   recruiterUserId: string
 ): Promise<OpeningTag[]> {
@@ -269,20 +344,20 @@ export async function getPublishedOpeningsForRecruiter(
       payMax: recruiterOpenings.payMax,
       payCurrency: recruiterOpenings.payCurrency,
       payPeriod: recruiterOpenings.payPeriod,
+      isPublished: recruiterOpenings.isPublished,
     })
     .from(recruiterOpenings)
-    .where(eq(recruiterOpenings.recruiterProfileId, profile.id))
+    .where(
+      and(
+        eq(recruiterOpenings.recruiterProfileId, profile.id),
+        eq(recruiterOpenings.isPublished, true)
+      )
+    )
     .orderBy(recruiterOpenings.createdAt);
 
-  return openings.map((o) => ({
-    openingId: o.id,
-    role: o.role,
-    area: o.area,
-    payMin: o.payMin,
-    payMax: o.payMax,
-    payCurrency: o.payCurrency,
-    payPeriod: o.payPeriod,
-  }));
+  return openings
+    .map((o) => toOpeningTag(o))
+    .filter((o): o is OpeningTag => o !== null);
 }
 
 export interface RecruiterVenueInfo {

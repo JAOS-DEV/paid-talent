@@ -1,320 +1,222 @@
 import { describe, it, expect } from "vitest";
-import { z } from "zod";
+import { readFileSync } from "fs";
+import { join } from "path";
 import {
+  createOpeningSchema,
+  updateOpeningSchema,
+  updateProfileSchema,
+  emptyToUndefined,
+  isPayRangeValid,
+  normalizeOptionalPay,
+  normalizeOptionalText,
   BLURB_MAX_LENGTH,
   OPENING_NOTES_MAX_LENGTH,
 } from "../index";
 
-const updateProfileSchema = z.object({
-  organizationName: z.string().min(1, "Venue/org name is required").max(100),
-  area: z.string().min(1, "Area is required").max(100),
-  subArea: z.string().max(100).optional(),
-  blurb: z.string().min(1, "Blurb is required").max(BLURB_MAX_LENGTH, `Blurb must be ${BLURB_MAX_LENGTH} characters or less`),
-  logoKey: z.string().optional(),
-  logoUrl: z.string().url().optional().or(z.literal("")),
-  contactEmail: z.string().email().optional().or(z.literal("")),
-  contactPhone: z.string().max(20).optional(),
-});
+describe("recruiter opening/profile validation (behavioural)", () => {
+  describe("empty optional form values", () => {
+    it("emptyToUndefined maps empty string/null/undefined to undefined", () => {
+      expect(emptyToUndefined("")).toBeUndefined();
+      expect(emptyToUndefined(null)).toBeUndefined();
+      expect(emptyToUndefined(undefined)).toBeUndefined();
+      expect(emptyToUndefined("500")).toBe("500");
+      expect(emptyToUndefined(0)).toBe(0);
+    });
 
-const createOpeningSchema = z.object({
-  role: z.string().min(1, "Role is required").max(100),
-  area: z.string().min(1, "Area is required").max(100),
-  payMin: z.coerce.number().min(0).optional(),
-  payMax: z.coerce.number().min(0).optional(),
-  notes: z.string().max(OPENING_NOTES_MAX_LENGTH, `Notes must be ${OPENING_NOTES_MAX_LENGTH} characters or less`).optional(),
-  isPublished: z.boolean().default(false),
-});
-
-describe("recruiter profile actions validation", () => {
-  describe("updateProfileSchema", () => {
-    it("should validate valid profile data", () => {
-      const validData = {
-        organizationName: "Test Venue",
+    it("does not coerce empty pay fields to zero", () => {
+      const result = createOpeningSchema.safeParse({
+        role: "Bartender",
         area: "Sukhumvit",
-        blurb: "A great place for nightlife.",
-      };
+        payMin: "",
+        payMax: "",
+      });
 
-      const result = updateProfileSchema.safeParse(validData);
       expect(result.success).toBe(true);
-    });
-
-    it("should require organizationName", () => {
-      const invalidData = {
-        area: "Sukhumvit",
-        blurb: "A great place for nightlife.",
-      };
-
-      const result = updateProfileSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject empty organizationName", () => {
-      const invalidData = {
-        organizationName: "",
-        area: "Sukhumvit",
-        blurb: "A great place for nightlife.",
-      };
-
-      const result = updateProfileSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-    });
-
-    it("should require area", () => {
-      const invalidData = {
-        organizationName: "Test Venue",
-        blurb: "A great place for nightlife.",
-      };
-
-      const result = updateProfileSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-    });
-
-    it("should require blurb", () => {
-      const invalidData = {
-        organizationName: "Test Venue",
-        area: "Sukhumvit",
-      };
-
-      const result = updateProfileSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject blurb exceeding max length", () => {
-      const invalidData = {
-        organizationName: "Test Venue",
-        area: "Sukhumvit",
-        blurb: "A".repeat(BLURB_MAX_LENGTH + 1),
-      };
-
-      const result = updateProfileSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0].message).toContain(`${BLURB_MAX_LENGTH}`);
+      if (result.success) {
+        expect(result.data.payMin).toBeUndefined();
+        expect(result.data.payMax).toBeUndefined();
+        expect(normalizeOptionalPay(result.data.payMin)).toBeNull();
+        expect(normalizeOptionalPay(result.data.payMax)).toBeNull();
       }
     });
 
-    it("should accept blurb at max length", () => {
-      const validData = {
-        organizationName: "Test Venue",
-        area: "Sukhumvit",
-        blurb: "A".repeat(BLURB_MAX_LENGTH),
-      };
-
-      const result = updateProfileSchema.safeParse(validData);
-      expect(result.success).toBe(true);
-    });
-
-    it("should accept optional subArea", () => {
-      const validData = {
-        organizationName: "Test Venue",
-        area: "Sukhumvit",
-        subArea: "Soi 11",
-        blurb: "A great place.",
-      };
-
-      const result = updateProfileSchema.safeParse(validData);
-      expect(result.success).toBe(true);
-    });
-
-    it("should validate logoUrl as URL or empty string", () => {
-      const validWithUrl = {
-        organizationName: "Test Venue",
-        area: "Sukhumvit",
-        blurb: "A great place.",
-        logoUrl: "https://example.com/logo.png",
-      };
-
-      const validWithEmpty = {
-        organizationName: "Test Venue",
-        area: "Sukhumvit",
-        blurb: "A great place.",
-        logoUrl: "",
-      };
-
-      const invalidUrl = {
-        organizationName: "Test Venue",
-        area: "Sukhumvit",
-        blurb: "A great place.",
-        logoUrl: "not-a-url",
-      };
-
-      expect(updateProfileSchema.safeParse(validWithUrl).success).toBe(true);
-      expect(updateProfileSchema.safeParse(validWithEmpty).success).toBe(true);
-      expect(updateProfileSchema.safeParse(invalidUrl).success).toBe(false);
-    });
-
-    it("should validate contactEmail as email or empty string", () => {
-      const validWithEmail = {
-        organizationName: "Test Venue",
-        area: "Sukhumvit",
-        blurb: "A great place.",
-        contactEmail: "hr@test.com",
-      };
-
-      const validWithEmpty = {
-        organizationName: "Test Venue",
-        area: "Sukhumvit",
-        blurb: "A great place.",
-        contactEmail: "",
-      };
-
-      const invalidEmail = {
-        organizationName: "Test Venue",
-        area: "Sukhumvit",
-        blurb: "A great place.",
-        contactEmail: "not-an-email",
-      };
-
-      expect(updateProfileSchema.safeParse(validWithEmail).success).toBe(true);
-      expect(updateProfileSchema.safeParse(validWithEmpty).success).toBe(true);
-      expect(updateProfileSchema.safeParse(invalidEmail).success).toBe(false);
+    it("normalizes empty notes to null rather than empty string", () => {
+      expect(normalizeOptionalText("")).toBeNull();
+      expect(normalizeOptionalText("   ")).toBeNull();
+      expect(normalizeOptionalText(" Weekend only ")).toBe("Weekend only");
     });
   });
 
-  describe("createOpeningSchema", () => {
-    it("should validate valid opening data", () => {
-      const validData = {
-        role: "Bartender",
-        area: "Sukhumvit",
-      };
+  describe("pay constraints", () => {
+    it("rejects negative payMin and payMax", () => {
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          payMin: -1,
+        }).success
+      ).toBe(false);
 
-      const result = createOpeningSchema.safeParse(validData);
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          payMax: -5,
+        }).success
+      ).toBe(false);
+    });
+
+    it("allows zero pay", () => {
+      const result = createOpeningSchema.safeParse({
+        role: "Intern",
+        area: "Sukhumvit",
+        payMin: 0,
+        payMax: 0,
+      });
       expect(result.success).toBe(true);
     });
 
-    it("should require role", () => {
-      const invalidData = {
-        area: "Sukhumvit",
-      };
-
-      const result = createOpeningSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-    });
-
-    it("should require area", () => {
-      const invalidData = {
-        role: "Bartender",
-      };
-
-      const result = createOpeningSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-    });
-
-    it("should accept optional pay range", () => {
-      const validData = {
+    it("rejects payMin > payMax when both exist", () => {
+      const result = createOpeningSchema.safeParse({
         role: "Bartender",
         area: "Sukhumvit",
-        payMin: 500,
-        payMax: 1000,
-      };
-
-      const result = createOpeningSchema.safeParse(validData);
-      expect(result.success).toBe(true);
+        payMin: 1000,
+        payMax: 500,
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toContain(
+          "Minimum pay cannot exceed maximum pay"
+        );
+      }
+      expect(isPayRangeValid(1000, 500)).toBe(false);
     });
 
-    it("should coerce string pay values to numbers", () => {
-      const validData = {
+    it("allows payMin <= payMax and single-sided pay", () => {
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          payMin: 500,
+          payMax: 1000,
+        }).success
+      ).toBe(true);
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          payMin: 500,
+        }).success
+      ).toBe(true);
+      expect(isPayRangeValid(500, undefined)).toBe(true);
+      expect(isPayRangeValid(null, 1000)).toBe(true);
+    });
+
+    it("coerces numeric strings for form inputs", () => {
+      const result = createOpeningSchema.safeParse({
         role: "Bartender",
         area: "Sukhumvit",
         payMin: "500",
         payMax: "1000",
-      };
-
-      const result = createOpeningSchema.safeParse(validData);
+      });
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.payMin).toBe(500);
         expect(result.data.payMax).toBe(1000);
       }
     });
+  });
 
-    it("should reject negative pay values", () => {
-      const invalidData = {
-        role: "Bartender",
-        area: "Sukhumvit",
-        payMin: -100,
-      };
-
-      const result = createOpeningSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject notes exceeding max length", () => {
-      const invalidData = {
-        role: "Bartender",
-        area: "Sukhumvit",
-        notes: "A".repeat(OPENING_NOTES_MAX_LENGTH + 1),
-      };
-
-      const result = createOpeningSchema.safeParse(invalidData);
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0].message).toContain(`${OPENING_NOTES_MAX_LENGTH}`);
+  describe("text limits and trimming", () => {
+    it("trims required role/area and rejects blank after trim", () => {
+      const trimmed = createOpeningSchema.safeParse({
+        role: "  Bartender  ",
+        area: "  Sukhumvit ",
+      });
+      expect(trimmed.success).toBe(true);
+      if (trimmed.success) {
+        expect(trimmed.data.role).toBe("Bartender");
+        expect(trimmed.data.area).toBe("Sukhumvit");
       }
+
+      expect(
+        createOpeningSchema.safeParse({
+          role: "   ",
+          area: "Sukhumvit",
+        }).success
+      ).toBe(false);
     });
 
-    it("should accept notes at max length", () => {
-      const validData = {
-        role: "Bartender",
-        area: "Sukhumvit",
-        notes: "A".repeat(OPENING_NOTES_MAX_LENGTH),
-      };
+    it("enforces blurb max 240 and notes max 500", () => {
+      expect(
+        updateProfileSchema.safeParse({
+          organizationName: "Venue",
+          area: "Sukhumvit",
+          blurb: "A".repeat(BLURB_MAX_LENGTH + 1),
+        }).success
+      ).toBe(false);
 
-      const result = createOpeningSchema.safeParse(validData);
-      expect(result.success).toBe(true);
+      expect(
+        updateProfileSchema.safeParse({
+          organizationName: "Venue",
+          area: "Sukhumvit",
+          blurb: "A".repeat(BLURB_MAX_LENGTH),
+        }).success
+      ).toBe(true);
+
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          notes: "A".repeat(OPENING_NOTES_MAX_LENGTH + 1),
+        }).success
+      ).toBe(false);
+
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          notes: "A".repeat(OPENING_NOTES_MAX_LENGTH),
+        }).success
+      ).toBe(true);
     });
 
-    it("should default isPublished to false", () => {
-      const validData = {
+    it("requires uuid id for updateOpening and defaults isPublished false", () => {
+      expect(
+        updateOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+        }).success
+      ).toBe(false);
+
+      const created = createOpeningSchema.safeParse({
         role: "Bartender",
         area: "Sukhumvit",
-      };
-
-      const result = createOpeningSchema.safeParse(validData);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.isPublished).toBe(false);
-      }
-    });
-
-    it("should accept isPublished true", () => {
-      const validData = {
-        role: "Bartender",
-        area: "Sukhumvit",
-        isPublished: true,
-      };
-
-      const result = createOpeningSchema.safeParse(validData);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.isPublished).toBe(true);
+      });
+      expect(created.success).toBe(true);
+      if (created.success) {
+        expect(created.data.isPublished).toBe(false);
       }
     });
   });
 });
 
-describe("pay validation logic", () => {
-  it("should flag when payMin exceeds payMax", () => {
-    const payMin = 1000;
-    const payMax = 500;
+describe("ownership mutation invariants (documented in actions)", () => {
+  it("update/delete/publish paths must scope by recruiterProfileId", () => {
+    const actionsSource = readFileSync(
+      join(__dirname, "../actions.ts"),
+      "utf8"
+    );
 
-    const isInvalid = payMin > payMax;
-    expect(isInvalid).toBe(true);
-  });
-
-  it("should allow equal payMin and payMax", () => {
-    const payMin = 800;
-    const payMax = 800;
-
-    const isInvalid = payMin > payMax;
-    expect(isInvalid).toBe(false);
-  });
-
-  it("should allow valid pay range", () => {
-    const payMin = 500;
-    const payMax = 1000;
-
-    const isInvalid = payMin > payMax;
-    expect(isInvalid).toBe(false);
+    expect(actionsSource).toContain(
+      "eq(recruiterOpenings.recruiterProfileId, recruiter.recruiterProfileId)"
+    );
+    expect(actionsSource).toMatch(/deleteOpening[\s\S]*and\(/);
+    expect(actionsSource).toMatch(
+      /\.delete\(recruiterOpenings\)[\s\S]*recruiterProfileId/
+    );
+    expect(actionsSource).toMatch(
+      /\.update\(recruiterOpenings\)[\s\S]*recruiterProfileId/
+    );
   });
 });

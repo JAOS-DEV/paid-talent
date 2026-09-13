@@ -1,202 +1,355 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "fs";
+import { join } from "path";
 import {
   EMPTY_STATE_COPY,
-  type InterestContextForWorker,
-  type RecruiterDisplayContext,
-  type OpeningTag,
-  type RecruiterVenueInfo,
+  resolveOpeningAttachment,
+  isOpeningVisibleToWorkers,
+  canWorkerAccessInterestContext,
+  getPublishedOpeningsForRecruiter,
+  getInterestContextForWorker,
+  getInterestsForWorkerProfile,
 } from "../index";
+import { db } from "@/lib/db";
 
-describe("interest context types", () => {
-  describe("InterestContextForWorker shape", () => {
-    it("should have correct structure with all fields", () => {
-      const context: InterestContextForWorker = {
-        interestId: "test-interest-id",
-        recruiter: {
-          recruiterUserId: "test-recruiter-id",
-          displayName: "Test Recruiter",
-          venueName: "Test Venue",
-          logoUrl: "https://example.com/logo.png",
-          area: "Sukhumvit",
-          subArea: "Soi 11",
-          blurbSnippet: "A great venue for nightlife.",
-        },
-        opening: {
-          openingId: "test-opening-id",
-          role: "Bartender",
-          area: "Sukhumvit",
-          payMin: 500,
-          payMax: 1000,
-          payCurrency: "THB",
-          payPeriod: "night",
-        },
-        message: "We're interested in you!",
-        createdAt: new Date(),
-      };
+const WORKER_A = "11111111-1111-4111-8111-111111111111";
+const WORKER_B = "22222222-2222-4222-8222-222222222222";
+const INTEREST_A = "33333333-3333-4333-8333-333333333333";
+const PROFILE_A = "44444444-4444-4444-8444-444444444444";
+const OPENING_PUBLISHED = "55555555-5555-4555-8555-555555555555";
+const OPENING_DRAFT = "66666666-6666-4666-8666-666666666666";
+const RECRUITER_PROFILE = "77777777-7777-4777-8777-777777777777";
+const OTHER_RECRUITER_PROFILE = "88888888-8888-4888-8888-888888888888";
+const RECRUITER_USER = "99999999-9999-4999-8999-999999999999";
 
-      expect(context.interestId).toBe("test-interest-id");
-      expect(context.recruiter.venueName).toBe("Test Venue");
-      expect(context.opening?.role).toBe("Bartender");
-      expect(context.opening?.payMin).toBe(500);
-      expect(context.opening?.payMax).toBe(1000);
+function mockLimitResult(rows: unknown[]) {
+  return {
+    from: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    innerJoin: vi.fn().mockReturnThis(),
+    leftJoin: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockResolvedValue(rows),
+    limit: vi.fn().mockResolvedValue(rows),
+  };
+}
+
+describe("interest opening attachment authorization", () => {
+  it("allows general interests with null openingId", () => {
+    const result = resolveOpeningAttachment({
+      openingId: null,
+      recruiterProfileId: RECRUITER_PROFILE,
+      opening: null,
     });
+    expect(result).toEqual({ ok: true, openingId: null });
+  });
 
-    it("should allow null opening for interests without opening tag", () => {
-      const context: InterestContextForWorker = {
-        interestId: "test-interest-id",
-        recruiter: {
-          recruiterUserId: "test-recruiter-id",
-          displayName: "Test Recruiter",
-          venueName: "Test Venue",
-          logoUrl: null,
-          area: "Walking Street",
-          subArea: null,
-          blurbSnippet: null,
-        },
-        opening: null,
-        message: null,
-        createdAt: new Date(),
-      };
-
-      expect(context.opening).toBeNull();
-      expect(context.recruiter.logoUrl).toBeNull();
-      expect(context.recruiter.subArea).toBeNull();
+  it("rejects missing openings", () => {
+    const result = resolveOpeningAttachment({
+      openingId: OPENING_PUBLISHED,
+      recruiterProfileId: RECRUITER_PROFILE,
+      opening: null,
     });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(404);
+    }
+  });
 
-    it("should allow null pay range in opening", () => {
-      const opening: OpeningTag = {
-        openingId: "test-opening-id",
-        role: "Server",
-        area: "Thonglor",
-        payMin: null,
-        payMax: null,
+  it("rejects attaching another recruiter's opening", () => {
+    const result = resolveOpeningAttachment({
+      openingId: OPENING_PUBLISHED,
+      recruiterProfileId: RECRUITER_PROFILE,
+      opening: {
+        id: OPENING_PUBLISHED,
+        recruiterProfileId: OTHER_RECRUITER_PROFILE,
+        isPublished: true,
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(403);
+      expect(result.error).toContain("another recruiter");
+    }
+  });
+
+  it("requires published openings for attachment", () => {
+    const result = resolveOpeningAttachment({
+      openingId: OPENING_DRAFT,
+      recruiterProfileId: RECRUITER_PROFILE,
+      opening: {
+        id: OPENING_DRAFT,
+        recruiterProfileId: RECRUITER_PROFILE,
+        isPublished: false,
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(400);
+      expect(result.error).toContain("published");
+    }
+  });
+
+  it("accepts owned published openings", () => {
+    const result = resolveOpeningAttachment({
+      openingId: OPENING_PUBLISHED,
+      recruiterProfileId: RECRUITER_PROFILE,
+      opening: {
+        id: OPENING_PUBLISHED,
+        recruiterProfileId: RECRUITER_PROFILE,
+        isPublished: true,
+      },
+    });
+    expect(result).toEqual({ ok: true, openingId: OPENING_PUBLISHED });
+  });
+});
+
+describe("worker interest-context authorization", () => {
+  it("denies access when requester does not own the interest profile", () => {
+    expect(
+      canWorkerAccessInterestContext({
+        requestingWorkerUserId: WORKER_A,
+        interestOwnerUserId: WORKER_B,
+      })
+    ).toBe(false);
+  });
+
+  it("allows access only for the owning worker", () => {
+    expect(
+      canWorkerAccessInterestContext({
+        requestingWorkerUserId: WORKER_A,
+        interestOwnerUserId: WORKER_A,
+      })
+    ).toBe(true);
+  });
+
+  it("denies unauthenticated or missing owner ids", () => {
+    expect(
+      canWorkerAccessInterestContext({
+        requestingWorkerUserId: null,
+        interestOwnerUserId: WORKER_A,
+      })
+    ).toBe(false);
+    expect(
+      canWorkerAccessInterestContext({
+        requestingWorkerUserId: WORKER_A,
+        interestOwnerUserId: undefined,
+      })
+    ).toBe(false);
+  });
+
+  it("getInterestContextForWorker returns null for another worker (IDOR)", async () => {
+    const selectMock = vi.mocked(db.select);
+    selectMock.mockReturnValueOnce(
+      mockLimitResult([
+        {
+          id: INTEREST_A,
+          recruiterUserId: RECRUITER_USER,
+          workerProfileId: PROFILE_A,
+          openingId: null,
+          message: "secret",
+          createdAt: new Date(),
+          workerUserId: WORKER_A,
+        },
+      ]) as never
+    );
+
+    const result = await getInterestContextForWorker(INTEREST_A, WORKER_B);
+    expect(result).toBeNull();
+  });
+
+  it("getInterestsForWorkerProfile returns empty for another worker's profile id", async () => {
+    const selectMock = vi.mocked(db.select);
+    selectMock.mockReturnValueOnce(
+      mockLimitResult([
+        {
+          id: PROFILE_A,
+          userId: WORKER_A,
+        },
+      ]) as never
+    );
+
+    const result = await getInterestsForWorkerProfile(PROFILE_A, WORKER_B);
+    expect(result).toEqual([]);
+  });
+});
+
+describe("unpublished openings never reach worker-facing queries", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("isOpeningVisibleToWorkers is strict about published flag", () => {
+    expect(isOpeningVisibleToWorkers(true)).toBe(true);
+    expect(isOpeningVisibleToWorkers(false)).toBe(false);
+  });
+
+  it("getPublishedOpeningsForRecruiter filters isPublished === true", async () => {
+    const selectMock = vi.mocked(db.select);
+    const profileChain = mockLimitResult([{ id: RECRUITER_PROFILE }]);
+    const openingsChain = mockLimitResult([
+      {
+        id: OPENING_PUBLISHED,
+        role: "Bartender",
+        area: "Sukhumvit",
+        payMin: 500,
+        payMax: 1000,
         payCurrency: "THB",
         payPeriod: "night",
-      };
+        isPublished: true,
+      },
+    ]);
 
-      expect(opening.payMin).toBeNull();
-      expect(opening.payMax).toBeNull();
-      expect(opening.payCurrency).toBe("THB");
-    });
+    selectMock
+      .mockReturnValueOnce(profileChain as never)
+      .mockReturnValueOnce(openingsChain as never);
+
+    const openings = await getPublishedOpeningsForRecruiter(RECRUITER_USER);
+
+    expect(openings).toHaveLength(1);
+    expect(openings[0].openingId).toBe(OPENING_PUBLISHED);
+    expect(openings[0].payMin).toBe(500);
+    expect(openings[0].payMax).toBe(1000);
+    expect(openingsChain.where).toHaveBeenCalled();
+
+    const contextSource = readFileSync(
+      join(__dirname, "../context.ts"),
+      "utf8"
+    );
+    expect(contextSource).toContain("eq(recruiterOpenings.isPublished, true)");
   });
 
-  describe("RecruiterDisplayContext shape", () => {
-    it("should have all required fields for worker display", () => {
-      const display: RecruiterDisplayContext = {
-        recruiterUserId: "recruiter-123",
-        displayName: "John Smith",
-        venueName: "Sky Bar",
-        logoUrl: "https://example.com/skybar.png",
-        area: "Sukhumvit",
-        subArea: "Soi 11",
-        blurbSnippet: "Rooftop bar with amazing views...",
-      };
-
-      expect(display.recruiterUserId).toBeDefined();
-      expect(display.displayName).toBe("John Smith");
-      expect(display.venueName).toBe("Sky Bar");
-    });
-
-    it("should support minimal display context", () => {
-      const display: RecruiterDisplayContext = {
-        recruiterUserId: "recruiter-456",
-        displayName: null,
-        venueName: null,
-        logoUrl: null,
-        area: null,
-        subArea: null,
-        blurbSnippet: null,
-      };
-
-      expect(display.displayName).toBeNull();
-      expect(display.venueName).toBeNull();
-    });
-  });
-
-  describe("RecruiterVenueInfo shape", () => {
-    it("should include full blurb and openings list", () => {
-      const venueInfo: RecruiterVenueInfo = {
-        recruiterUserId: "recruiter-789",
-        displayName: "Pro Recruiter",
-        venueName: "Luxury Venues Group",
-        logoUrl: "https://example.com/luxury.png",
-        area: "Sukhumvit",
-        subArea: "Soi 11",
-        blurb: "Award-winning hospitality group with rooftop bars, fine dining, and nightclubs across Bangkok.",
-        openings: [
+  it("linked unpublished openings are stripped from worker interest context", async () => {
+    const selectMock = vi.mocked(db.select);
+    selectMock
+      .mockReturnValueOnce(
+        mockLimitResult([
           {
-            openingId: "opening-1",
+            id: INTEREST_A,
+            recruiterUserId: RECRUITER_USER,
+            workerProfileId: PROFILE_A,
+            openingId: OPENING_DRAFT,
+            message: null,
+            createdAt: new Date("2026-01-01"),
+            workerUserId: WORKER_A,
+          },
+        ]) as never
+      )
+      .mockReturnValueOnce(
+        mockLimitResult([{ name: "Recruiter" }]) as never
+      )
+      .mockReturnValueOnce(
+        mockLimitResult([
+          {
+            organizationName: "Venue",
+            logoUrl: null,
+            area: "Sukhumvit",
+            subArea: null,
+            blurb: "Great venue",
+          },
+        ]) as never
+      )
+      .mockReturnValueOnce(
+        mockLimitResult([
+          {
+            id: OPENING_DRAFT,
+            role: "Bartender",
+            area: "Sukhumvit",
+            payMin: 500,
+            payMax: 900,
+            payCurrency: "THB",
+            payPeriod: "night",
+            isPublished: false,
+          },
+        ]) as never
+      );
+
+    const result = await getInterestContextForWorker(INTEREST_A, WORKER_A);
+    expect(result).not.toBeNull();
+    expect(result?.opening).toBeNull();
+    expect(result?.recruiter.venueName).toBe("Venue");
+  });
+
+  it("published opening pay remains visible to the owning worker", async () => {
+    const selectMock = vi.mocked(db.select);
+    selectMock
+      .mockReturnValueOnce(
+        mockLimitResult([
+          {
+            id: INTEREST_A,
+            recruiterUserId: RECRUITER_USER,
+            workerProfileId: PROFILE_A,
+            openingId: OPENING_PUBLISHED,
+            message: "Hi",
+            createdAt: new Date("2026-01-01"),
+            workerUserId: WORKER_A,
+          },
+        ]) as never
+      )
+      .mockReturnValueOnce(
+        mockLimitResult([{ name: "Recruiter" }]) as never
+      )
+      .mockReturnValueOnce(
+        mockLimitResult([
+          {
+            organizationName: "Venue",
+            logoUrl: null,
+            area: "Sukhumvit",
+            subArea: null,
+            blurb: "Great venue",
+          },
+        ]) as never
+      )
+      .mockReturnValueOnce(
+        mockLimitResult([
+          {
+            id: OPENING_PUBLISHED,
             role: "Hostess",
             area: "Sukhumvit",
             payMin: 800,
             payMax: 1500,
             payCurrency: "THB",
             payPeriod: "night",
+            isPublished: true,
           },
-          {
-            openingId: "opening-2",
-            role: "Bartender",
-            area: "Thonglor",
-            payMin: 700,
-            payMax: 1200,
-            payCurrency: "THB",
-            payPeriod: "night",
-          },
-        ],
-      };
+        ]) as never
+      );
 
-      expect(venueInfo.blurb).toContain("Award-winning");
-      expect(venueInfo.openings).toHaveLength(2);
-      expect(venueInfo.openings[0].role).toBe("Hostess");
-    });
-
-    it("should support empty openings list", () => {
-      const venueInfo: RecruiterVenueInfo = {
-        recruiterUserId: "recruiter-new",
-        displayName: "New Recruiter",
-        venueName: "New Bar",
-        logoUrl: null,
-        area: "Pattaya",
-        subArea: null,
-        blurb: "Just opened!",
-        openings: [],
-      };
-
-      expect(venueInfo.openings).toHaveLength(0);
-    });
-  });
-
-  describe("OpeningTag shape", () => {
-    it("should contain pay information visible to workers", () => {
-      const opening: OpeningTag = {
-        openingId: "opening-123",
-        role: "DJ",
-        area: "Walking Street",
-        payMin: 1000,
-        payMax: 2000,
-        payCurrency: "THB",
-        payPeriod: "night",
-      };
-
-      expect(opening.payMin).toBe(1000);
-      expect(opening.payMax).toBe(2000);
-      expect(opening.payCurrency).toBe("THB");
-      expect(opening.payPeriod).toBe("night");
+    const result = await getInterestContextForWorker(INTEREST_A, WORKER_A);
+    expect(result?.opening).toEqual({
+      openingId: OPENING_PUBLISHED,
+      role: "Hostess",
+      area: "Sukhumvit",
+      payMin: 800,
+      payMax: 1500,
+      payCurrency: "THB",
+      payPeriod: "night",
     });
   });
 });
 
+describe("schema / migration integrity for opening FK", () => {
+  it("deleting an opening sets interest.openingId null (ON DELETE set null)", () => {
+    const migration = readFileSync(
+      join(process.cwd(), "drizzle/0003_known_firelord.sql"),
+      "utf8"
+    );
+    expect(migration).toMatch(
+      /profile_interests_opening_id_recruiter_openings_id_fk[\s\S]*ON DELETE set null/i
+    );
+  });
+});
+
 describe("EMPTY_STATE_COPY", () => {
-  it("should have recruiter empty state for no openings", () => {
+  it("keeps designer-locked empty state copy", () => {
     expect(EMPTY_STATE_COPY.recruiterNoOpenings).toBe("No openings yet");
-    expect(EMPTY_STATE_COPY.recruiterNoOpeningsCta).toBe("Add openings to start hiring");
-  });
-
-  it("should have worker empty state for no openings at venue", () => {
-    expect(EMPTY_STATE_COPY.workerNoOpenings).toBe("No openings at this venue right now");
-  });
-
-  it("should have worker empty state for no interests", () => {
-    expect(EMPTY_STATE_COPY.workerNoInterests).toBe("No interest yet — keep your profile fresh");
+    expect(EMPTY_STATE_COPY.recruiterNoOpeningsCta).toBe(
+      "Add openings to start hiring"
+    );
+    expect(EMPTY_STATE_COPY.workerNoOpenings).toBe(
+      "No openings at this venue right now"
+    );
+    expect(EMPTY_STATE_COPY.workerNoInterests).toBe(
+      "No interest yet — keep your profile fresh"
+    );
   });
 });

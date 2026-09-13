@@ -969,10 +969,10 @@ src/lib/interests/
 
 | Function | Description |
 |----------|-------------|
-| `getInterestContextForWorker(interestId)` | Get single interest with recruiter display context |
-| `getInterestsForWorkerProfile(workerProfileId)` | List all interests with recruiter context |
-| `getPublishedOpeningsForRecruiter(recruiterUserId)` | Get published openings for a recruiter |
-| `getRecruiterVenueInfo(recruiterUserId)` | Full venue info + openings for "View venue" CTA |
+| `getInterestContextForWorker(interestId, requestingWorkerUserId)` | Get single interest with recruiter display context (owner worker only) |
+| `getInterestsForWorkerProfile(workerProfileId, requestingWorkerUserId)` | List interests with recruiter context (owner worker only) |
+| `getPublishedOpeningsForRecruiter(recruiterUserId)` | Get **published** openings for a recruiter (drafts excluded) |
+| `getRecruiterVenueInfo(recruiterUserId)` | Full venue info + published openings for "View venue" CTA |
 
 ### Recruiter Openings Schema
 
@@ -989,9 +989,18 @@ src/lib/interests/
 
 ### Interest → Opening Link
 
-Interests can optionally link to an opening via `openingId`. When linked:
+Interests can optionally link to an opening via `openingId` on create:
+
+- `openingId` omitted/null → general interest (still supported)
+- If supplied, the opening must exist, belong to the authenticated recruiter, and be **published**
+- Another recruiter's opening can never be attached
+- FK `ON DELETE set null`: deleting an opening leaves the interest intact with `openingId = null`
+
+When linked and still published:
 - Worker sees "Interested in you for [Role]" tag
 - Pay info from the opening is visible (no paywall)
+
+Unpublished openings never appear in worker-facing venue/interest opening data.
 
 ### Interest Context Shape (for Workers)
 

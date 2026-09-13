@@ -6,6 +6,8 @@ export const createInterestSchema = z.object({
     .string()
     .max(500, "Message must be 500 characters or less")
     .optional(),
+  /** Optional published opening owned by the authenticated recruiter. */
+  openingId: z.string().uuid("Opening ID must be a valid UUID").optional().nullable(),
 });
 
 export type CreateInterestInput = z.infer<typeof createInterestSchema>;
