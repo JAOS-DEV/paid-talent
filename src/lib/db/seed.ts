@@ -1,7 +1,7 @@
 import "./load-env";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import * as schema from "./schema";
 
 type VerificationStatusType = "unverified" | "pending" | "verified" | "rejected";
@@ -509,42 +509,8 @@ async function seed(): Promise<void> {
       console.log(`   ${status}: ${worker.email} (${viewCount} views)`);
     }
 
-    console.log("\n📦 Seeding profile interests...");
-
-    const topTalentWorkers = createdWorkers.filter((w) => w.isTopTalent);
-    const normalWorkers = createdWorkers.filter((w) => !w.isTopTalent);
-
-    for (const recruiter of createdRecruiters) {
-      const workersToInterest = recruiter.hasSubscription
-        ? [...topTalentWorkers.slice(0, 2), ...normalWorkers.slice(0, 1)]
-        : normalWorkers.slice(0, 2);
-
-      for (const worker of workersToInterest) {
-        const existing = await db
-          .select()
-          .from(schema.profileInterests)
-          .where(
-            and(
-              eq(schema.profileInterests.recruiterUserId, recruiter.userId),
-              eq(schema.profileInterests.workerProfileId, worker.profileId)
-            )
-          )
-          .limit(1);
-
-        if (existing.length === 0) {
-          await db.insert(schema.profileInterests).values({
-            recruiterUserId: recruiter.userId,
-            workerProfileId: worker.profileId,
-            message: recruiter.hasSubscription
-              ? "We have an exciting opportunity for you at our venue!"
-              : "Interested in discussing a position with you.",
-            createdAt: new Date(),
-          });
-
-          console.log(`   ✅ ${recruiter.email} → ${worker.email}`);
-        }
-      }
-    }
+    console.log("\n📦 Skipping profile interests seeding (recruiters start fresh)...");
+    console.log("   ℹ️  Recruiters will see all profiles as 'unsent' until they express interest");
 
     console.log("\n" + "=".repeat(60));
     console.log("🎉 SEED COMPLETED SUCCESSFULLY!");

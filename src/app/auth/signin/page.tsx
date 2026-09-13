@@ -22,10 +22,14 @@ function SignInForm(): React.ReactElement {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(errorParam);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const isSignupMode = Boolean(role && dob);
 
   const handleGoogleSignIn = async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
+    setFormError(null);
 
     const finalCallbackUrl =
       role && dob
@@ -37,8 +41,36 @@ function SignInForm(): React.ReactElement {
 
   const handleEmailSignIn = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+    setFormError(null);
+    setIsLoading(true);
+
+    if (isSignupMode) {
+      try {
+        const response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, role, dob }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          setIsLoading(false);
+          setFormError(data.error || "Registration failed. Please try again.");
+          return;
+        }
+      } catch {
+        setIsLoading(false);
+        setFormError("Registration failed. Please try again.");
+        return;
+      }
+    }
+
+    const finalCallbackUrl = isSignupMode
+      ? role === "worker"
+        ? "/worker/onboarding"
+        : "/recruiter/dashboard"
+      : callbackUrl;
 
     try {
       const result = await signIn("credentials", {
@@ -47,13 +79,17 @@ function SignInForm(): React.ReactElement {
       });
 
       if (result?.error) {
-        setError(result.error);
+        if (isSignupMode) {
+          setFormError("Account created but sign-in failed. Please try signing in again.");
+        } else {
+          setError(result.error);
+        }
         setIsLoading(false);
         return;
       }
 
       if (result?.ok) {
-        router.push(callbackUrl);
+        router.push(finalCallbackUrl);
         router.refresh();
       }
     } catch {
@@ -62,7 +98,11 @@ function SignInForm(): React.ReactElement {
     }
   };
 
-  const displayError = error ? (errorMessages[error] || errorMessages.Default) : null;
+  const displayError = formError 
+    ? formError 
+    : error 
+      ? (errorMessages[error] || errorMessages.Default) 
+      : null;
 
   return (
     <>
@@ -130,7 +170,7 @@ function SignInForm(): React.ReactElement {
               loading={isLoading}
               disabled={!email}
             >
-              Continue with Email
+              {isSignupMode ? "Create Account" : "Continue with Email"}
             </Button>
           </form>
         </CardContent>
@@ -139,40 +179,41 @@ function SignInForm(): React.ReactElement {
   );
 }
 
-export default function SignInPage(): React.ReactElement {
-  const role = typeof window !== "undefined" 
-    ? new URLSearchParams(window.location.search).get("role") 
-    : null;
+function SignInPageContent(): React.ReactElement {
+  const searchParams = useSearchParams();
+  const role = searchParams.get("role");
+  const dob = searchParams.get("dob");
+  const isSignupMode = Boolean(role && dob);
 
   return (
-    <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <span className="text-2xl font-bold text-primary-500">Paid</span>
-            <span className="text-2xl font-bold text-gold-500">Talent</span>
-          </div>
-          <h1 className="text-xl font-semibold text-charcoal-100 mb-2">
-            Sign in to your account
-          </h1>
-          <p className="text-charcoal-400 text-sm">
-            {role
-              ? `Creating ${role} account`
-              : "Welcome back! Sign in to continue."}
-          </p>
+    <div className="w-full max-w-md">
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center space-x-2 mb-4">
+          <span className="text-2xl font-bold text-primary-500">Paid</span>
+          <span className="text-2xl font-bold text-gold-500">Talent</span>
         </div>
+        <h1 className="text-xl font-semibold text-charcoal-100 mb-2">
+          {isSignupMode ? "Create your account" : "Sign in to your account"}
+        </h1>
+        <p className="text-charcoal-400 text-sm">
+          {isSignupMode
+            ? `Creating ${role} account`
+            : "Welcome back! Sign in to continue."}
+        </p>
+      </div>
 
-        <Suspense fallback={
-          <Card padding="lg">
-            <CardContent className="space-y-6">
-              <div className="h-12 bg-charcoal-700 rounded-lg animate-pulse" />
-              <div className="h-12 bg-charcoal-700 rounded-lg animate-pulse" />
-            </CardContent>
-          </Card>
-        }>
-          <SignInForm />
-        </Suspense>
+      <Suspense fallback={
+        <Card padding="lg">
+          <CardContent className="space-y-6">
+            <div className="h-12 bg-charcoal-700 rounded-lg animate-pulse" />
+            <div className="h-12 bg-charcoal-700 rounded-lg animate-pulse" />
+          </CardContent>
+        </Card>
+      }>
+        <SignInForm />
+      </Suspense>
 
+      {!isSignupMode && (
         <p className="text-center text-charcoal-500 text-sm mt-6">
           Don&apos;t have an account?{" "}
           <a
@@ -182,7 +223,33 @@ export default function SignInPage(): React.ReactElement {
             Get started
           </a>
         </p>
-      </div>
+      )}
+    </div>
+  );
+}
+
+export default function SignInPage(): React.ReactElement {
+  return (
+    <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
+      <Suspense fallback={
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center space-x-2 mb-4">
+              <span className="text-2xl font-bold text-primary-500">Paid</span>
+              <span className="text-2xl font-bold text-gold-500">Talent</span>
+            </div>
+            <div className="h-8 bg-charcoal-700 rounded animate-pulse w-48 mx-auto" />
+          </div>
+          <Card padding="lg">
+            <CardContent className="space-y-6">
+              <div className="h-12 bg-charcoal-700 rounded-lg animate-pulse" />
+              <div className="h-12 bg-charcoal-700 rounded-lg animate-pulse" />
+            </CardContent>
+          </Card>
+        </div>
+      }>
+        <SignInPageContent />
+      </Suspense>
     </div>
   );
 }

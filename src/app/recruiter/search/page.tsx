@@ -19,13 +19,17 @@ import type { SearchWorkerResult } from "@/app/api/workers/search/route";
 interface WorkerCardProps {
   worker: SearchWorkerResult;
   hasTopTalentAccess: boolean;
+  interestSent: boolean;
   onUnlock: () => void;
+  onExpressInterest: () => void;
 }
 
 function WorkerCard({
   worker,
   hasTopTalentAccess,
+  interestSent,
   onUnlock,
+  onExpressInterest,
 }: WorkerCardProps): React.ReactElement {
   const isLocked = worker.isTopTalent && !hasTopTalentAccess;
 
@@ -123,9 +127,28 @@ function WorkerCard({
                   View Profile
                 </Button>
               </Link>
-              <Link href={`/recruiter/profile/${worker.id}`}>
-                <Button size="sm">View Details</Button>
-              </Link>
+              {interestSent ? (
+                <Button size="sm" variant="secondary" disabled>
+                  <svg
+                    className="w-4 h-4 mr-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  Interest Sent
+                </Button>
+              ) : (
+                <Button size="sm" onClick={onExpressInterest}>
+                  Express Interest
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -156,6 +179,7 @@ export default function SearchPage(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [hasTopTalentAccess, setHasTopTalentAccess] = useState(false);
+  const [sentInterests, setSentInterests] = useState<Set<string>>(new Set());
 
   const fetchWorkers = useCallback(async () => {
     try {
@@ -180,6 +204,21 @@ export default function SearchPage(): React.ReactElement {
     }
   }, [filters]);
 
+  const fetchInterests = useCallback(async () => {
+    try {
+      const response = await fetch("/api/interests");
+      if (response.ok) {
+        const data = await response.json();
+        const interestProfileIds = new Set<string>(
+          data.interests?.map((i: { workerProfileId: string }) => i.workerProfileId) || []
+        );
+        setSentInterests(interestProfileIds);
+      }
+    } catch {
+      setSentInterests(new Set());
+    }
+  }, []);
+
   const checkSubscription = useCallback(async () => {
     try {
       const response = await fetch("/api/stripe/status");
@@ -195,7 +234,7 @@ export default function SearchPage(): React.ReactElement {
   useEffect(() => {
     if (status === "authenticated") {
       const loadData = async (): Promise<void> => {
-        await Promise.all([fetchWorkers(), checkSubscription()]);
+        await Promise.all([fetchWorkers(), checkSubscription(), fetchInterests()]);
       };
       void loadData();
     }
@@ -219,6 +258,21 @@ export default function SearchPage(): React.ReactElement {
       }
     } catch (error) {
       console.error("Failed to start checkout:", error);
+    }
+  };
+
+  const handleExpressInterest = async (workerProfileId: string): Promise<void> => {
+    try {
+      const response = await fetch("/api/interests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workerProfileId }),
+      });
+      if (response.ok) {
+        setSentInterests((prev) => new Set([...prev, workerProfileId]));
+      }
+    } catch (error) {
+      console.error("Failed to express interest:", error);
     }
   };
 
@@ -377,7 +431,9 @@ export default function SearchPage(): React.ReactElement {
                       key={worker.id}
                       worker={worker}
                       hasTopTalentAccess={hasTopTalentAccess}
+                      interestSent={sentInterests.has(worker.id)}
                       onUnlock={handleUnlock}
+                      onExpressInterest={() => handleExpressInterest(worker.id)}
                     />
                   ))}
                 </div>
