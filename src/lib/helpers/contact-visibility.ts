@@ -14,7 +14,7 @@ export interface SubscriptionInfo {
 
 export interface ContactVisibilityResult {
   canViewContact: boolean;
-  reason: "has_subscription" | "not_top_talent" | "subscription_required";
+  reason: "own_profile" | "has_subscription" | "not_top_talent" | "subscription_required";
 }
 
 export function hasActiveSubscription(subscription: SubscriptionInfo | null): boolean {
@@ -59,6 +59,39 @@ export function determineContactVisibility(
     canViewContact: false,
     reason: "subscription_required",
   };
+}
+
+export interface ContactVisibilityParams {
+  isOwnProfile: boolean;
+  isTopTalent: boolean;
+  subscription: SubscriptionInfo | null;
+}
+
+/**
+ * Enhanced contact visibility check that also considers profile ownership.
+ * Workers viewing their own profile always have contact visibility.
+ */
+export function determineContactVisibilityWithOwnership(
+  params: ContactVisibilityParams
+): ContactVisibilityResult {
+  const { isOwnProfile, isTopTalent, subscription } = params;
+
+  if (isOwnProfile) {
+    return {
+      canViewContact: true,
+      reason: "own_profile",
+    };
+  }
+
+  return determineContactVisibility(isTopTalent, subscription);
+}
+
+/**
+ * Simple boolean check for contact visibility (for API use).
+ * Considers: own profile, subscription status, and Top Talent status.
+ */
+export function canViewContactDetails(params: ContactVisibilityParams): boolean {
+  return determineContactVisibilityWithOwnership(params).canViewContact;
 }
 
 export function getVisibleContactFields(
