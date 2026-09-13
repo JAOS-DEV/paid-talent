@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, use, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, redirect } from "next/navigation";
 import Link from "next/link";
@@ -14,10 +14,22 @@ import {
   Badge,
   TopTalentBadge,
 } from "@/components/ui";
+import {
+  HireOutcomeStatusBadge,
+  HireOutcomeActions,
+} from "@/components/hire-outcomes";
 import type { WorkerProfileDetail } from "@/app/api/workers/[id]/route";
+import type { HireOutcomeStatus } from "@/lib/db/schema";
 
 interface ProfilePageProps {
   params: Promise<{ id: string }>;
+}
+
+interface InterestOutcomeData {
+  interestId: string;
+  status: HireOutcomeStatus;
+  hiredAt: string | null;
+  startedAt: string | null;
 }
 
 function LockIcon(): React.ReactElement {
@@ -80,6 +92,8 @@ export default function ProfileDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [interestLoading, setInterestLoading] = useState(false);
   const [interestSent, setInterestSent] = useState(false);
+  const [interestOutcome, setInterestOutcome] =
+    useState<InterestOutcomeData | null>(null);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -96,6 +110,15 @@ export default function ProfileDetailPage({
           const data = await response.json();
           setProfile(data.profile);
           setInterestSent(data.profile.hasExpressedInterest);
+
+          if (data.profile.hasExpressedInterest && data.profile.interestId) {
+            setInterestOutcome({
+              interestId: data.profile.interestId,
+              status: data.profile.hireOutcomeStatus ?? "interested",
+              hiredAt: data.profile.hiredAt ?? null,
+              startedAt: data.profile.startedAt ?? null,
+            });
+          }
         } else if (response.status === 404) {
           setError("Profile not found");
         } else {
@@ -130,11 +153,22 @@ export default function ProfileDetailPage({
         body: JSON.stringify({ workerProfileId: profile.id }),
       });
 
-      if (response.ok || response.status === 409) {
+      if (response.ok) {
+        const data = await response.json();
+        setInterestSent(true);
+        if (data.interestId) {
+          setInterestOutcome({
+            interestId: data.interestId,
+            status: "interested",
+            hiredAt: null,
+            startedAt: null,
+          });
+        }
+      } else if (response.status === 409) {
         setInterestSent(true);
       }
-    } catch (error) {
-      console.error("Failed to express interest:", error);
+    } catch (err) {
+      console.error("Failed to express interest:", err);
     } finally {
       setInterestLoading(false);
     }
@@ -152,10 +186,29 @@ export default function ProfileDetailPage({
           router.push(data.url);
         }
       }
-    } catch (error) {
-      console.error("Failed to start checkout:", error);
+    } catch (err) {
+      console.error("Failed to start checkout:", err);
     }
   };
+
+  const handleStatusUpdated = useCallback((newStatus: HireOutcomeStatus) => {
+    setInterestOutcome((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: newStatus,
+            hiredAt:
+              newStatus === "hired"
+                ? new Date().toISOString()
+                : prev.hiredAt,
+            startedAt:
+              newStatus === "started"
+                ? new Date().toISOString()
+                : prev.startedAt,
+          }
+        : null
+    );
+  }, []);
 
   if (status === "loading" || loading) {
     return (
@@ -275,6 +328,9 @@ export default function ProfileDetailPage({
                     {profile.isTopTalent && <TopTalentBadge />}
                     {profile.isVerified && (
                       <Badge variant="success">Verified</Badge>
+                    )}
+                    {interestOutcome && (
+                      <HireOutcomeStatusBadge status={interestOutcome.status} />
                     )}
                   </div>
 
@@ -519,6 +575,21 @@ export default function ProfileDetailPage({
                       </Button>
                     </Link>
                   </>
+                ) : interestOutcome ? (
+                  <>
+                    <div className="flex-1 flex flex-col sm:flex-row gap-3">
+                      <HireOutcomeActions
+                        interestId={interestOutcome.interestId}
+                        currentStatus={interestOutcome.status}
+                        onStatusUpdated={handleStatusUpdated}
+                      />
+                      <Link href="/recruiter/interests" className="flex-1">
+                        <Button variant="outline" fullWidth>
+                          View All Interests
+                        </Button>
+                      </Link>
+                    </div>
+                  </>
                 ) : (
                   <>
                     <Button
@@ -537,10 +608,28 @@ export default function ProfileDetailPage({
                   </>
                 )}
               </div>
-              {interestSent && (
+              {interestSent && !interestOutcome && (
                 <p className="text-center text-charcoal-400 text-sm mt-3">
                   Your interest has been sent to this worker.
                 </p>
+              )}
+              {interestOutcome && (
+                <div className="mt-4 pt-4 border-t border-charcoal-700">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-charcoal-500">Hire Status</span>
+                    <HireOutcomeStatusBadge status={interestOutcome.status} />
+                  </div>
+                  {interestOutcome.hiredAt && (
+                    <p className="text-charcoal-500 text-xs mt-2">
+                      Hired: {new Date(interestOutcome.hiredAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  {interestOutcome.startedAt && (
+                    <p className="text-charcoal-500 text-xs mt-1">
+                      Started: {new Date(interestOutcome.startedAt).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>

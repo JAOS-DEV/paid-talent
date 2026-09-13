@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -14,6 +14,13 @@ import {
   CardTitle,
   TopTalentBadge,
 } from "@/components/ui";
+
+interface OutcomeStats {
+  total: number;
+  interested: number;
+  hired: number;
+  started: number;
+}
 
 function SubscriptionAlert(): React.ReactElement | null {
   const searchParams = useSearchParams();
@@ -37,6 +44,81 @@ function SubscriptionAlert(): React.ReactElement | null {
   }
 
   return null;
+}
+
+function InterestsCard(): React.ReactElement {
+  const [stats, setStats] = useState<OutcomeStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/recruiter/interests/stats");
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data.stats);
+        }
+      } catch {
+        // Silently fail, show 0 counts
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchStats();
+  }, []);
+
+  return (
+    <Card padding="lg">
+      <CardHeader>
+        <CardTitle>Your Interests</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="animate-pulse">
+            <div className="h-10 bg-charcoal-700 rounded w-16 mb-2" />
+            <div className="h-4 bg-charcoal-700 rounded w-32" />
+          </div>
+        ) : (
+          <>
+            <div className="text-4xl font-bold text-primary-400 mb-2">
+              {stats?.total ?? 0}
+            </div>
+            <p className="text-charcoal-400 text-sm mb-3">
+              Workers you&apos;ve expressed interest in
+            </p>
+            {stats && stats.total > 0 && (
+              <div className="flex gap-4 text-xs text-charcoal-500 mb-4">
+                <span>
+                  <span className="text-primary-400 font-medium">
+                    {stats.interested}
+                  </span>{" "}
+                  Interested
+                </span>
+                <span>
+                  <span className="text-gold-400 font-medium">
+                    {stats.hired}
+                  </span>{" "}
+                  Hired
+                </span>
+                <span>
+                  <span className="text-green-400 font-medium">
+                    {stats.started}
+                  </span>{" "}
+                  Started
+                </span>
+              </div>
+            )}
+          </>
+        )}
+        <Link href="/recruiter/interests">
+          <Button variant="outline" fullWidth className="mt-2">
+            View All
+          </Button>
+        </Link>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function RecruiterDashboardPage(): React.ReactElement {
@@ -123,22 +205,7 @@ export default function RecruiterDashboardPage(): React.ReactElement {
               </CardContent>
             </Card>
 
-            <Card padding="lg">
-              <CardHeader>
-                <CardTitle>Your Interests</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-primary-400 mb-2">0</div>
-                <p className="text-charcoal-400 text-sm">
-                  Workers you&apos;ve expressed interest in
-                </p>
-                <Link href="/recruiter/interests">
-                  <Button variant="outline" fullWidth className="mt-4">
-                    View All
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+            <InterestsCard />
           </div>
 
           <div className="mt-8">
