@@ -1,0 +1,91 @@
+export type SubscriptionStatus =
+  | "active"
+  | "canceled"
+  | "past_due"
+  | "incomplete"
+  | "trialing";
+
+export type SubscriptionPlan = "free" | "top_talent_unlock";
+
+export interface SubscriptionInfo {
+  status: SubscriptionStatus;
+  plan: SubscriptionPlan;
+}
+
+export interface ContactVisibilityResult {
+  canViewContact: boolean;
+  reason: "has_subscription" | "not_top_talent" | "subscription_required";
+}
+
+export function hasActiveSubscription(subscription: SubscriptionInfo | null): boolean {
+  if (!subscription) {
+    return false;
+  }
+  return subscription.status === "active" || subscription.status === "trialing";
+}
+
+export function hasTopTalentPlan(subscription: SubscriptionInfo | null): boolean {
+  if (!subscription) {
+    return false;
+  }
+  return subscription.plan === "top_talent_unlock";
+}
+
+export function canAccessTopTalentContact(
+  subscription: SubscriptionInfo | null
+): boolean {
+  return hasActiveSubscription(subscription) && hasTopTalentPlan(subscription);
+}
+
+export function determineContactVisibility(
+  isTopTalent: boolean,
+  subscription: SubscriptionInfo | null
+): ContactVisibilityResult {
+  if (!isTopTalent) {
+    return {
+      canViewContact: true,
+      reason: "not_top_talent",
+    };
+  }
+
+  if (canAccessTopTalentContact(subscription)) {
+    return {
+      canViewContact: true,
+      reason: "has_subscription",
+    };
+  }
+
+  return {
+    canViewContact: false,
+    reason: "subscription_required",
+  };
+}
+
+export function getVisibleContactFields(
+  isTopTalent: boolean,
+  subscription: SubscriptionInfo | null
+): string[] {
+  const { canViewContact } = determineContactVisibility(isTopTalent, subscription);
+
+  if (canViewContact) {
+    return ["lineId", "whatsappNumber", "phoneNumber", "contactEmail"];
+  }
+
+  return [];
+}
+
+export function maskContactField(value: string | null, visible: boolean): string | null {
+  if (!value) {
+    return null;
+  }
+
+  if (visible) {
+    return value;
+  }
+
+  if (value.length <= 4) {
+    return "****";
+  }
+
+  return value.substring(0, 2) + "****" + value.substring(value.length - 2);
+}

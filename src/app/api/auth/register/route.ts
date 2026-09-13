@@ -67,6 +67,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const redirectUrl =
-    role === "worker" ? "/worker/dashboard" : "/recruiter/dashboard";
+    role === "worker" ? "/worker/onboarding" : "/recruiter/dashboard";
   return NextResponse.redirect(new URL(redirectUrl, request.url));
 }
