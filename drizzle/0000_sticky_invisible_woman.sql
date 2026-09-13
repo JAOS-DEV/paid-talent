@@ -1,6 +1,10 @@
+CREATE TYPE "public"."doc_type" AS ENUM('passport', 'thai_id', 'drivers_license', 'other');--> statement-breakpoint
 CREATE TYPE "public"."subscription_plan" AS ENUM('free', 'top_talent_unlock');--> statement-breakpoint
 CREATE TYPE "public"."subscription_status" AS ENUM('active', 'canceled', 'past_due', 'incomplete', 'trialing');--> statement-breakpoint
 CREATE TYPE "public"."user_role" AS ENUM('worker', 'recruiter');--> statement-breakpoint
+CREATE TYPE "public"."verification_decision" AS ENUM('pending_submitted', 'approved', 'rejected', 'revoked');--> statement-breakpoint
+CREATE TYPE "public"."verification_method" AS ENUM('manual_id_review', 'system');--> statement-breakpoint
+CREATE TYPE "public"."verification_status" AS ENUM('unverified', 'pending', 'verified', 'rejected');--> statement-breakpoint
 CREATE TABLE "accounts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -90,6 +94,29 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
+CREATE TABLE "verification_events" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"worker_profile_id" uuid,
+	"decision" "verification_decision" NOT NULL,
+	"actor_user_id" uuid,
+	"actor_type" text DEFAULT 'admin' NOT NULL,
+	"method" "verification_method" NOT NULL,
+	"doc_type" "doc_type",
+	"id_document_key" text,
+	"id_document_sha256" text,
+	"liveness_video_key" text,
+	"liveness_video_sha256" text,
+	"challenge_code" text,
+	"last4" text,
+	"issuing_country" text,
+	"notes" text,
+	"retention_expires_at" timestamp,
+	"id_document_deleted_at" timestamp,
+	"liveness_video_deleted_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "verification_tokens" (
 	"identifier" text NOT NULL,
 	"token" text NOT NULL,
@@ -120,6 +147,14 @@ CREATE TABLE "worker_profiles" (
 	"phone_number" text,
 	"is_published" boolean DEFAULT false NOT NULL,
 	"is_verified" boolean DEFAULT false NOT NULL,
+	"verification_status" "verification_status" DEFAULT 'unverified' NOT NULL,
+	"id_document_key" text,
+	"liveness_video_key" text,
+	"challenge_code" text,
+	"challenge_issued_at" timestamp,
+	"id_document_submitted_at" timestamp,
+	"verification_reviewed_at" timestamp,
+	"verification_reviewed_by" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "worker_profiles_user_id_unique" UNIQUE("user_id")
@@ -133,6 +168,9 @@ ALTER TABLE "profile_views" ADD CONSTRAINT "profile_views_viewer_user_id_users_i
 ALTER TABLE "recruiter_profiles" ADD CONSTRAINT "recruiter_profiles_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "verification_events" ADD CONSTRAINT "verification_events_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "verification_events" ADD CONSTRAINT "verification_events_worker_profile_id_worker_profiles_id_fk" FOREIGN KEY ("worker_profile_id") REFERENCES "public"."worker_profiles"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "verification_events" ADD CONSTRAINT "verification_events_actor_user_id_users_id_fk" FOREIGN KEY ("actor_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "worker_profiles" ADD CONSTRAINT "worker_profiles_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "accounts_provider_account_idx" ON "accounts" USING btree ("provider","provider_account_id");--> statement-breakpoint
 CREATE INDEX "profile_interests_recruiter_idx" ON "profile_interests" USING btree ("recruiter_user_id");--> statement-breakpoint
@@ -146,7 +184,13 @@ CREATE INDEX "subscriptions_user_id_idx" ON "subscriptions" USING btree ("user_i
 CREATE INDEX "subscriptions_stripe_customer_idx" ON "subscriptions" USING btree ("stripe_customer_id");--> statement-breakpoint
 CREATE INDEX "users_email_idx" ON "users" USING btree ("email");--> statement-breakpoint
 CREATE INDEX "users_role_idx" ON "users" USING btree ("role");--> statement-breakpoint
+CREATE INDEX "verification_events_user_id_idx" ON "verification_events" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "verification_events_worker_profile_id_idx" ON "verification_events" USING btree ("worker_profile_id");--> statement-breakpoint
+CREATE INDEX "verification_events_decision_idx" ON "verification_events" USING btree ("decision");--> statement-breakpoint
+CREATE INDEX "verification_events_created_at_idx" ON "verification_events" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "verification_events_retention_expires_idx" ON "verification_events" USING btree ("retention_expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "verification_tokens_identifier_token_idx" ON "verification_tokens" USING btree ("identifier","token");--> statement-breakpoint
 CREATE INDEX "worker_profiles_user_id_idx" ON "worker_profiles" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "worker_profiles_area_idx" ON "worker_profiles" USING btree ("area");--> statement-breakpoint
-CREATE INDEX "worker_profiles_is_published_idx" ON "worker_profiles" USING btree ("is_published");
+CREATE INDEX "worker_profiles_is_published_idx" ON "worker_profiles" USING btree ("is_published");--> statement-breakpoint
+CREATE INDEX "worker_profiles_verification_status_idx" ON "worker_profiles" USING btree ("verification_status");

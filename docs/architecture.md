@@ -474,3 +474,97 @@ See `.env.example` for all configuration options.
    - Email notifications for interests
    - In-app notification bell
    - Push notification prep
+
+---
+
+## Identity Verification System
+
+### Overview
+
+Workers must complete identity verification before becoming searchable. The verification flow requires:
+1. **ID Document**: Government-issued ID (passport, Thai ID, driver's license)
+2. **Liveness Video**: Worker holds ID next to face and speaks the date + challenge code
+
+**Product Rule**: Workers are NOT searchable until verification is approved.
+
+### Verification Statuses
+
+| Status | Description | Searchable |
+|--------|-------------|------------|
+| `unverified` | No ID submitted yet | ❌ No |
+| `pending` | ID + video submitted, awaiting admin review | ❌ No |
+| `verified` | Admin approved verification | ✅ Yes |
+| `rejected` | Admin rejected verification | ❌ No |
+
+### Search Gate
+
+**Dev owns the search-gate slice.** Use the `isSearchableWorker()` helper from `@/lib/verification`:
+
+```typescript
+import { isSearchableWorker } from "@/lib/verification";
+
+const result = isSearchableWorker(profile);
+if (!result.isSearchable) {
+  // Filter out of search results
+  // result.reason indicates why: "not_verified" | "pending_verification" | "rejected" | "not_published"
+}
+```
+
+### Verification Events (Audit Log)
+
+The `verification_events` table is append-only and kept **permanently** for audit compliance:
+
+| Field | Description |
+|-------|-------------|
+| `decision` | `pending_submitted`, `approved`, `rejected`, `revoked` |
+| `actorUserId` | Admin who made the decision (or worker for submission) |
+| `method` | `manual_id_review` or `system` |
+| `docType` | `passport`, `thai_id`, `drivers_license`, `other` |
+| `idDocumentSha256` | SHA-256 hash of ID document (preserved after file deletion) |
+| `livenessVideoSha256` | SHA-256 hash of liveness video (preserved after file deletion) |
+| `challengeCode` | The challenge code issued for verification |
+
+**Important**: Events are NEVER deleted. Only the raw media files are purged.
+
+### Media Retention Policy
+
+- **Retention Period**: 30 days after decision (configurable via `RETENTION_DAYS`)
+- **What's Deleted**: Raw ID document files and liveness videos from S3
+- **What's Kept**: All `verification_events` rows with hashes, metadata, and decision history
+- **Note**: Interim policy pending legal counsel review
+
+Run retention job: `npm run job:retention`
+
+### Admin API
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/admin/workers/pending` | GET | List workers pending verification with signed URLs |
+| `/api/admin/workers/[id]/verify` | POST | Approve or reject verification |
+
+Admin access requires email in `ADMIN_EMAILS` environment variable (comma-separated).
+
+Admin approve/reject is blocked if:
+- ID document is missing
+- Liveness video is missing  
+- Challenge code record is missing
+
+### Worker Verification Flow
+
+1. **Generate Challenge Code**: `POST /api/worker/verification/challenge`
+   - Returns 6-digit code + expiry (30 minutes)
+   
+2. **Upload Files**: `POST /api/worker/verification/upload`
+   - Type: `id_document` or `liveness_video`
+   - Returns presigned S3 upload URL
+
+3. **Submit Verification**: `POST /api/worker/verification`
+   - Requires: `idDocumentKey`, `livenessVideoKey`, `docType`
+   - Both files are hashed (SHA-256) and logged
+   - Transitions status: `unverified` → `pending`
+
+### TODO: Future Work
+
+- **Photo max 5**: James locked max 5 profile photos — photo schema change deferred to moderation/media PR
+- **KYC vendor integration**: Manual review only for private beta
+- **Dev owns search gate UI**: This PR provides foundation; Dev implements search filter

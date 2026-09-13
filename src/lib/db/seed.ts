@@ -4,6 +4,8 @@ import postgres from "postgres";
 import { eq, and } from "drizzle-orm";
 import * as schema from "./schema";
 
+type VerificationStatusType = "unverified" | "pending" | "verified" | "rejected";
+
 const SEED_USERS = {
   workers: [
     {
@@ -24,6 +26,7 @@ const SEED_USERS = {
       whatsappNumber: "+66812345678",
       phoneNumber: "+66812345678",
       isTopTalent: true,
+      verificationStatus: "verified" as VerificationStatusType,
     },
     {
       email: "worker2@example.com",
@@ -43,6 +46,7 @@ const SEED_USERS = {
       whatsappNumber: "+66823456789",
       phoneNumber: null,
       isTopTalent: true,
+      verificationStatus: "verified" as VerificationStatusType,
     },
     {
       email: "worker3@example.com",
@@ -62,6 +66,7 @@ const SEED_USERS = {
       whatsappNumber: "+66834567890",
       phoneNumber: "+66834567890",
       isTopTalent: true,
+      verificationStatus: "verified" as VerificationStatusType,
     },
     {
       email: "worker4@example.com",
@@ -81,6 +86,7 @@ const SEED_USERS = {
       whatsappNumber: null,
       phoneNumber: "+66845678901",
       isTopTalent: false,
+      verificationStatus: "pending" as VerificationStatusType,
     },
     {
       email: "worker5@example.com",
@@ -100,6 +106,7 @@ const SEED_USERS = {
       whatsappNumber: "+66856789012",
       phoneNumber: "+66856789012",
       isTopTalent: false,
+      verificationStatus: "pending" as VerificationStatusType,
     },
     {
       email: "worker6@example.com",
@@ -119,6 +126,7 @@ const SEED_USERS = {
       whatsappNumber: null,
       phoneNumber: "+66867890123",
       isTopTalent: false,
+      verificationStatus: "unverified" as VerificationStatusType,
     },
     {
       email: "worker7@example.com",
@@ -138,6 +146,7 @@ const SEED_USERS = {
       whatsappNumber: "+66878901234",
       phoneNumber: null,
       isTopTalent: false,
+      verificationStatus: "unverified" as VerificationStatusType,
     },
     {
       email: "worker8@example.com",
@@ -157,6 +166,7 @@ const SEED_USERS = {
       whatsappNumber: "+66889012345",
       phoneNumber: "+66889012345",
       isTopTalent: false,
+      verificationStatus: "rejected" as VerificationStatusType,
     },
   ],
   recruiters: [
@@ -296,6 +306,8 @@ async function seed(): Promise<void> {
             whatsappNumber: worker.whatsappNumber,
             phoneNumber: worker.phoneNumber,
             isPublished: true,
+            verificationStatus: worker.verificationStatus,
+            isVerified: worker.verificationStatus === "verified",
             updatedAt: new Date(),
           })
           .where(eq(schema.workerProfiles.id, profileId));
@@ -320,6 +332,8 @@ async function seed(): Promise<void> {
             whatsappNumber: worker.whatsappNumber,
             phoneNumber: worker.phoneNumber,
             isPublished: true,
+            verificationStatus: worker.verificationStatus,
+            isVerified: worker.verificationStatus === "verified",
             createdAt: new Date(),
             updatedAt: new Date(),
           })
@@ -540,8 +554,14 @@ async function seed(): Promise<void> {
     console.log("👷 WORKERS:");
     console.log("-".repeat(40));
     for (const worker of SEED_USERS.workers) {
-      const status = worker.isTopTalent ? "⭐ Top Talent" : "   Normal";
-      console.log(`${status}`);
+      const talentStatus = worker.isTopTalent ? "⭐ Top Talent" : "   Normal";
+      const verifyIcon = {
+        verified: "✅",
+        pending: "⏳",
+        unverified: "❓",
+        rejected: "❌",
+      }[worker.verificationStatus];
+      console.log(`${talentStatus} | ${verifyIcon} ${worker.verificationStatus}`);
       console.log(`   Email: ${worker.email}`);
       console.log(`   Name:  ${worker.name}`);
       console.log(`   Area:  ${worker.area}, ${worker.location}`);
