@@ -7,11 +7,17 @@ test.describe("Authentication Flow Smoke Tests", () => {
 
       await expect(page).toHaveTitle(/Paid Talent/i);
 
-      const findWorkButton = page.getByRole("link", { name: /find work/i });
-      const findTalentButton = page.getByRole("link", { name: /find talent/i });
+      // Scope to <main> — footer can duplicate "Start Recruiting"
+      const mainContent = page.getByRole("main");
+      const workerCta = mainContent.getByRole("link", {
+        name: /create worker profile/i,
+      });
+      const recruiterCta = mainContent.getByRole("link", {
+        name: /start recruiting/i,
+      });
 
-      await expect(findWorkButton.or(page.getByText(/find work/i).first())).toBeVisible();
-      await expect(findTalentButton.or(page.getByText(/find talent/i).first())).toBeVisible();
+      await expect(workerCta).toBeVisible();
+      await expect(recruiterCta).toBeVisible();
     });
 
     test("should navigate to role selection from landing page", async ({ page }) => {
@@ -94,10 +100,17 @@ test.describe("Authentication Flow Smoke Tests", () => {
       await page.goto("/auth/age-gate?role=worker");
 
       const continueButton = page.getByRole("button", { name: /continue/i });
-      await expect(continueButton).toBeDisabled();
+
+      // Product UX: Continue stays clickable; unconfirmed click shows error and does not navigate
+      await continueButton.click();
+      await expect(page.getByText(/Confirm you're 20\+ to continue/i)).toBeVisible();
+      await expect(page).toHaveURL(/auth\/age-gate/);
 
       await page.getByRole("checkbox").check();
-      await expect(continueButton).toBeEnabled();
+      await continueButton.click();
+
+      await expect(page).toHaveURL(/auth\/signin/);
+      await expect(page).toHaveURL(/ageConfirmed=true/);
     });
 
     test("should navigate to signin after confirming age", async ({ page }) => {
@@ -169,7 +182,9 @@ test.describe("Authentication Flow Smoke Tests", () => {
     test("should display error page content", async ({ page }) => {
       await page.goto("/auth/error");
 
-      await expect(page.getByText(/error|something went wrong/i)).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: /authentication error/i })
+      ).toBeVisible();
     });
   });
 });
@@ -200,9 +215,10 @@ test.describe("Mobile Responsiveness", () => {
 
     await expect(checkbox).toBeVisible();
     await expect(continueButton).toBeVisible();
-    
+
     await checkbox.check();
-    await expect(continueButton).toBeEnabled();
+    await continueButton.click();
+    await expect(page).toHaveURL(/auth\/signin/);
   });
 });
 
@@ -213,13 +229,13 @@ test.describe("Mobile DOB Input Layout", () => {
     await page.goto("/auth/age-gate?role=worker");
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /continue/i }).click();
-    
+
     await expect(page).toHaveURL(/auth\/signin/);
   });
 
   test("age gate card should fit within viewport width", async ({ page }) => {
     await page.goto("/auth/age-gate?role=worker");
-    
+
     const card = page.locator('[class*="Card"]').first();
     if (await card.isVisible()) {
       const cardBox = await card.boundingBox();
@@ -228,7 +244,7 @@ test.describe("Mobile DOB Input Layout", () => {
         expect(cardBox.x).toBeGreaterThanOrEqual(0);
       }
     }
-    
+
     const checkbox = page.getByRole("checkbox");
     const checkboxBox = await checkbox.boundingBox();
     if (checkboxBox) {
