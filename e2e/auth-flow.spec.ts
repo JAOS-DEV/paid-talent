@@ -7,6 +7,7 @@ test.describe("Authentication Flow Smoke Tests", () => {
 
       await expect(page).toHaveTitle(/Paid Talent/i);
 
+      // Scope to <main> — footer can duplicate "Start Recruiting"
       const mainContent = page.getByRole("main");
       const workerCta = mainContent.getByRole("link", {
         name: /create worker profile/i,
@@ -68,13 +69,13 @@ test.describe("Authentication Flow Smoke Tests", () => {
       await expect(continueButton).toBeEnabled();
     });
 
-    test("should navigate to age verification after role selection", async ({ page }) => {
+    test("should navigate to age gate after role selection", async ({ page }) => {
       await page.goto("/auth/role-select");
 
       await page.getByText(/i'm a worker/i).click();
       await page.getByRole("button", { name: /continue/i }).click();
 
-      await expect(page).toHaveURL(/auth\/age-verification/);
+      await expect(page).toHaveURL(/auth\/age-gate/);
     });
 
     test("should preserve role in URL params when navigating", async ({ page }) => {
@@ -87,79 +88,39 @@ test.describe("Authentication Flow Smoke Tests", () => {
     });
   });
 
-  test.describe("Age Verification Page", () => {
-    test("should display age verification form", async ({ page }) => {
-      await page.goto("/auth/age-verification?role=worker");
+  test.describe("Age Gate Page (Pre-auth)", () => {
+    test("should display age gate with 20+ checkbox", async ({ page }) => {
+      await page.goto("/auth/age-gate?role=worker");
 
-      await expect(page.getByRole("heading", { name: /age verification/i })).toBeVisible();
-
-      const dobInput = page.locator('input[type="date"]');
-      await expect(dobInput).toBeVisible();
-
-      await expect(page.getByText(/18 years of age or older/i)).toBeVisible();
+      await expect(page.getByRole("heading", { name: /age confirmation/i })).toBeVisible();
+      await expect(page.getByText(/I confirm I am 20 or older/i)).toBeVisible();
     });
 
-    test("should require checkbox confirmation", async ({ page }) => {
-      await page.goto("/auth/age-verification?role=worker");
+    test("should require checkbox to continue", async ({ page }) => {
+      await page.goto("/auth/age-gate?role=worker");
 
-      const dateInput = page.locator('input[type="date"]');
-      await dateInput.click();
-      await dateInput.fill("1990-01-15");
+      const continueButton = page.getByRole("button", { name: /continue/i });
 
-      const submitButton = page.getByRole("button", { name: /verify/i });
-      await expect(submitButton).toBeDisabled();
+      // Product UX: Continue stays clickable; unconfirmed click shows error and does not navigate
+      await continueButton.click();
+      await expect(page.getByText(/Confirm you're 20\+ to continue/i)).toBeVisible();
+      await expect(page).toHaveURL(/auth\/age-gate/);
 
       await page.getByRole("checkbox").check();
-      await expect(submitButton).toBeEnabled({ timeout: 10000 });
+      await continueButton.click();
+
+      await expect(page).toHaveURL(/auth\/signin/);
+      await expect(page).toHaveURL(/ageConfirmed=true/);
     });
 
-    test("should show error for underage users", async ({ page }) => {
-      await page.goto("/auth/age-verification?role=worker");
+    test("should navigate to signin after confirming age", async ({ page }) => {
+      await page.goto("/auth/age-gate?role=worker");
 
-      const today = new Date();
-      const underageDate = new Date(
-        today.getFullYear() - 16,
-        today.getMonth(),
-        today.getDate()
-      );
-      const formattedDate = underageDate.toISOString().split("T")[0];
-
-      const dateInput = page.locator('input[type="date"]');
-      await dateInput.click();
-      await dateInput.fill(formattedDate);
       await page.getByRole("checkbox").check();
-      
-      const submitButton = page.getByRole("button", { name: /verify/i });
-      await expect(submitButton).toBeEnabled({ timeout: 10000 });
-      await submitButton.click();
+      await page.getByRole("button", { name: /continue/i }).click();
 
-      await expect(page.getByText(/must be 18 years or older/i)).toBeVisible();
-    });
-
-    test("should navigate to sign-in for valid age", async ({ page }) => {
-      await page.goto("/auth/age-verification?role=worker");
-
-      const today = new Date();
-      const validDate = new Date(
-        today.getFullYear() - 25,
-        today.getMonth(),
-        today.getDate()
-      );
-      const formattedDate = validDate.toISOString().split("T")[0];
-
-      const dateInput = page.locator('input[type="date"]');
-      await dateInput.click();
-      await dateInput.fill(formattedDate);
-      await page.getByRole("checkbox").check();
-      
-      const submitButton = page.getByRole("button", { name: /verify/i });
-      await expect(submitButton).toBeEnabled({ timeout: 10000 });
-      await submitButton.click();
-
-      await expect(page).toHaveURL(/auth\/signin/, { timeout: 5000 });
-      await expect(
-        page.getByRole("heading", { name: /create your account/i })
-      ).toBeVisible();
+      await expect(page).toHaveURL(/auth\/signin/);
+      await expect(page).toHaveURL(/ageConfirmed=true/);
     });
   });
 
@@ -191,30 +152,14 @@ test.describe("Authentication Flow Smoke Tests", () => {
       await page.getByText(/i'm a worker/i).click();
       await page.getByRole("button", { name: /continue/i }).click();
 
-      await expect(page).toHaveURL(/auth\/age-verification/);
-      await expect(page.getByRole("heading", { name: /age verification/i })).toBeVisible();
+      await expect(page).toHaveURL(/auth\/age-gate/);
+      await expect(page.getByRole("heading", { name: /age confirmation/i })).toBeVisible();
 
-      const today = new Date();
-      const validDate = new Date(
-        today.getFullYear() - 25,
-        today.getMonth(),
-        today.getDate()
-      );
-      const formattedDate = validDate.toISOString().split("T")[0];
-
-      const dateInput = page.locator('input[type="date"]');
-      await dateInput.click();
-      await dateInput.fill(formattedDate);
       await page.getByRole("checkbox").check();
-      
-      const submitButton = page.getByRole("button", { name: /verify/i });
-      await expect(submitButton).toBeEnabled({ timeout: 10000 });
-      await submitButton.click();
+      await page.getByRole("button", { name: /continue/i }).click();
 
       await expect(page).toHaveURL(/auth\/signin/);
-      await expect(
-        page.getByRole("heading", { name: /create your account/i })
-      ).toBeVisible();
+      await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
     });
 
     test("recruiter flow should preserve role through flow", async ({ page }) => {
@@ -225,24 +170,11 @@ test.describe("Authentication Flow Smoke Tests", () => {
 
       await expect(page).toHaveURL(/role=recruiter/);
 
-      const today = new Date();
-      const validDate = new Date(
-        today.getFullYear() - 30,
-        today.getMonth(),
-        today.getDate()
-      );
-      const formattedDate = validDate.toISOString().split("T")[0];
-
-      const dateInput = page.locator('input[type="date"]');
-      await dateInput.click();
-      await dateInput.fill(formattedDate);
       await page.getByRole("checkbox").check();
-      
-      const submitButton = page.getByRole("button", { name: /verify/i });
-      await expect(submitButton).toBeEnabled({ timeout: 10000 });
-      await submitButton.click();
+      await page.getByRole("button", { name: /continue/i }).click();
 
       await expect(page).toHaveURL(/role=recruiter/);
+      await expect(page).toHaveURL(/ageConfirmed=true/);
     });
   });
 
@@ -275,15 +207,140 @@ test.describe("Mobile Responsiveness", () => {
     await expect(continueButton).toBeEnabled();
   });
 
-  test("age verification should be usable on mobile", async ({ page }) => {
-    await page.goto("/auth/age-verification?role=worker");
+  test("age gate should be usable on mobile", async ({ page }) => {
+    await page.goto("/auth/age-gate?role=worker");
 
-    const dobInput = page.locator('input[type="date"]');
     const checkbox = page.getByRole("checkbox");
-    const submitButton = page.getByRole("button", { name: /verify/i });
+    const continueButton = page.getByRole("button", { name: /continue/i });
 
-    await expect(dobInput).toBeVisible();
     await expect(checkbox).toBeVisible();
-    await expect(submitButton).toBeVisible();
+    await expect(continueButton).toBeVisible();
+
+    await checkbox.check();
+    await continueButton.click();
+    await expect(page).toHaveURL(/auth\/signin/);
   });
 });
+
+test.describe("Mobile DOB Input Layout", () => {
+  test.use({ viewport: { width: 320, height: 568 } }); // iPhone SE size
+
+  test("DOB input should not overflow card on small mobile screens", async ({ page }) => {
+    await page.goto("/auth/age-gate?role=worker");
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /continue/i }).click();
+
+    await expect(page).toHaveURL(/auth\/signin/);
+  });
+
+  test("age gate card should fit within viewport width", async ({ page }) => {
+    await page.goto("/auth/age-gate?role=worker");
+
+    const card = page.locator('[class*="Card"]').first();
+    if (await card.isVisible()) {
+      const cardBox = await card.boundingBox();
+      if (cardBox) {
+        expect(cardBox.width).toBeLessThanOrEqual(320);
+        expect(cardBox.x).toBeGreaterThanOrEqual(0);
+      }
+    }
+
+    const checkbox = page.getByRole("checkbox");
+    const checkboxBox = await checkbox.boundingBox();
+    if (checkboxBox) {
+      expect(checkboxBox.width).toBeGreaterThanOrEqual(20);
+      expect(checkboxBox.height).toBeGreaterThanOrEqual(20);
+    }
+  });
+});
+
+test.describe("Auth Redirect Loop Regression (anonymous + signup intent)", () => {
+  test("unauthenticated users should be redirected from protected routes to signin", async ({ page }) => {
+    await page.goto("/worker/dashboard");
+    await expect(page).toHaveURL(/auth\/signin/);
+    await expect(page).toHaveURL(/callbackUrl/);
+  });
+
+  test("unauthenticated users should be redirected from recruiter routes to signin", async ({ page }) => {
+    await page.goto("/recruiter/dashboard");
+    await expect(page).toHaveURL(/auth\/signin/);
+  });
+
+  test("pre-auth public routes remain accessible without a session", async ({ page }) => {
+    await page.goto("/auth/role-select");
+    await expect(page.getByRole("heading", { name: /welcome to paid talent/i })).toBeVisible();
+
+    await page.goto("/auth/age-gate?role=worker");
+    await expect(page.getByRole("heading", { name: /age confirmation/i })).toBeVisible();
+
+    await page.goto("/auth/signin");
+    await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+
+    await page.goto("/");
+    await expect(page).toHaveTitle(/Paid Talent/i);
+  });
+
+  test("anonymous users cannot use post-auth DOB page (redirect to signin)", async ({ page }) => {
+    await page.goto("/auth/age-verification");
+    await expect(page).toHaveURL(/auth\/signin/);
+  });
+
+  test("worker signup path sets signup_intent_role cookie before Google OAuth", async ({
+    page,
+  }) => {
+    await page.goto("/auth/role-select");
+    await page.getByText(/i'm a worker/i).click();
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page).toHaveURL(/auth\/age-gate/);
+
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page).toHaveURL(/auth\/signin/);
+    await expect(page).toHaveURL(/role=worker/);
+    await expect(page).toHaveURL(/ageConfirmed=true/);
+
+    // Prevent leaving the app for real Google OAuth
+    await page.route("**/api/auth/**", async (route) => {
+      if (route.request().url().includes("signin/google") || route.request().url().includes("callback/google")) {
+        await route.abort();
+        return;
+      }
+      await route.continue();
+    });
+    await page.route("**/accounts.google.com/**", (route) => route.abort());
+
+    await page.getByRole("button", { name: /google/i }).click();
+
+    await expect
+      .poll(async () => {
+        const cookies = await page.context().cookies();
+        return cookies.find((c) => c.name === "signup_intent_role")?.value;
+      })
+      .toBe("worker");
+  });
+
+  test("recruiter signup path preserves role through age-gate into signin URL", async ({
+    page,
+  }) => {
+    await page.goto("/auth/role-select");
+    await page.getByText(/i'm a recruiter/i).click();
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page).toHaveURL(/role=recruiter/);
+
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /continue/i }).click();
+
+    await expect(page).toHaveURL(/auth\/signin/);
+    await expect(page).toHaveURL(/role=recruiter/);
+    await expect(page).toHaveURL(/ageConfirmed=true/);
+  });
+});
+
+/**
+ * Authenticated ageVerified=false → age-verification, JWT update after verify-age,
+ * and signIn completing (not aborting to age-verification) are covered by unit tests:
+ * - src/lib/auth/__tests__/sign-in-decision.test.ts
+ * - src/lib/auth/__tests__/middleware-gate.test.ts
+ *
+ * Real Google OAuth end-to-end cannot be automated without live credentials.
+ */

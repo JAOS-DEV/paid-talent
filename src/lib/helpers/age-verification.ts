@@ -1,4 +1,4 @@
-export const MIN_AGE_REQUIREMENT = 18;
+export const MIN_AGE_REQUIREMENT = 20;
 
 export function calculateAge(dateOfBirth: Date, referenceDate: Date = new Date()): number {
   const birthDate = new Date(dateOfBirth);

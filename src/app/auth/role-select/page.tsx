@@ -22,7 +22,7 @@ function RoleSelectForm(): React.ReactElement {
     params.set("role", selectedRole);
     if (email) params.set("email", email);
 
-    router.push(`/auth/age-verification?${params.toString()}`);
+    router.push(`/auth/age-gate?${params.toString()}`);
   };
 
   return (

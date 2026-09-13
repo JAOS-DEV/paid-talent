@@ -5,16 +5,7 @@ import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { getProfileCompleteness } from "@/lib/profile";
 import { getHomeRedirectDestination } from "@/lib/helpers/home-redirect";
-
-const publicRoutes = [
-  "/",
-  "/auth/signin",
-  "/auth/role-select",
-  "/auth/age-verification",
-  "/auth/verify-request",
-  "/auth/error",
-  "/api/auth",
-];
+import { resolveMiddlewareGate } from "@/lib/auth/middleware-gate";
 
 const workerOnlyRoutes = ["/worker"];
 const recruiterOnlyRoutes = ["/recruiter", "/search"];
@@ -35,46 +26,35 @@ export default async function middleware(req: NextRequest): Promise<NextResponse
   const { pathname } = req.nextUrl;
   const session = await auth();
 
-  const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith(route + "/")
-  );
-
   const isApiRoute = pathname.startsWith("/api/");
-  const isAuthRoute = pathname.startsWith("/api/auth");
+  const isAuthApiRoute = pathname.startsWith("/api/auth");
+  const user = session?.user as
+    | { ageVerified?: boolean; role?: string; id?: string }
+    | undefined;
 
-  if (isAuthRoute) {
+  const gate = resolveMiddlewareGate({
+    pathname,
+    hasSession: !!session?.user,
+    ageVerified: !!user?.ageVerified,
+    isApiRoute,
+    isAuthApiRoute,
+  });
+
+  if (gate.action === "json") {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
+
+  if (gate.action === "redirect") {
+    const url = new URL(gate.destination, req.url);
+    if (gate.setCallbackUrl) {
+      url.searchParams.set("callbackUrl", pathname);
+    }
+    return NextResponse.redirect(url);
+  }
+
+  // Auth API and unauthenticated public routes are done after allow
+  if (isAuthApiRoute || !session?.user || !user) {
     return NextResponse.next();
-  }
-
-  if (!session?.user) {
-    if (isPublicRoute) {
-      return NextResponse.next();
-    }
-
-    if (isApiRoute) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const signInUrl = new URL("/auth/signin", req.url);
-    signInUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(signInUrl);
-  }
-
-  const user = session.user as { ageVerified?: boolean; role?: string; id?: string };
-
-  if (!user.ageVerified) {
-    if (pathname === "/auth/age-verification") {
-      return NextResponse.next();
-    }
-
-    if (isApiRoute) {
-      return NextResponse.json(
-        { error: "Age verification required" },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.redirect(new URL("/auth/age-verification", req.url));
   }
 
   if (pathname === "/") {
