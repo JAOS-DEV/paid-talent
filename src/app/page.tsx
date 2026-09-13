@@ -30,12 +30,12 @@ export default function HomePage(): React.ReactElement {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/auth/role-select?role=worker">
+                <Link href="/auth/age-verification?role=worker">
                   <Button size="lg" className="w-full sm:w-auto">
                     Create Worker Profile
                   </Button>
                 </Link>
-                <Link href="/auth/role-select?role=recruiter">
+                <Link href="/auth/age-verification?role=recruiter">
                   <Button
                     variant="gold"
                     size="lg"
@@ -122,7 +122,7 @@ export default function HomePage(): React.ReactElement {
             </p>
 
             <div className="flex justify-center">
-              <Link href="/auth/role-select?role=recruiter">
+              <Link href="/auth/age-verification?role=recruiter">
                 <Button variant="gold" size="lg">
                   Subscribe to Top Talent
                 </Button>
