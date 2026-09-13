@@ -2,9 +2,10 @@ import { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
-import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
+import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
+import { isOver18 } from "@/lib/helpers/age-verification";
 
 export const authConfig: NextAuthConfig = {
   providers: [
@@ -123,18 +124,4 @@ export async function createUserWithRole(
   return newUser;
 }
 
-export function isOver18(dateOfBirth: Date): boolean {
-  const today = new Date();
-  const birthDate = new Date(dateOfBirth);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && today.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-
-  return age >= 18;
-}
+export { isOver18 };
