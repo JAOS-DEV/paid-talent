@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { generatePresignedUploadUrl, ALLOWED_IMAGE_TYPES } from "@/lib/storage/s3";
-import { moderateProfilePhoto, sendModerationWebhook } from "@/lib/moderation";
+import {
+  generatePresignedUploadUrl,
+  ALLOWED_IMAGE_TYPES,
+} from "@/lib/storage/s3";
+import {
+  sendModerationWebhook,
+  canUploadPhoto,
+  submitPhotoForModeration,
+  PHOTO_POLICY_COPY,
+} from "@/lib/moderation";
 import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -39,6 +47,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { contentType, folder } = validation.data;
 
+    if (folder === "profiles" && session.user.role === "worker") {
+      const [profile] = await db
+        .select({ id: workerProfiles.id })
+        .from(workerProfiles)
+        .where(eq(workerProfiles.userId, session.user.id))
+        .limit(1);
+
+      if (profile) {
+        const limitCheck = await canUploadPhoto(profile.id);
+        if (!limitCheck.canUpload) {
+          return NextResponse.json(
+            {
+              error: "Upload limit reached",
+              message: limitCheck.reason,
+              limits: {
+                approved: limitCheck.currentApprovedCount,
+                pending: limitCheck.currentPendingCount,
+              },
+            },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const { uploadUrl, key, publicUrl } = await generatePresignedUploadUrl(
       session.user.id,
       contentType,
@@ -50,6 +83,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       key,
       publicUrl,
       expiresIn: 3600,
+      policy: {
+        helper: PHOTO_POLICY_COPY.helper,
+        rules: PHOTO_POLICY_COPY.rules,
+      },
     });
   } catch (error) {
     console.error("[Media Upload] Error:", error);
@@ -69,7 +106,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
 
     const body = await request.json();
-    const { key, publicUrl } = body;
+    const { key, publicUrl, folder } = body;
 
     if (!key || !publicUrl) {
       return NextResponse.json(
@@ -78,49 +115,70 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const moderationResult = await moderateProfilePhoto(
-      publicUrl,
-      session.user.id
-    );
+    if (
+      (folder === "profiles" || key.startsWith("profiles/")) &&
+      session.user.role === "worker"
+    ) {
+      const [profile] = await db
+        .select({ id: workerProfiles.id })
+        .from(workerProfiles)
+        .where(eq(workerProfiles.userId, session.user.id))
+        .limit(1);
 
-    await sendModerationWebhook({
-      type: "image",
-      resourceId: key,
-      resourceType: "profile_photo",
-      userId: session.user.id,
-      result: moderationResult,
-      timestamp: new Date(),
-    });
+      if (!profile) {
+        return NextResponse.json(
+          { error: "Worker profile not found" },
+          { status: 404 }
+        );
+      }
 
-    if (!moderationResult.approved) {
-      return NextResponse.json(
-        {
-          error: "Image did not pass moderation",
-          reason: moderationResult.reason,
-        },
-        { status: 400 }
+      const uploadResult = await submitPhotoForModeration(
+        session.user.id,
+        profile.id,
+        key,
+        publicUrl
       );
-    }
 
-    if (session.user.role === "worker") {
-      await db
-        .update(workerProfiles)
-        .set({
-          photoKey: key,
-          photoUrl: publicUrl,
-          updatedAt: new Date(),
-        })
-        .where(eq(workerProfiles.userId, session.user.id));
+      if (!uploadResult.success) {
+        return NextResponse.json(
+          {
+            error: uploadResult.error,
+            message: uploadResult.userMessage,
+          },
+          { status: 400 }
+        );
+      }
+
+      await sendModerationWebhook({
+        type: "image",
+        resourceId: key,
+        resourceType: "profile_photo",
+        userId: session.user.id,
+        result: {
+          approved: uploadResult.status === "approved",
+          flagged: uploadResult.status !== "approved",
+          reason: uploadResult.decision?.reason,
+        },
+        timestamp: new Date(),
+      });
+
+      return NextResponse.json({
+        success: true,
+        key,
+        url: publicUrl,
+        photoId: uploadResult.photoId,
+        moderation: {
+          status: uploadResult.status,
+          message: uploadResult.userMessage,
+          requiresReview: uploadResult.decision?.requiresReview ?? false,
+        },
+      });
     }
 
     return NextResponse.json({
       success: true,
       key,
       url: publicUrl,
-      moderation: {
-        approved: moderationResult.approved,
-        flagged: moderationResult.flagged,
-      },
     });
   } catch (error) {
     console.error("[Media Confirm] Error:", error);

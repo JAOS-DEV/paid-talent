@@ -529,6 +529,138 @@ Configure `MODERATION_WEBHOOK_URL` to receive moderation events:
 
 ---
 
+## Profile Photo Moderation & Quarantine
+
+### Overview
+
+Profile photos are subject to content moderation with a quarantine system. New photos are analyzed and either auto-approved, auto-rejected, or quarantined for admin review. Recruiters only see approved photos.
+
+### Photo Policy (James-Locked)
+
+| Content | Action | Requires Review |
+|---------|--------|-----------------|
+| Nudes / sexual acts / genitals | **BAN** (auto-reject) | No |
+| Violence / hate symbols / drugs | **BAN** (auto-reject) | No |
+| Lingerie / swimwear | **QUARANTINE** | Yes |
+| Suggestive content | **QUARANTINE** | Yes |
+| Low confidence (< 70%) | **QUARANTINE** | Yes |
+| Ambiguous content | **QUARANTINE** | Yes |
+| Safe content (high confidence) | **APPROVE** | No |
+
+### Limits
+
+- **Maximum 5** profile photos per worker
+- **Maximum 1** pending photo under review at a time
+- Recruiters only see **approved** photos
+- Previous approved photo stays visible while new one is pending
+
+### Designer Copy (Locked)
+
+| Context | Copy |
+|---------|------|
+| Helper | "Add a clear photo so venues recognise you. Face visible preferred." |
+| Rules | "No nudes. Lingerie OK — we'll review before it goes live." |
+| Pending | "Photo under review — your profile stays visible with your previous photo until approved." |
+| Rejected | "This photo didn't meet our guidelines. Try a clear, face-forward shot without nudity." |
+
+### Location
+
+```
+src/lib/moderation/
+├── index.ts              # Main exports
+├── photo-policy.ts       # Policy rules & copy
+├── photo-provider.ts     # Provider adapter interface
+└── photo-moderation.ts   # Business logic & DB operations
+```
+
+### Provider Adapter Interface
+
+```typescript
+interface PhotoModerationProvider {
+  name: string;
+  analyzeImage(imageUrl: string): Promise<PhotoAnalysisResult>;
+}
+```
+
+### Available Providers
+
+| Provider | Status | Configuration |
+|----------|--------|---------------|
+| `StubPhotoModerationProvider` | Built-in | Default for development/tests |
+| `AWSRekognitionProvider` | Built-in | Set `AWS_REKOGNITION_ACCESS_KEY_ID` and `AWS_REKOGNITION_SECRET_ACCESS_KEY` |
+
+### Custom Provider Implementation
+
+```typescript
+import { setPhotoModerationProvider, type PhotoModerationProvider } from '@/lib/moderation';
+
+class CustomProvider implements PhotoModerationProvider {
+  name = "custom";
+  
+  async analyzeImage(imageUrl: string): Promise<PhotoAnalysisResult> {
+    // Your implementation
+    return { categories: ["safe"], confidence: 0.95 };
+  }
+}
+
+setPhotoModerationProvider(new CustomProvider());
+```
+
+### Database Schema
+
+```sql
+CREATE TABLE profile_photos (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  worker_profile_id UUID REFERENCES worker_profiles(id),
+  photo_key TEXT NOT NULL,
+  photo_url TEXT NOT NULL,
+  moderation_status ENUM('pending', 'approved', 'rejected'),
+  moderation_reason TEXT,
+  moderation_confidence INTEGER,
+  moderation_categories JSONB,
+  moderation_reviewed_at TIMESTAMP,
+  moderation_reviewed_by TEXT,
+  display_order INTEGER,
+  is_current_approved BOOLEAN,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+```
+
+### Admin API
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/admin/photos/pending` | GET | List photos pending review |
+| `/api/admin/photos/[id]/approve` | POST | Approve a quarantined photo |
+| `/api/admin/photos/[id]/reject` | POST | Reject a quarantined photo |
+
+Admin access requires email in `ADMIN_EMAILS` environment variable.
+
+### Upload Flow
+
+1. **Client requests presigned URL** — limit check performed
+2. **Client uploads to S3**
+3. **Client confirms upload** — triggers moderation:
+   - Photo analyzed by provider
+   - Policy applied to determine action
+   - Photo stored with appropriate status
+   - If approved and first photo, becomes current profile photo
+4. **Admin reviews quarantined photos** (if needed)
+5. **Approved photo visible to recruiters**
+
+### Environment Variables
+
+```env
+# AWS Rekognition (optional - enables real moderation)
+AWS_REKOGNITION_ACCESS_KEY_ID=""
+AWS_REKOGNITION_SECRET_ACCESS_KEY=""
+AWS_REKOGNITION_REGION="us-east-1"
+```
+
+---
+
 ## Interest System
 
 ### No Chat - Interest Only
