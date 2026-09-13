@@ -196,6 +196,31 @@ const SEED_USERS = {
 const TOP_TALENT_VIEW_COUNT = 15;
 const NORMAL_VIEW_COUNT = 2;
 
+/**
+ * NOTE: Top Talent Ranking v1.1 Change
+ *
+ * With the v1.1 composite ranking algorithm, Top Talent status is now based on
+ * a composite score (0-100) from four factors:
+ *   1. Profile completeness (25%)
+ *   2. Unique recruiter views (30%)
+ *   3. Interest rate (25%)
+ *   4. Recency (20%)
+ *
+ * Previously, Top Talent was determined purely by view count (top 10% of viewed profiles).
+ *
+ * For local testing, seeded profiles may have different Top Talent designations:
+ * - Workers with complete profiles, recent updates, and some interests will rank higher
+ * - Workers with stale profiles or incomplete information will rank lower
+ * - The "isTopTalent" flag in seed data may not match runtime calculations
+ *
+ * To test specific ranking scenarios:
+ * - Modify profile fields in SEED_USERS.workers to test completeness impact
+ * - Add more interests in the "Seeding profile interests" section
+ * - Adjust view counts and viewer assignments
+ *
+ * @see docs/architecture.md for full ranking algorithm documentation
+ */
+
 function generateDateOfBirth(): string {
   const now = new Date();
   const minAge = 21;
