@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import "dotenv/config";
 import * as schema from "./schema";
 
@@ -509,14 +509,15 @@ async function seed(): Promise<void> {
         const existing = await db
           .select()
           .from(schema.profileInterests)
-          .where(eq(schema.profileInterests.recruiterUserId, recruiter.userId))
+          .where(
+            and(
+              eq(schema.profileInterests.recruiterUserId, recruiter.userId),
+              eq(schema.profileInterests.workerProfileId, worker.profileId)
+            )
+          )
           .limit(1);
 
-        const interestExists = existing.some(
-          (interest) => interest.workerProfileId === worker.profileId
-        );
-
-        if (!interestExists) {
+        if (existing.length === 0) {
           await db.insert(schema.profileInterests).values({
             recruiterUserId: recruiter.userId,
             workerProfileId: worker.profileId,
