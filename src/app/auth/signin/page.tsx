@@ -2,11 +2,18 @@
 
 import React, { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button, Card, CardContent, Input } from "@/components/ui";
+
+const errorMessages: Record<string, string> = {
+  CredentialsSignin: "No account found with that email. Please check your email or sign up.",
+  OAuthAccountNotLinked: "Email already associated with another account.",
+  Default: "An error occurred during sign in.",
+};
 
 function SignInForm(): React.ReactElement {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const role = searchParams.get("role");
   const dob = searchParams.get("dob");
@@ -14,9 +21,11 @@ function SignInForm(): React.ReactElement {
 
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(errorParam);
 
   const handleGoogleSignIn = async (): Promise<void> => {
     setIsLoading(true);
+    setError(null);
 
     const finalCallbackUrl =
       role && dob
@@ -29,20 +38,37 @@ function SignInForm(): React.ReactElement {
   const handleEmailSignIn = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
-    await signIn("credentials", {
-      email,
-      callbackUrl,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError(result.error);
+        setIsLoading(false);
+        return;
+      }
+
+      if (result?.ok) {
+        router.push(callbackUrl);
+        router.refresh();
+      }
+    } catch {
+      setError("Default");
+      setIsLoading(false);
+    }
   };
+
+  const displayError = error ? (errorMessages[error] || errorMessages.Default) : null;
 
   return (
     <>
-      {errorParam && (
+      {displayError && (
         <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-          {errorParam === "OAuthAccountNotLinked"
-            ? "Email already associated with another account."
-            : "An error occurred during sign in."}
+          {displayError}
         </div>
       )}
 
