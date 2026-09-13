@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { db, profileInterests, workerProfiles, users } from "@/lib/db";
+import {
+  db,
+  profileInterests,
+  workerProfiles,
+  users,
+  recruiterProfiles,
+  recruiterOpenings,
+} from "@/lib/db";
 import { eq, and } from "drizzle-orm";
-import { z } from "zod";
-
-const createInterestSchema = z.object({
-  workerProfileId: z.string().uuid(),
-  message: z.string().max(500).optional(),
-});
+import {
+  createInterestSchema,
+  sanitizeMessage,
+} from "@/lib/helpers/interest-validation";
+import { resolveOpeningAttachment } from "@/lib/interests/opening-attachment";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -35,7 +41,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { workerProfileId, message } = validation.data;
+    const { workerProfileId, message, openingId } = validation.data;
 
     const [profile] = await db
       .select()
@@ -48,6 +54,53 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { error: "Worker profile not found" },
         { status: 404 }
       );
+    }
+
+    const [recruiterProfile] = await db
+      .select({ id: recruiterProfiles.id })
+      .from(recruiterProfiles)
+      .where(eq(recruiterProfiles.userId, session.user.id))
+      .limit(1);
+
+    if (!recruiterProfile) {
+      return NextResponse.json(
+        { error: "Recruiter profile not found" },
+        { status: 404 }
+      );
+    }
+
+    let resolvedOpeningId: string | null = null;
+    if (openingId) {
+      const [opening] = await db
+        .select({
+          id: recruiterOpenings.id,
+          recruiterProfileId: recruiterOpenings.recruiterProfileId,
+          isPublished: recruiterOpenings.isPublished,
+        })
+        .from(recruiterOpenings)
+        .where(eq(recruiterOpenings.id, openingId))
+        .limit(1);
+
+      const attachment = resolveOpeningAttachment({
+        openingId,
+        recruiterProfileId: recruiterProfile.id,
+        opening: opening
+          ? {
+              id: opening.id,
+              recruiterProfileId: opening.recruiterProfileId,
+              isPublished: opening.isPublished,
+            }
+          : null,
+      });
+
+      if (!attachment.ok) {
+        return NextResponse.json(
+          { error: attachment.error },
+          { status: attachment.status }
+        );
+      }
+
+      resolvedOpeningId = attachment.openingId;
     }
 
     const [existingInterest] = await db
@@ -73,7 +126,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .values({
         recruiterUserId: session.user.id,
         workerProfileId,
-        message: message || null,
+        openingId: resolvedOpeningId,
+        message: sanitizeMessage(message),
         createdAt: new Date(),
       })
       .returning();
@@ -88,6 +142,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       interest: {
         id: newInterest.id,
         workerProfileId: newInterest.workerProfileId,
+        openingId: newInterest.openingId,
         createdAt: newInterest.createdAt,
       },
     });
@@ -100,7 +155,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(_request: NextRequest): Promise<NextResponse> {
   try {
     const session = await auth();
 
@@ -116,6 +171,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           workerName: workerProfiles.displayName,
           workerPhoto: workerProfiles.photoUrl,
           message: profileInterests.message,
+          openingId: profileInterests.openingId,
           createdAt: profileInterests.createdAt,
         })
         .from(profileInterests)
@@ -145,6 +201,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           id: profileInterests.id,
           recruiterName: users.name,
           message: profileInterests.message,
+          openingId: profileInterests.openingId,
           notifiedAt: profileInterests.notifiedAt,
           createdAt: profileInterests.createdAt,
         })

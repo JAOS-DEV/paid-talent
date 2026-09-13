@@ -242,11 +242,46 @@ export const recruiterProfiles = pgTable(
     location: text("location"),
     contactEmail: text("contact_email"),
     contactPhone: text("contact_phone"),
+    logoKey: text("logo_key"),
+    logoUrl: text("logo_url"),
+    area: text("area"),
+    subArea: text("sub_area"),
+    blurb: text("blurb"),
     isVerified: boolean("is_verified").notNull().default(false),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
-  (table) => [index("recruiter_profiles_user_id_idx").on(table.userId)]
+  (table) => [
+    index("recruiter_profiles_user_id_idx").on(table.userId),
+    index("recruiter_profiles_area_idx").on(table.area),
+  ]
+);
+
+export const recruiterOpenings = pgTable(
+  "recruiter_openings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recruiterProfileId: uuid("recruiter_profile_id")
+      .notNull()
+      .references(() => recruiterProfiles.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    area: text("area").notNull(),
+    payMin: integer("pay_min"),
+    payMax: integer("pay_max"),
+    payCurrency: text("pay_currency").notNull().default("THB"),
+    payPeriod: text("pay_period").notNull().default("night"),
+    notes: text("notes"),
+    isPublished: boolean("is_published").notNull().default(false),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("recruiter_openings_recruiter_profile_id_idx").on(
+      table.recruiterProfileId
+    ),
+    index("recruiter_openings_area_idx").on(table.area),
+    index("recruiter_openings_is_published_idx").on(table.isPublished),
+  ]
 );
 
 export const profileViews = pgTable(
@@ -278,6 +313,9 @@ export const profileInterests = pgTable(
     workerProfileId: uuid("worker_profile_id")
       .notNull()
       .references(() => workerProfiles.id, { onDelete: "cascade" }),
+    openingId: uuid("opening_id").references(() => recruiterOpenings.id, {
+      onDelete: "set null",
+    }),
     message: text("message"),
     notifiedAt: timestamp("notified_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
@@ -285,6 +323,7 @@ export const profileInterests = pgTable(
   (table) => [
     index("profile_interests_recruiter_idx").on(table.recruiterUserId),
     index("profile_interests_worker_idx").on(table.workerProfileId),
+    index("profile_interests_opening_idx").on(table.openingId),
     uniqueIndex("profile_interests_unique_idx").on(
       table.recruiterUserId,
       table.workerProfileId
@@ -442,11 +481,23 @@ export const profilePhotosRelations = relations(profilePhotos, ({ one }) => ({
 
 export const recruiterProfilesRelations = relations(
   recruiterProfiles,
-  ({ one }) => ({
+  ({ one, many }) => ({
     user: one(users, {
       fields: [recruiterProfiles.userId],
       references: [users.id],
     }),
+    openings: many(recruiterOpenings),
+  })
+);
+
+export const recruiterOpeningsRelations = relations(
+  recruiterOpenings,
+  ({ one, many }) => ({
+    recruiterProfile: one(recruiterProfiles, {
+      fields: [recruiterOpenings.recruiterProfileId],
+      references: [recruiterProfiles.id],
+    }),
+    interests: many(profileInterests),
   })
 );
 
@@ -471,6 +522,10 @@ export const profileInterestsRelations = relations(
     workerProfile: one(workerProfiles, {
       fields: [profileInterests.workerProfileId],
       references: [workerProfiles.id],
+    }),
+    opening: one(recruiterOpenings, {
+      fields: [profileInterests.openingId],
+      references: [recruiterOpenings.id],
     }),
     hireOutcome: one(hireOutcomes, {
       fields: [profileInterests.id],
@@ -517,10 +572,13 @@ export type WorkerProfile = typeof workerProfiles.$inferSelect;
 export type NewWorkerProfile = typeof workerProfiles.$inferInsert;
 export type RecruiterProfile = typeof recruiterProfiles.$inferSelect;
 export type NewRecruiterProfile = typeof recruiterProfiles.$inferInsert;
+export type RecruiterOpening = typeof recruiterOpenings.$inferSelect;
+export type NewRecruiterOpening = typeof recruiterOpenings.$inferInsert;
 export type ProfilePhoto = typeof profilePhotos.$inferSelect;
 export type NewProfilePhoto = typeof profilePhotos.$inferInsert;
 export type ProfileView = typeof profileViews.$inferSelect;
 export type ProfileInterest = typeof profileInterests.$inferSelect;
+export type NewProfileInterest = typeof profileInterests.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type VerificationEvent = typeof verificationEvents.$inferSelect;
 export type NewVerificationEvent = typeof verificationEvents.$inferInsert;

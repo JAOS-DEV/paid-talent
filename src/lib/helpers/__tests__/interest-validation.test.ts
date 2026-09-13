@@ -54,6 +54,32 @@ describe("interest-validation helpers", () => {
       });
       expect(result.success).toBe(false);
     });
+    it("should accept optional null openingId for general interests", () => {
+      const result = createInterestSchema.safeParse({
+        workerProfileId: "123e4567-e89b-12d3-a456-426614174000",
+        openingId: null,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.openingId).toBeNull();
+      }
+    });
+
+    it("should accept optional openingId uuid", () => {
+      const result = createInterestSchema.safeParse({
+        workerProfileId: "123e4567-e89b-12d3-a456-426614174000",
+        openingId: "123e4567-e89b-12d3-a456-426614174001",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject invalid openingId", () => {
+      const result = createInterestSchema.safeParse({
+        workerProfileId: "123e4567-e89b-12d3-a456-426614174000",
+        openingId: "not-a-uuid",
+      });
+      expect(result.success).toBe(false);
+    });
   });
 
   describe("validateCreateInterest", () => {

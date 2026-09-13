@@ -8,7 +8,54 @@ type HireOutcomeStatusType = "interested" | "hired" | "started";
 
 type VerificationStatusType = "unverified" | "pending" | "verified" | "rejected";
 
-const SEED_USERS = {
+interface SeedOpening {
+  role: string;
+  area: string;
+  payMin?: number;
+  payMax?: number;
+  notes?: string;
+  isPublished?: boolean;
+}
+
+interface SeedRecruiter {
+  email: string;
+  name: string;
+  organizationName: string;
+  organizationType: string;
+  description: string;
+  location: string;
+  area?: string;
+  subArea?: string;
+  blurb?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  hasSubscription: boolean;
+  openings?: SeedOpening[];
+}
+
+const SEED_USERS: {
+  workers: Array<{
+    email: string;
+    name: string;
+    displayName: string;
+    location: string;
+    area: string;
+    description: string;
+    bio: string;
+    availability: string;
+    expectedPayMin: number;
+    expectedPayMax: number;
+    jobRoles: string[];
+    experienceYears: number;
+    languages: string[];
+    lineId: string | null;
+    whatsappNumber: string | null;
+    phoneNumber: string | null;
+    isTopTalent: boolean;
+    verificationStatus: VerificationStatusType;
+  }>;
+  recruiters: SeedRecruiter[];
+} = {
   workers: [
     {
       email: "worker1@example.com",
@@ -179,7 +226,20 @@ const SEED_USERS = {
       organizationType: "Bar",
       description: "Local bar looking for part-time staff",
       location: "Pattaya",
+      area: "Walking Street",
+      subArea: "Soi 6",
+      blurb: "Friendly neighborhood bar with live music and great cocktails. Looking for enthusiastic staff!",
       hasSubscription: false,
+      openings: [
+        {
+          role: "Bartender",
+          area: "Walking Street",
+          payMin: 500,
+          payMax: 800,
+          notes: "Weekend shifts preferred. Must have basic cocktail knowledge.",
+          isPublished: true,
+        },
+      ],
     },
     {
       email: "recruiter-pro@example.com",
@@ -188,9 +248,38 @@ const SEED_USERS = {
       organizationType: "Hotel",
       description: "Premium hospitality group operating multiple venues",
       location: "Bangkok",
+      area: "Sukhumvit",
+      subArea: "Soi 11",
+      blurb: "Award-winning hospitality group with rooftop bars, fine dining, and nightclubs across Bangkok.",
       contactEmail: "hr@luxuryvenues.example.com",
       contactPhone: "+66890123456",
       hasSubscription: true,
+      openings: [
+        {
+          role: "Hostess",
+          area: "Sukhumvit",
+          payMin: 800,
+          payMax: 1500,
+          notes: "For our flagship rooftop venue. English fluency required. Experience in upscale venues preferred.",
+          isPublished: true,
+        },
+        {
+          role: "Bartender",
+          area: "Thonglor",
+          payMin: 700,
+          payMax: 1200,
+          notes: "Mixology skills required. Craft cocktail experience a plus.",
+          isPublished: true,
+        },
+        {
+          role: "Server",
+          area: "Sukhumvit",
+          payMin: 600,
+          payMax: 1000,
+          notes: "Fine dining experience preferred. Wine knowledge is a bonus.",
+          isPublished: false,
+        },
+      ],
     },
   ],
 };
@@ -255,7 +344,7 @@ async function seed(): Promise<void> {
   const db = drizzle(client, { schema });
 
   const createdWorkers: Array<{ userId: string; profileId: string; email: string; isTopTalent: boolean }> = [];
-  const createdRecruiters: Array<{ userId: string; email: string; hasSubscription: boolean }> = [];
+  const createdRecruiters: Array<{ userId: string; recruiterProfileId: string; email: string; hasSubscription: boolean }> = [];
 
   try {
     console.log("📦 Seeding workers...");
@@ -428,7 +517,10 @@ async function seed(): Promise<void> {
         .where(eq(schema.recruiterProfiles.userId, userId))
         .limit(1);
 
+      let recruiterProfileId: string;
+
       if (existingProfile.length > 0) {
+        recruiterProfileId = existingProfile[0].id;
         await db
           .update(schema.recruiterProfiles)
           .set({
@@ -436,23 +528,53 @@ async function seed(): Promise<void> {
             organizationType: recruiter.organizationType,
             description: recruiter.description,
             location: recruiter.location,
+            area: recruiter.area ?? null,
+            subArea: recruiter.subArea ?? null,
+            blurb: recruiter.blurb ?? null,
             contactEmail: recruiter.contactEmail ?? null,
             contactPhone: recruiter.contactPhone ?? null,
             updatedAt: new Date(),
           })
           .where(eq(schema.recruiterProfiles.userId, userId));
       } else {
-        await db.insert(schema.recruiterProfiles).values({
+        const [newProfile] = await db.insert(schema.recruiterProfiles).values({
           userId,
           organizationName: recruiter.organizationName,
           organizationType: recruiter.organizationType,
           description: recruiter.description,
           location: recruiter.location,
+          area: recruiter.area ?? null,
+          subArea: recruiter.subArea ?? null,
+          blurb: recruiter.blurb ?? null,
           contactEmail: recruiter.contactEmail ?? null,
           contactPhone: recruiter.contactPhone ?? null,
           createdAt: new Date(),
           updatedAt: new Date(),
-        });
+        }).returning();
+        recruiterProfileId = newProfile.id;
+      }
+
+      if (recruiter.openings && recruiter.openings.length > 0) {
+        await db
+          .delete(schema.recruiterOpenings)
+          .where(eq(schema.recruiterOpenings.recruiterProfileId, recruiterProfileId));
+
+        for (const opening of recruiter.openings) {
+          await db.insert(schema.recruiterOpenings).values({
+            recruiterProfileId,
+            role: opening.role,
+            area: opening.area,
+            payMin: opening.payMin ?? null,
+            payMax: opening.payMax ?? null,
+            payCurrency: "THB",
+            payPeriod: "night",
+            notes: opening.notes ?? null,
+            isPublished: opening.isPublished ?? false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          console.log(`   📋 Opening: ${opening.role} at ${opening.area} (${opening.isPublished ? "published" : "draft"})`);
+        }
       }
 
       if (recruiter.hasSubscription) {
@@ -499,6 +621,7 @@ async function seed(): Promise<void> {
 
       createdRecruiters.push({
         userId,
+        recruiterProfileId,
         email: recruiter.email,
         hasSubscription: recruiter.hasSubscription,
       });
@@ -547,7 +670,28 @@ async function seed(): Promise<void> {
         ? [...topTalentWorkers.slice(0, 2), ...normalWorkers.slice(0, 1)]
         : normalWorkers.slice(0, 2);
 
-      for (const worker of workersToInterest) {
+      const [recruiterProfile] = await db
+        .select({ id: schema.recruiterProfiles.id })
+        .from(schema.recruiterProfiles)
+        .where(eq(schema.recruiterProfiles.userId, recruiter.userId))
+        .limit(1);
+
+      const recruiterOpenings = recruiterProfile
+        ? await db
+            .select({ id: schema.recruiterOpenings.id, role: schema.recruiterOpenings.role })
+            .from(schema.recruiterOpenings)
+            .where(
+              and(
+                eq(schema.recruiterOpenings.recruiterProfileId, recruiterProfile.id),
+                eq(schema.recruiterOpenings.isPublished, true)
+              )
+            )
+        : [];
+
+      for (let i = 0; i < workersToInterest.length; i++) {
+        const worker = workersToInterest[i];
+        const linkedOpening = recruiterOpenings[i % recruiterOpenings.length];
+
         const existing = await db
           .select()
           .from(schema.profileInterests)
@@ -564,16 +708,24 @@ async function seed(): Promise<void> {
           const [newInterest] = await db.insert(schema.profileInterests).values({
             recruiterUserId: recruiter.userId,
             workerProfileId: worker.profileId,
+            openingId: linkedOpening?.id ?? null,
             message: recruiter.hasSubscription
-              ? "We have an exciting opportunity for you at our venue!"
+              ? `We have an exciting ${linkedOpening?.role || "opportunity"} position for you at our venue!`
               : "Interested in discussing a position with you.",
             createdAt: new Date(),
           }).returning();
 
           interestId = newInterest.id;
-          console.log(`   ✅ ${recruiter.email} → ${worker.email}`);
+          const openingTag = linkedOpening ? ` [${linkedOpening.role}]` : "";
+          console.log(`   ✅ ${recruiter.email} → ${worker.email}${openingTag}`);
         } else {
           interestId = existing[0].id;
+          if (linkedOpening && !existing[0].openingId) {
+            await db
+              .update(schema.profileInterests)
+              .set({ openingId: linkedOpening.id })
+              .where(eq(schema.profileInterests.id, interestId));
+          }
         }
 
         createdInterests.push({
@@ -690,6 +842,13 @@ async function seed(): Promise<void> {
       console.log(`   Email: ${recruiter.email}`);
       console.log(`   Name:  ${recruiter.name}`);
       console.log(`   Org:   ${recruiter.organizationName}`);
+      console.log(`   Area:  ${recruiter.area || "N/A"}${recruiter.subArea ? `, ${recruiter.subArea}` : ""}`);
+      if (recruiter.blurb) {
+        console.log(`   Blurb: ${recruiter.blurb.slice(0, 50)}${recruiter.blurb.length > 50 ? "..." : ""}`);
+      }
+      if (recruiter.openings && recruiter.openings.length > 0) {
+        console.log(`   Openings: ${recruiter.openings.length} (${recruiter.openings.filter(o => o.isPublished).length} published)`);
+      }
       console.log("");
     }
 
