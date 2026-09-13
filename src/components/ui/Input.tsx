@@ -9,13 +9,14 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, error, helperText, className = "", id, ...props },
+  { label, error, helperText, className = "", id, type, ...props },
   ref
 ) {
   const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
+  const isDateInput = type === "date";
 
   return (
-    <div className="w-full">
+    <div className="w-full min-w-0">
       {label && (
         <label
           htmlFor={inputId}
@@ -27,13 +28,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       <input
         ref={ref}
         id={inputId}
+        type={type}
         className={`
-          w-full px-4 py-2.5
+          w-full min-w-0 max-w-full px-4 py-2.5
           bg-charcoal-800 border border-charcoal-600
           rounded-lg text-charcoal-100
           placeholder:text-charcoal-500
           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
           disabled:opacity-50 disabled:cursor-not-allowed
+          ${isDateInput ? "min-h-[44px] appearance-none" : ""}
           ${error ? "border-error ring-1 ring-error" : ""}
           ${className}
         `}

@@ -10,7 +10,7 @@ const publicRoutes = [
   "/",
   "/auth/signin",
   "/auth/role-select",
-  "/auth/age-verification",
+  "/auth/age-gate",
   "/auth/verify-request",
   "/auth/error",
   "/api/auth",

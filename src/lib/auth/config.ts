@@ -2,8 +2,9 @@ import { type NextAuthConfig } from "next-auth";
 import type { Provider } from "@auth/core/providers";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, workerProfiles, recruiterProfiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
 import { isOver18 } from "@/lib/helpers/age-verification";
@@ -138,6 +139,9 @@ export const authConfig: NextAuthConfig = {
   },
   callbacks: {
     async signIn({ user, account }) {
+      const cookieStore = await cookies();
+      const signupIntentRole = cookieStore.get("signup_intent_role")?.value as UserRole | undefined;
+
       // Handle OAuth providers (Google)
       if (account?.provider === "google") {
         const [existingUser] = await db
@@ -147,12 +151,53 @@ export const authConfig: NextAuthConfig = {
           .limit(1);
 
         if (!existingUser) {
+          if (signupIntentRole && ["worker", "recruiter"].includes(signupIntentRole)) {
+            const now = new Date();
+            const [newUser] = await db
+              .insert(users)
+              .values({
+                email: user.email!,
+                name: user.name ?? null,
+                image: user.image ?? null,
+                role: signupIntentRole,
+                ageVerified: false,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .returning();
+
+            if (signupIntentRole === "worker") {
+              await db.insert(workerProfiles).values({
+                userId: newUser.id,
+                displayName: user.name || user.email!.split("@")[0],
+                createdAt: now,
+                updatedAt: now,
+              });
+            } else {
+              await db.insert(recruiterProfiles).values({
+                userId: newUser.id,
+                createdAt: now,
+                updatedAt: now,
+              });
+            }
+
+            user.id = newUser.id;
+            (user as { role: UserRole }).role = signupIntentRole;
+            (user as { ageVerified: boolean }).ageVerified = false;
+
+            return "/auth/age-verification";
+          }
+
           return "/auth/role-select?email=" + encodeURIComponent(user.email!);
         }
 
         if (!existingUser.ageVerified) {
           return "/auth/age-verification";
         }
+
+        user.id = existingUser.id;
+        (user as { role: UserRole }).role = existingUser.role as UserRole;
+        (user as { ageVerified: boolean }).ageVerified = existingUser.ageVerified;
       }
 
       // Handle Email magic link provider
@@ -164,13 +209,52 @@ export const authConfig: NextAuthConfig = {
           .limit(1);
 
         if (!existingUser) {
-          // New user via magic link - redirect to role selection
+          if (signupIntentRole && ["worker", "recruiter"].includes(signupIntentRole)) {
+            const now = new Date();
+            const [newUser] = await db
+              .insert(users)
+              .values({
+                email: user.email!,
+                name: user.name ?? null,
+                role: signupIntentRole,
+                ageVerified: false,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .returning();
+
+            if (signupIntentRole === "worker") {
+              await db.insert(workerProfiles).values({
+                userId: newUser.id,
+                displayName: user.name || user.email!.split("@")[0],
+                createdAt: now,
+                updatedAt: now,
+              });
+            } else {
+              await db.insert(recruiterProfiles).values({
+                userId: newUser.id,
+                createdAt: now,
+                updatedAt: now,
+              });
+            }
+
+            user.id = newUser.id;
+            (user as { role: UserRole }).role = signupIntentRole;
+            (user as { ageVerified: boolean }).ageVerified = false;
+
+            return "/auth/age-verification";
+          }
+
           return "/auth/role-select?email=" + encodeURIComponent(user.email!);
         }
 
         if (!existingUser.ageVerified) {
-          return "/auth/age-verification?email=" + encodeURIComponent(user.email!);
+          return "/auth/age-verification";
         }
+
+        user.id = existingUser.id;
+        (user as { role: UserRole }).role = existingUser.role as UserRole;
+        (user as { ageVerified: boolean }).ageVerified = existingUser.ageVerified;
       }
 
       return true;
