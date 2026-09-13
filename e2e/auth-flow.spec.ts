@@ -237,3 +237,45 @@ test.describe("Mobile DOB Input Layout", () => {
     }
   });
 });
+
+test.describe("Middleware Redirect Rules", () => {
+  test("unauthenticated users should be redirected from protected routes to signin", async ({ page }) => {
+    await page.goto("/worker/dashboard");
+    await expect(page).toHaveURL(/auth\/signin/);
+    await expect(page).toHaveURL(/callbackUrl/);
+  });
+
+  test("unauthenticated users should be redirected from recruiter routes to signin", async ({ page }) => {
+    await page.goto("/recruiter/dashboard");
+    await expect(page).toHaveURL(/auth\/signin/);
+  });
+
+  test("public routes should be accessible without authentication", async ({ page }) => {
+    await page.goto("/auth/role-select");
+    await expect(page).toHaveURL(/auth\/role-select/);
+    await expect(page.getByRole("heading", { name: /welcome to paid talent/i })).toBeVisible();
+  });
+
+  test("age-gate should be accessible without authentication", async ({ page }) => {
+    await page.goto("/auth/age-gate?role=worker");
+    await expect(page).toHaveURL(/auth\/age-gate/);
+    await expect(page.getByRole("heading", { name: /age confirmation/i })).toBeVisible();
+  });
+
+  test("signin page should be accessible without authentication", async ({ page }) => {
+    await page.goto("/auth/signin");
+    await expect(page).toHaveURL(/auth\/signin/);
+    await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+  });
+
+  test("landing page should be accessible without authentication", async ({ page }) => {
+    await page.goto("/");
+    await expect(page).toHaveURL("/");
+    await expect(page).toHaveTitle(/Paid Talent/i);
+  });
+
+  test("age-verification page should redirect unauthenticated users to signin", async ({ page }) => {
+    await page.goto("/auth/age-verification");
+    await expect(page).toHaveURL(/auth\/signin/);
+  });
+});

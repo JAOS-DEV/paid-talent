@@ -185,19 +185,20 @@ export const authConfig: NextAuthConfig = {
             (user as { role: UserRole }).role = signupIntentRole;
             (user as { ageVerified: boolean }).ageVerified = false;
 
-            return "/auth/age-verification";
+            // Return true to complete sign-in; middleware will redirect to age-verification
+            return true;
           }
 
+          // No signup intent - need to select role first (abort sign-in)
           return "/auth/role-select?email=" + encodeURIComponent(user.email!);
         }
 
-        if (!existingUser.ageVerified) {
-          return "/auth/age-verification";
-        }
-
+        // Existing user - populate session data
         user.id = existingUser.id;
         (user as { role: UserRole }).role = existingUser.role as UserRole;
         (user as { ageVerified: boolean }).ageVerified = existingUser.ageVerified;
+
+        // Return true to complete sign-in; if not age-verified, middleware handles redirect
       }
 
       // Handle Email magic link provider
@@ -242,19 +243,20 @@ export const authConfig: NextAuthConfig = {
             (user as { role: UserRole }).role = signupIntentRole;
             (user as { ageVerified: boolean }).ageVerified = false;
 
-            return "/auth/age-verification";
+            // Return true to complete sign-in; middleware will redirect to age-verification
+            return true;
           }
 
+          // No signup intent - need to select role first (abort sign-in)
           return "/auth/role-select?email=" + encodeURIComponent(user.email!);
         }
 
-        if (!existingUser.ageVerified) {
-          return "/auth/age-verification";
-        }
-
+        // Existing user - populate session data
         user.id = existingUser.id;
         (user as { role: UserRole }).role = existingUser.role as UserRole;
         (user as { ageVerified: boolean }).ageVerified = existingUser.ageVerified;
+
+        // Return true to complete sign-in; if not age-verified, middleware handles redirect
       }
 
       return true;
