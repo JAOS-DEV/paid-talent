@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { useRouter, redirect } from "next/navigation";
+import Link from "next/link";
 import { Header, Footer } from "@/components/layout";
 import {
   Button,
@@ -13,55 +14,88 @@ import {
   TopTalentBadge,
 } from "@/components/ui";
 import { AdSense } from "@/components/ads";
+import type { SearchWorkerResult } from "@/app/api/workers/search/route";
 
 interface WorkerCardProps {
-  isTopTalent: boolean;
-  hasAccess: boolean;
+  worker: SearchWorkerResult;
+  hasTopTalentAccess: boolean;
+  onUnlock: () => void;
 }
 
-function WorkerCard({ isTopTalent, hasAccess }: WorkerCardProps): React.ReactElement {
+function WorkerCard({
+  worker,
+  hasTopTalentAccess,
+  onUnlock,
+}: WorkerCardProps): React.ReactElement {
+  const isLocked = worker.isTopTalent && !hasTopTalentAccess;
+
   return (
     <Card hover padding="lg">
       <CardContent>
         <div className="flex items-start space-x-4">
-          <div className="w-16 h-16 rounded-full bg-charcoal-700 flex-shrink-0 flex items-center justify-center">
-            <svg
-              className="w-8 h-8 text-charcoal-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-              />
-            </svg>
-          </div>
+          {worker.photoUrl ? (
+            <img
+              src={worker.photoUrl}
+              alt={worker.displayName}
+              className="w-16 h-16 rounded-full object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-charcoal-700 flex-shrink-0 flex items-center justify-center">
+              <svg
+                className="w-8 h-8 text-charcoal-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            </div>
+          )}
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h3 className="text-lg font-semibold text-charcoal-100 truncate">
-                Sample Worker
+                {worker.displayName}
               </h3>
-              {isTopTalent && <TopTalentBadge />}
+              {worker.isTopTalent && <TopTalentBadge />}
+              {worker.isVerified && (
+                <Badge variant="success">Verified</Badge>
+              )}
             </div>
 
-            <p className="text-charcoal-400 text-sm mb-2">Bangkok, Thailand</p>
+            {(worker.location || worker.area) && (
+              <p className="text-charcoal-400 text-sm mb-2">
+                {worker.location || worker.area}
+              </p>
+            )}
 
-            <div className="flex flex-wrap gap-2 mb-3">
-              <Badge>Bartender</Badge>
-              <Badge>Server</Badge>
-            </div>
+            {worker.jobRoles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {worker.jobRoles.slice(0, 3).map((role) => (
+                  <Badge key={role}>{role}</Badge>
+                ))}
+                {worker.jobRoles.length > 3 && (
+                  <Badge variant="default">+{worker.jobRoles.length - 3}</Badge>
+                )}
+              </div>
+            )}
 
-            <p className="text-charcoal-500 text-sm">Available: Weekends</p>
+            {worker.availability && (
+              <p className="text-charcoal-500 text-sm">
+                Available: {worker.availability}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="mt-4 pt-4 border-t border-charcoal-700">
-          {isTopTalent && !hasAccess ? (
-            <div className="flex items-center justify-between">
+          {isLocked ? (
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center text-charcoal-500 text-sm">
                 <svg
                   className="w-4 h-4 mr-1"
@@ -78,16 +112,20 @@ function WorkerCard({ isTopTalent, hasAccess }: WorkerCardProps): React.ReactEle
                 </svg>
                 Contact locked
               </div>
-              <Button variant="gold" size="sm">
+              <Button variant="gold" size="sm" onClick={onUnlock}>
                 Unlock Contact
               </Button>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
-              <Button variant="outline" size="sm">
-                View Profile
-              </Button>
-              <Button size="sm">Express Interest</Button>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <Link href={`/recruiter/profile/${worker.id}`}>
+                <Button variant="outline" size="sm">
+                  View Profile
+                </Button>
+              </Link>
+              <Link href={`/recruiter/profile/${worker.id}`}>
+                <Button size="sm">View Details</Button>
+              </Link>
             </div>
           )}
         </div>
@@ -96,9 +134,93 @@ function WorkerCard({ isTopTalent, hasAccess }: WorkerCardProps): React.ReactEle
   );
 }
 
+interface SearchFilters {
+  query: string;
+  role: string;
+  area: string;
+  availability: string;
+  verified: boolean;
+}
+
 export default function SearchPage(): React.ReactElement {
   const { data: session, status } = useSession();
-  const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
+  const [filters, setFilters] = useState<SearchFilters>({
+    query: "",
+    role: "",
+    area: "",
+    availability: "",
+    verified: false,
+  });
+  const [workers, setWorkers] = useState<SearchWorkerResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [hasTopTalentAccess, setHasTopTalentAccess] = useState(false);
+
+  const fetchWorkers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (filters.query) params.set("query", filters.query);
+      if (filters.role) params.set("role", filters.role);
+      if (filters.area) params.set("area", filters.area);
+      if (filters.availability) params.set("availability", filters.availability);
+      if (filters.verified) params.set("verified", "true");
+
+      const response = await fetch(`/api/workers/search?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        setWorkers(data.workers);
+        setTotal(data.pagination.total);
+      }
+    } catch (error) {
+      console.error("Failed to fetch workers:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
+
+  const checkSubscription = useCallback(async () => {
+    try {
+      const response = await fetch("/api/stripe/status");
+      if (response.ok) {
+        const data = await response.json();
+        setHasTopTalentAccess(data.canAccessTopTalent ?? false);
+      }
+    } catch {
+      setHasTopTalentAccess(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      const loadData = async (): Promise<void> => {
+        await Promise.all([fetchWorkers(), checkSubscription()]);
+      };
+      void loadData();
+    }
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleApplyFilters = (): void => {
+    fetchWorkers();
+  };
+
+  const handleUnlock = async (): Promise<void> => {
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.url) {
+          router.push(data.url);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to start checkout:", error);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -111,8 +233,6 @@ export default function SearchPage(): React.ReactElement {
   if (!session || session.user.role !== "recruiter") {
     redirect("/auth/signin");
   }
-
-  const hasTopTalentAccess = false;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -138,19 +258,30 @@ export default function SearchPage(): React.ReactElement {
                   <Input
                     label="Search"
                     placeholder="Name or keyword"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={filters.query}
+                    onChange={(e) =>
+                      setFilters((f) => ({ ...f, query: e.target.value }))
+                    }
                   />
 
                   <div>
                     <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
                       Job Role
                     </label>
-                    <select className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <select
+                      value={filters.role}
+                      onChange={(e) =>
+                        setFilters((f) => ({ ...f, role: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
                       <option value="">All roles</option>
-                      <option value="bartender">Bartender</option>
-                      <option value="server">Server</option>
-                      <option value="host">Host</option>
+                      <option value="Bartender">Bartender</option>
+                      <option value="Server">Server</option>
+                      <option value="Host">Host</option>
+                      <option value="Chef">Chef</option>
+                      <option value="Manager">Manager</option>
+                      <option value="DJ">DJ</option>
                     </select>
                   </div>
 
@@ -158,11 +289,18 @@ export default function SearchPage(): React.ReactElement {
                     <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
                       Area
                     </label>
-                    <select className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <select
+                      value={filters.area}
+                      onChange={(e) =>
+                        setFilters((f) => ({ ...f, area: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
                       <option value="">All areas</option>
-                      <option value="bangkok">Bangkok</option>
-                      <option value="pattaya">Pattaya</option>
-                      <option value="phuket">Phuket</option>
+                      <option value="Bangkok">Bangkok</option>
+                      <option value="Pattaya">Pattaya</option>
+                      <option value="Phuket">Phuket</option>
+                      <option value="Chiang Mai">Chiang Mai</option>
                     </select>
                   </div>
 
@@ -170,11 +308,21 @@ export default function SearchPage(): React.ReactElement {
                     <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
                       Availability
                     </label>
-                    <select className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <select
+                      value={filters.availability}
+                      onChange={(e) =>
+                        setFilters((f) => ({
+                          ...f,
+                          availability: e.target.value,
+                        }))
+                      }
+                      className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
                       <option value="">Any availability</option>
-                      <option value="fulltime">Full-time</option>
-                      <option value="parttime">Part-time</option>
-                      <option value="weekends">Weekends</option>
+                      <option value="Full-time">Full-time</option>
+                      <option value="Part-time">Part-time</option>
+                      <option value="Weekends">Weekends</option>
+                      <option value="Flexible">Flexible</option>
                     </select>
                   </div>
 
@@ -182,6 +330,10 @@ export default function SearchPage(): React.ReactElement {
                     <input
                       type="checkbox"
                       id="verified-only"
+                      checked={filters.verified}
+                      onChange={(e) =>
+                        setFilters((f) => ({ ...f, verified: e.target.checked }))
+                      }
                       className="w-4 h-4 rounded border-charcoal-600 bg-charcoal-800 text-primary-600 focus:ring-primary-500"
                     />
                     <label
@@ -192,7 +344,9 @@ export default function SearchPage(): React.ReactElement {
                     </label>
                   </div>
 
-                  <Button fullWidth>Apply Filters</Button>
+                  <Button fullWidth onClick={handleApplyFilters}>
+                    Apply Filters
+                  </Button>
                 </CardContent>
               </Card>
 
@@ -204,25 +358,50 @@ export default function SearchPage(): React.ReactElement {
             <div className="lg:col-span-3">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-charcoal-400 text-sm">
-                  Showing placeholder results
+                  {loading
+                    ? "Searching..."
+                    : total > 0
+                      ? `${total} worker${total !== 1 ? "s" : ""} found`
+                      : "No workers found"}
                 </p>
-                <select className="px-3 py-1.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-                  <option>Most relevant</option>
-                  <option>Most viewed</option>
-                  <option>Newest</option>
-                </select>
               </div>
 
-              <div className="space-y-4">
-                <WorkerCard isTopTalent={true} hasAccess={hasTopTalentAccess} />
-                <WorkerCard isTopTalent={false} hasAccess={hasTopTalentAccess} />
-                <WorkerCard isTopTalent={true} hasAccess={hasTopTalentAccess} />
-                <WorkerCard isTopTalent={false} hasAccess={hasTopTalentAccess} />
-              </div>
-
-              <div className="text-center py-12 text-charcoal-500">
-                <p>More workers will appear as profiles are created</p>
-              </div>
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />
+                </div>
+              ) : workers.length > 0 ? (
+                <div className="space-y-4">
+                  {workers.map((worker) => (
+                    <WorkerCard
+                      key={worker.id}
+                      worker={worker}
+                      hasTopTalentAccess={hasTopTalentAccess}
+                      onUnlock={handleUnlock}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-charcoal-500">
+                  <svg
+                    className="w-12 h-12 mx-auto mb-4 opacity-50"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                  <p>No workers found matching your criteria</p>
+                  <p className="text-sm mt-2">
+                    Try adjusting your filters or check back later
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
