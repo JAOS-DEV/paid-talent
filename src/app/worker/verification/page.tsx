@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Header, Footer } from "@/components/layout";
-import { Button, Card, CardContent, Badge } from "@/components/ui";
+import { Button, Badge } from "@/components/ui";
 import type { VerificationStatus, DocType } from "@/lib/db/schema";
 
 interface ChallengeCode {
@@ -31,13 +31,30 @@ const DOC_TYPE_OPTIONS: { value: DocType; label: string }[] = [
   { value: "other", label: "Other Government ID" },
 ];
 
-function generateDisplayCode(code: string): string {
-  return code.slice(0, 2).toUpperCase() + code.slice(2, 4).toUpperCase();
-}
+function CameraFrameWithCode({
+  challengeCode,
+}: {
+  challengeCode?: string | null;
+}): React.ReactElement {
+  const displayCode = challengeCode
+    ? challengeCode.slice(0, 4).toUpperCase()
+    : null;
 
-function SilhouetteFrame(): React.ReactElement {
   return (
     <div className="relative w-full aspect-[3/4] max-w-[280px] mx-auto bg-charcoal-900 rounded-2xl overflow-hidden border-2 border-charcoal-700">
+      {displayCode && (
+        <div className="absolute top-4 left-0 right-0 z-10 flex justify-center">
+          <div className="bg-charcoal-950/95 border border-primary-500 rounded-lg px-5 py-3 shadow-lg">
+            <p className="text-charcoal-400 text-[10px] text-center uppercase tracking-wider mb-1">
+              Say this code
+            </p>
+            <p className="text-3xl font-mono font-bold text-primary-400 tracking-[0.3em] text-center">
+              {displayCode}
+            </p>
+          </div>
+        </div>
+      )}
+
       <svg
         viewBox="0 0 200 267"
         className="absolute inset-0 w-full h-full"
@@ -46,44 +63,84 @@ function SilhouetteFrame(): React.ReactElement {
       >
         <ellipse
           cx="100"
-          cy="90"
-          rx="45"
-          ry="55"
+          cy="100"
+          rx="42"
+          ry="52"
           stroke="currentColor"
-          strokeWidth="2"
-          strokeDasharray="8 4"
+          strokeWidth="1.5"
+          strokeDasharray="6 4"
           className="text-charcoal-600"
         />
         <path
-          d="M55 160 Q55 145 100 145 Q145 145 145 160 L145 200 Q145 220 100 220 Q55 220 55 200 Z"
+          d="M58 165 Q58 150 100 150 Q142 150 142 165 L142 210 Q142 230 100 230 Q58 230 58 210 Z"
           stroke="currentColor"
-          strokeWidth="2"
-          strokeDasharray="8 4"
+          strokeWidth="1.5"
+          strokeDasharray="6 4"
           className="text-charcoal-600"
           fill="none"
         />
-        <rect
-          x="130"
-          y="70"
-          width="50"
-          height="70"
-          rx="4"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeDasharray="6 3"
-          className="text-primary-500/60"
-        />
-        <text
-          x="155"
-          y="110"
-          textAnchor="middle"
-          className="text-[10px] fill-primary-400/60"
-        >
-          ID
-        </text>
+        <g transform="translate(138, 85)">
+          <rect
+            x="0"
+            y="0"
+            width="48"
+            height="65"
+            rx="3"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeDasharray="5 3"
+            className="text-primary-500/70"
+            fill="none"
+          />
+          <rect
+            x="4"
+            y="8"
+            width="16"
+            height="20"
+            rx="2"
+            className="fill-primary-500/20"
+          />
+          <line
+            x1="24"
+            y1="12"
+            x2="42"
+            y2="12"
+            stroke="currentColor"
+            strokeWidth="1"
+            className="text-primary-500/40"
+          />
+          <line
+            x1="24"
+            y1="18"
+            x2="38"
+            y2="18"
+            stroke="currentColor"
+            strokeWidth="1"
+            className="text-primary-500/40"
+          />
+          <line
+            x1="24"
+            y1="24"
+            x2="40"
+            y2="24"
+            stroke="currentColor"
+            strokeWidth="1"
+            className="text-primary-500/40"
+          />
+          <text
+            x="24"
+            y="50"
+            className="text-[8px] fill-primary-400/60"
+          >
+            ID
+          </text>
+        </g>
       </svg>
-      <div className="absolute bottom-4 left-0 right-0 text-center">
-        <p className="text-charcoal-500 text-xs">Position yourself in frame</p>
+
+      <div className="absolute bottom-3 left-0 right-0 text-center">
+        <p className="text-charcoal-500 text-[11px]">
+          Hold ID beside your face
+        </p>
       </div>
     </div>
   );
@@ -395,41 +452,36 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
   function renderIntroStep(): React.ReactNode {
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-charcoal-100">
             Verify it&apos;s you
           </h1>
-          <p className="text-charcoal-400 mt-2">
+          <p className="text-charcoal-400 mt-1.5 text-sm">
             Quick step to confirm your identity.
           </p>
         </div>
 
-        <SilhouetteFrame />
+        <CameraFrameWithCode challengeCode={challengeCode?.code} />
 
-        <div className="space-y-3">
+        <div className="space-y-2.5 px-2">
           <ChecklistItem text="Hold ID beside face" />
           <ChecklistItem text="Keep face and ID in frame" />
           <ChecklistItem text="Read the code clearly" />
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-charcoal-300 mb-2">
-              ID Document Type
-            </label>
-            <select
-              className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              value={docType}
-              onChange={(e) => setDocType(e.target.value as DocType)}
-            >
-              {DOC_TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="space-y-3 pt-2">
+          <select
+            className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            value={docType}
+            onChange={(e) => setDocType(e.target.value as DocType)}
+          >
+            {DOC_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
 
           <Button
             fullWidth
@@ -446,13 +498,13 @@ export default function WorkerVerificationPage(): React.ReactElement {
           </div>
         )}
 
-        <div className="text-center pt-2 border-t border-charcoal-800">
+        <div className="text-center pt-3 border-t border-charcoal-800">
           <p className="text-charcoal-500 text-xs">
             Used only for age and identity checks · 18+
           </p>
           <button
             onClick={() => setShowWhyModal(true)}
-            className="text-primary-400 text-xs mt-1 hover:text-primary-300 transition-colors"
+            className="text-primary-400 text-xs mt-1.5 hover:text-primary-300 transition-colors"
           >
             Why we ask
           </button>
@@ -463,166 +515,100 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
   function renderCameraStep(): React.ReactNode {
     const displayCode = challengeCode
-      ? generateDisplayCode(challengeCode.code)
+      ? challengeCode.code.slice(0, 4).toUpperCase()
       : "----";
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-charcoal-100">
             Verify it&apos;s you
           </h1>
-          <p className="text-charcoal-400 mt-2">
+          <p className="text-charcoal-400 mt-1.5 text-sm">
             Upload your ID, then record a short video.
           </p>
         </div>
 
-        <div className="relative">
-          <SilhouetteFrame />
-          <div className="absolute top-4 left-0 right-0 flex justify-center">
-            <div className="bg-charcoal-900/90 border border-primary-500/50 rounded-lg px-4 py-2">
-              <p className="text-charcoal-400 text-xs text-center mb-1">
-                Read this code aloud
-              </p>
-              <p className="text-3xl font-mono font-bold text-primary-400 tracking-widest text-center">
-                {displayCode}
-              </p>
-            </div>
-          </div>
+        <CameraFrameWithCode challengeCode={challengeCode?.code} />
+
+        <div className="space-y-2.5 px-2">
+          <ChecklistItem text="Hold ID beside face" checked={!!idDocumentKey} />
+          <ChecklistItem text="Keep face and ID in frame" checked={!!idDocumentKey} />
+          <ChecklistItem text="Read the code clearly" checked={!!livenessVideoKey} />
         </div>
 
         <div className="space-y-3">
-          <ChecklistItem text="Hold ID beside face" checked={!!idDocumentKey} />
-          <ChecklistItem
-            text="Keep face and ID in frame"
-            checked={!!idDocumentKey}
-          />
-          <ChecklistItem text="Read the code clearly" />
-        </div>
-
-        <Card padding="md">
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-charcoal-200 mb-2">
-                  Step 1: Upload ID photo
-                </p>
-                {idDocumentKey ? (
-                  <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                    <svg
-                      className="w-5 h-5 text-green-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    <span className="text-green-300 text-sm">
-                      ID uploaded successfully
-                    </span>
+          {!idDocumentKey ? (
+            <label className="block">
+              <div className="bg-charcoal-800 border border-charcoal-600 rounded-xl p-4 text-center cursor-pointer hover:border-primary-500/50 transition-colors">
+                {idUploading ? (
+                  <div className="flex items-center justify-center gap-2 py-2">
+                    <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
+                    <span className="text-charcoal-300 text-sm">Uploading ID...</span>
                   </div>
                 ) : (
-                  <label className="block">
-                    <div className="border-2 border-dashed border-charcoal-600 rounded-lg p-4 text-center cursor-pointer hover:border-primary-500/50 transition-colors">
-                      {idUploading ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
-                          <span className="text-charcoal-400 text-sm">
-                            Uploading...
-                          </span>
-                        </div>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-8 h-8 text-charcoal-500 mx-auto mb-2"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                          </svg>
-                          <span className="text-primary-400 text-sm font-medium">
-                            Tap to upload ID photo
-                          </span>
-                        </>
-                      )}
+                  <>
+                    <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center mx-auto mb-2">
+                      <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
                     </div>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      onChange={handleIdFileChange}
-                      disabled={idUploading}
-                    />
-                  </label>
+                    <p className="text-charcoal-100 font-medium text-sm">Upload ID photo</p>
+                    <p className="text-charcoal-500 text-xs mt-0.5">JPG, PNG or WebP</p>
+                  </>
                 )}
               </div>
-
-              <div>
-                <p className="text-sm font-medium text-charcoal-200 mb-2">
-                  Step 2: Record verification video
-                </p>
-                {!idDocumentKey ? (
-                  <p className="text-charcoal-500 text-sm">
-                    Upload your ID first
-                  </p>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleIdFileChange}
+                disabled={idUploading}
+              />
+            </label>
+          ) : !livenessVideoKey ? (
+            <label className="block">
+              <div className="bg-charcoal-800 border border-charcoal-600 rounded-xl p-4 text-center cursor-pointer hover:border-primary-500/50 transition-colors">
+                {videoUploading ? (
+                  <div className="flex items-center justify-center gap-2 py-2">
+                    <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
+                    <span className="text-charcoal-300 text-sm">Uploading video...</span>
+                  </div>
                 ) : (
-                  <label className="block">
-                    <div className="border-2 border-dashed border-charcoal-600 rounded-lg p-4 text-center cursor-pointer hover:border-primary-500/50 transition-colors">
-                      {videoUploading ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
-                          <span className="text-charcoal-400 text-sm">
-                            Uploading video...
-                          </span>
-                        </div>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-8 h-8 text-charcoal-500 mx-auto mb-2"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                          </svg>
-                          <span className="text-primary-400 text-sm font-medium">
-                            Tap to record video
-                          </span>
-                          <p className="text-charcoal-500 text-xs mt-1">
-                            Hold ID beside face and read: {displayCode}
-                          </p>
-                        </>
-                      )}
+                  <>
+                    <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center mx-auto mb-2">
+                      <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
                     </div>
-                    <input
-                      type="file"
-                      accept="video/mp4,video/webm,video/quicktime"
-                      className="hidden"
-                      onChange={handleVideoFileChange}
-                      disabled={videoUploading || !idDocumentKey}
-                    />
-                  </label>
+                    <p className="text-charcoal-100 font-medium text-sm">Record video</p>
+                    <p className="text-charcoal-500 text-xs mt-0.5">Say code: <span className="text-primary-400 font-mono">{displayCode}</span></p>
+                  </>
                 )}
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <input
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                className="hidden"
+                onChange={handleVideoFileChange}
+                disabled={videoUploading}
+              />
+            </label>
+          ) : (
+            <Button fullWidth onClick={() => setCurrentStep("review")}>
+              Continue
+            </Button>
+          )}
+        </div>
+
+        {idDocumentKey && !livenessVideoKey && (
+          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-lg p-2.5">
+            <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-green-300 text-xs">ID uploaded — now record your video</span>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
@@ -630,21 +616,21 @@ export default function WorkerVerificationPage(): React.ReactElement {
           </div>
         )}
 
-        <Button
-          variant="outline"
-          fullWidth
-          onClick={() => setCurrentStep("intro")}
-        >
-          Back
+        <Button variant="outline" fullWidth onClick={() => {
+          setIdDocumentKey(null);
+          setLivenessVideoKey(null);
+          setCurrentStep("intro");
+        }}>
+          Start over
         </Button>
 
-        <div className="text-center pt-2 border-t border-charcoal-800">
+        <div className="text-center pt-3 border-t border-charcoal-800">
           <p className="text-charcoal-500 text-xs">
             Used only for age and identity checks · 18+
           </p>
           <button
             onClick={() => setShowWhyModal(true)}
-            className="text-primary-400 text-xs mt-1 hover:text-primary-300 transition-colors"
+            className="text-primary-400 text-xs mt-1.5 hover:text-primary-300 transition-colors"
           >
             Why we ask
           </button>
