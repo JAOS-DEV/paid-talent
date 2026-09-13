@@ -19,18 +19,20 @@ export function validateRegisterInput(input: unknown): {
   return { success: false, error: result.error.issues[0]?.message };
 }
 
-export function validateAge(dob: string): { valid: boolean; age: number } {
-  const dateOfBirth = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - dateOfBirth.getFullYear();
-  const monthDiff = today.getMonth() - dateOfBirth.getMonth();
+export function validateAge(
+  dob: string,
+  referenceDate: Date = new Date()
+): { valid: boolean; age: number } {
+  const dateOfBirth = new Date(dob + "T00:00:00");
+  let age = referenceDate.getFullYear() - dateOfBirth.getFullYear();
+  const monthDiff = referenceDate.getMonth() - dateOfBirth.getMonth();
   if (
     monthDiff < 0 ||
-    (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())
+    (monthDiff === 0 && referenceDate.getDate() < dateOfBirth.getDate())
   ) {
     age--;
   }
-  return { valid: age >= 18, age };
+  return { valid: age >= 20, age };
 }
 
 export function getSignupRedirectUrl(role: "worker" | "recruiter"): string {
@@ -96,7 +98,7 @@ describe("Auth Register Validation", () => {
   });
 
   describe("validateAge", () => {
-    it("should validate user is 18 or older", () => {
+    it("should validate user is 20 or older", () => {
       const today = new Date();
       const dob = new Date(
         today.getFullYear() - 25,
@@ -109,43 +111,37 @@ describe("Auth Register Validation", () => {
       expect(result.age).toBe(25);
     });
 
-    it("should validate exactly 18 years old", () => {
+    it("should validate exactly 20 years old", () => {
       const today = new Date();
       const dob = new Date(
-        today.getFullYear() - 18,
+        today.getFullYear() - 20,
         today.getMonth(),
         today.getDate()
       );
       const dobStr = dob.toISOString().split("T")[0];
       const result = validateAge(dobStr);
       expect(result.valid).toBe(true);
-      expect(result.age).toBe(18);
+      expect(result.age).toBe(20);
     });
 
-    it("should reject user under 18", () => {
+    it("should reject user under 20", () => {
       const today = new Date();
       const dob = new Date(
-        today.getFullYear() - 16,
+        today.getFullYear() - 18,
         today.getMonth(),
         today.getDate()
       );
       const dobStr = dob.toISOString().split("T")[0];
       const result = validateAge(dobStr);
       expect(result.valid).toBe(false);
-      expect(result.age).toBe(16);
+      expect(result.age).toBe(18);
     });
 
-    it("should reject user one day before 18th birthday", () => {
-      const today = new Date();
-      const dob = new Date(
-        today.getFullYear() - 18,
-        today.getMonth(),
-        today.getDate() + 1
-      );
-      const dobStr = dob.toISOString().split("T")[0];
-      const result = validateAge(dobStr);
+    it("should reject user one day before 20th birthday", () => {
+      const reference = new Date(2024, 5, 15); // June 15, 2024
+      const result = validateAge("2004-06-16", reference);
       expect(result.valid).toBe(false);
-      expect(result.age).toBe(17);
+      expect(result.age).toBe(19);
     });
   });
 

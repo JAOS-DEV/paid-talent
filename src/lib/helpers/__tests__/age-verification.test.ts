@@ -11,8 +11,8 @@ import {
 
 describe("age-verification helpers", () => {
   describe("MIN_AGE_REQUIREMENT", () => {
-    it("should be 18", () => {
-      expect(MIN_AGE_REQUIREMENT).toBe(18);
+    it("should be 20", () => {
+      expect(MIN_AGE_REQUIREMENT).toBe(20);
     });
   });
 
@@ -60,34 +60,34 @@ describe("age-verification helpers", () => {
     });
   });
 
-  describe("isOver18", () => {
-    it("should return true for someone exactly 18 years old", () => {
+  describe("isOver18 (checks MIN_AGE_REQUIREMENT which is 20)", () => {
+    it("should return true for someone exactly 20 years old", () => {
       const reference = new Date("2024-06-15");
-      const dob = new Date("2006-06-15");
+      const dob = new Date("2004-06-15");
       expect(isOver18(dob, reference)).toBe(true);
     });
 
-    it("should return true for someone over 18", () => {
+    it("should return true for someone over 20", () => {
       const reference = new Date("2024-06-15");
       const dob = new Date("1990-01-01");
       expect(isOver18(dob, reference)).toBe(true);
     });
 
-    it("should return false for someone under 18", () => {
+    it("should return false for someone under 20", () => {
       const reference = new Date("2024-06-15");
-      const dob = new Date("2010-01-01");
+      const dob = new Date("2006-01-01");
       expect(isOver18(dob, reference)).toBe(false);
     });
 
-    it("should return false for someone one day before 18th birthday", () => {
+    it("should return false for someone one day before 20th birthday", () => {
       const reference = new Date("2024-06-14");
-      const dob = new Date("2006-06-15");
+      const dob = new Date("2004-06-15");
       expect(isOver18(dob, reference)).toBe(false);
     });
 
-    it("should return true for someone one day after 18th birthday", () => {
+    it("should return true for someone one day after 20th birthday", () => {
       const reference = new Date("2024-06-16");
-      const dob = new Date("2006-06-15");
+      const dob = new Date("2004-06-15");
       expect(isOver18(dob, reference)).toBe(true);
     });
 
@@ -99,9 +99,9 @@ describe("age-verification helpers", () => {
   });
 
   describe("isAgeValid", () => {
-    it("should return true for age 18", () => {
+    it("should return true for age 20", () => {
       const reference = new Date("2024-06-15");
-      const dob = new Date("2006-06-15");
+      const dob = new Date("2004-06-15");
       expect(isAgeValid(dob, reference)).toBe(true);
     });
 
@@ -117,9 +117,9 @@ describe("age-verification helpers", () => {
       expect(isAgeValid(dob, reference)).toBe(true);
     });
 
-    it("should return false for age 17", () => {
+    it("should return false for age 19", () => {
       const reference = new Date("2024-06-15");
-      const dob = new Date("2007-06-15");
+      const dob = new Date("2005-06-15");
       expect(isAgeValid(dob, reference)).toBe(false);
     });
 
@@ -130,21 +130,21 @@ describe("age-verification helpers", () => {
     });
   });
 
-  describe("getDateOfBirth18YearsAgo", () => {
-    it("should return date 18 years before reference", () => {
+  describe("getDateOfBirth18YearsAgo (returns MIN_AGE_REQUIREMENT years ago)", () => {
+    it("should return date 20 years before reference", () => {
       const reference = new Date("2024-06-15");
       const result = getDateOfBirth18YearsAgo(reference);
-      expect(result.getFullYear()).toBe(2006);
+      expect(result.getFullYear()).toBe(2004);
       expect(result.getMonth()).toBe(5); // June is month 5
       expect(result.getDate()).toBe(15);
     });
 
-    it("should handle leap year (Feb 29 becomes Mar 1 in non-leap year)", () => {
+    it("should handle leap year (Feb 29 stays Feb 29 in 2004 leap year)", () => {
       const reference = new Date("2024-02-29");
       const result = getDateOfBirth18YearsAgo(reference);
-      expect(result.getFullYear()).toBe(2006);
-      expect(result.getMonth()).toBe(2);
-      expect(result.getDate()).toBe(1);
+      expect(result.getFullYear()).toBe(2004);
+      expect(result.getMonth()).toBe(1); // Feb in 2004 (leap year)
+      expect(result.getDate()).toBe(29);
     });
   });
 

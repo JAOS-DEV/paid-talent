@@ -18,12 +18,18 @@ interface AuthConfig {
   devBypassEnabled: boolean;
 }
 
+function setSignupIntentCookie(role: string): void {
+  const expires = new Date(Date.now() + 10 * 60 * 1000).toUTCString();
+  document.cookie = `signup_intent_role=${role}; path=/; expires=${expires}; SameSite=Lax`;
+}
+
 function SignInForm(): React.ReactElement {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const role = searchParams.get("role");
   const dob = searchParams.get("dob");
+  const ageConfirmed = searchParams.get("ageConfirmed") === "true";
   const errorParam = searchParams.get("error");
 
   const [email, setEmail] = useState("");
@@ -35,7 +41,9 @@ function SignInForm(): React.ReactElement {
     devBypassEnabled: false 
   });
 
-  const isSignupMode = Boolean(role && dob);
+  const isLegacySignupMode = Boolean(role && dob);
+  const isSignupIntentMode = Boolean(role && ageConfirmed && !dob);
+  const isSignupMode = isLegacySignupMode;
 
   useEffect(() => {
     fetch("/api/auth/config")
@@ -49,8 +57,12 @@ function SignInForm(): React.ReactElement {
     setError(null);
     setFormError(null);
 
+    if (isSignupIntentMode && role) {
+      setSignupIntentCookie(role);
+    }
+
     const finalCallbackUrl =
-      role && dob
+      isLegacySignupMode && role && dob
         ? `/api/auth/register?role=${role}&dob=${dob}&callbackUrl=${encodeURIComponent(callbackUrl)}`
         : callbackUrl;
 
@@ -62,6 +74,10 @@ function SignInForm(): React.ReactElement {
     setError(null);
     setFormError(null);
     setIsLoading(true);
+
+    if (isSignupIntentMode && role) {
+      setSignupIntentCookie(role);
+    }
 
     // In signup mode, register the user first via POST API
     if (isSignupMode) {
