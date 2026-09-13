@@ -14,6 +14,10 @@ export type ModerationCategory =
   | "illegal"
   | "other";
 
+export * from "./photo-policy";
+export * from "./photo-provider";
+export * from "./photo-moderation";
+
 export interface ModerationProvider {
   name: string;
   moderateImage(imageUrl: string): Promise<ModerationResult>;

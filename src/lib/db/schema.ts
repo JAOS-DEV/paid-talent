@@ -52,6 +52,12 @@ export const docTypeEnum = pgEnum("doc_type", [
   "other",
 ]);
 
+export const photoModerationStatusEnum = pgEnum("photo_moderation_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
 export const users = pgTable(
   "users",
   {
@@ -179,6 +185,39 @@ export const workerProfiles = pgTable(
     index("worker_profiles_verification_status_idx").on(
       table.verificationStatus
     ),
+  ]
+);
+
+export const profilePhotos = pgTable(
+  "profile_photos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workerProfileId: uuid("worker_profile_id")
+      .notNull()
+      .references(() => workerProfiles.id, { onDelete: "cascade" }),
+    photoKey: text("photo_key").notNull(),
+    photoUrl: text("photo_url").notNull(),
+    moderationStatus: photoModerationStatusEnum("moderation_status")
+      .notNull()
+      .default("pending"),
+    moderationReason: text("moderation_reason"),
+    moderationConfidence: integer("moderation_confidence"),
+    moderationCategories: jsonb("moderation_categories").$type<string[]>(),
+    moderationReviewedAt: timestamp("moderation_reviewed_at", { mode: "date" }),
+    moderationReviewedBy: text("moderation_reviewed_by"),
+    displayOrder: integer("display_order").notNull().default(0),
+    isCurrentApproved: boolean("is_current_approved").notNull().default(false),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("profile_photos_user_id_idx").on(table.userId),
+    index("profile_photos_worker_profile_id_idx").on(table.workerProfileId),
+    index("profile_photos_moderation_status_idx").on(table.moderationStatus),
+    index("profile_photos_is_current_approved_idx").on(table.isCurrentApproved),
   ]
 );
 
@@ -359,8 +398,20 @@ export const workerProfilesRelations = relations(
     }),
     views: many(profileViews),
     interests: many(profileInterests),
+    photos: many(profilePhotos),
   })
 );
+
+export const profilePhotosRelations = relations(profilePhotos, ({ one }) => ({
+  user: one(users, {
+    fields: [profilePhotos.userId],
+    references: [users.id],
+  }),
+  workerProfile: one(workerProfiles, {
+    fields: [profilePhotos.workerProfileId],
+    references: [workerProfiles.id],
+  }),
+}));
 
 export const recruiterProfilesRelations = relations(
   recruiterProfiles,
@@ -428,6 +479,8 @@ export type WorkerProfile = typeof workerProfiles.$inferSelect;
 export type NewWorkerProfile = typeof workerProfiles.$inferInsert;
 export type RecruiterProfile = typeof recruiterProfiles.$inferSelect;
 export type NewRecruiterProfile = typeof recruiterProfiles.$inferInsert;
+export type ProfilePhoto = typeof profilePhotos.$inferSelect;
+export type NewProfilePhoto = typeof profilePhotos.$inferInsert;
 export type ProfileView = typeof profileViews.$inferSelect;
 export type ProfileInterest = typeof profileInterests.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
@@ -437,3 +490,4 @@ export type VerificationStatus = (typeof verificationStatusEnum.enumValues)[numb
 export type VerificationDecision = (typeof verificationDecisionEnum.enumValues)[number];
 export type VerificationMethod = (typeof verificationMethodEnum.enumValues)[number];
 export type DocType = (typeof docTypeEnum.enumValues)[number];
+export type PhotoModerationStatus = (typeof photoModerationStatusEnum.enumValues)[number];

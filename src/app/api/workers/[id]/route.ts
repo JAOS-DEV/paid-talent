@@ -9,9 +9,17 @@ import {
   type SubscriptionInfo,
 } from "@/lib/helpers/contact-visibility";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
+import { getApprovedPhotosForWorker } from "@/lib/moderation";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+export interface WorkerPhoto {
+  id: string;
+  photoUrl: string;
+  displayOrder: number;
+  isCurrentApproved: boolean;
 }
 
 export interface WorkerProfileDetail {
@@ -19,6 +27,7 @@ export interface WorkerProfileDetail {
   userId: string;
   displayName: string;
   photoUrl: string | null;
+  photos: WorkerPhoto[];
   location: string | null;
   area: string | null;
   bio: string | null;
@@ -107,11 +116,20 @@ export async function GET(
       )
       .limit(1);
 
+    const approvedPhotos = await getApprovedPhotosForWorker(profile.id);
+    const photos: WorkerPhoto[] = approvedPhotos.map((photo) => ({
+      id: photo.id,
+      photoUrl: photo.photoUrl,
+      displayOrder: photo.displayOrder,
+      isCurrentApproved: photo.isCurrentApproved,
+    }));
+
     const result: WorkerProfileDetail = {
       id: profile.id,
       userId: profile.userId,
       displayName: profile.displayName,
       photoUrl: profile.photoUrl,
+      photos,
       location: profile.location,
       area: profile.area,
       bio: profile.bio,

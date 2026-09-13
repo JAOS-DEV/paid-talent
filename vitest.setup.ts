@@ -11,6 +11,7 @@ vi.mock("@/lib/db", () => ({
   },
   users: {},
   workerProfiles: {},
+  profilePhotos: {},
   profileViews: {},
   profileInterests: {},
   subscriptions: {},
