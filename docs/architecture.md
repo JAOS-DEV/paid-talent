@@ -676,6 +676,112 @@ The `profile_interests.notifiedAt` field is prepared for future notification int
 
 ---
 
+## Hire Outcome Tracking
+
+### Overview
+
+Manual tracking for when workers are hired and when they start working. This is a simple status progression system for private beta.
+
+**Dev owns the UX/wiring slice.** This foundation provides schema, server actions, and query helpers.
+
+### Statuses
+
+| Status | Description |
+|--------|-------------|
+| `interested` | Default state - recruiter has expressed interest |
+| `hired` | Worker has been hired (offer accepted) |
+| `started` | Worker has begun working |
+
+### Status Transitions
+
+Transitions are **forward-only** and sequential:
+
+```
+interested → hired → started
+```
+
+No backwards transitions or skipping steps allowed.
+
+### Schema
+
+The `hire_outcomes` table links 1:1 to `profile_interests`:
+
+| Field | Description |
+|-------|-------------|
+| `interest_id` | Foreign key to profile_interests (unique) |
+| `status` | Current hire status |
+| `hired_at` | Timestamp when marked as hired |
+| `started_at` | Timestamp when marked as started |
+| `notes` | Optional recruiter notes |
+
+### Authorization
+
+Only the **recruiter who owns the interest** can update its hire outcome. Authz is checked via:
+
+```typescript
+import { canUpdateHireOutcome } from "@/lib/hire-outcomes";
+
+const check = canUpdateHireOutcome(
+  userId,
+  userRole,
+  interest,
+  currentStatus,
+  newStatus
+);
+
+if (!check.authorized) {
+  // check.reason: "unauthenticated" | "wrong_role" | "not_owner" | "invalid_transition"
+}
+```
+
+### Server Actions
+
+```typescript
+import { markAsHired, markAsStarted } from "@/app/recruiter/actions";
+
+// Mark interest as hired
+await markAsHired(interestId, optionalNotes);
+
+// Mark hired interest as started
+await markAsStarted(interestId, optionalNotes);
+```
+
+### Query Helpers (for Dev UX)
+
+```typescript
+import {
+  getRecruiterInterestsWithOutcomes,
+  getRecruiterOutcomeStats,
+  getInterestsWithHiredStatus,
+  getInterestsWithStartedStatus,
+} from "@/lib/hire-outcomes/queries";
+
+// Get all interests with their outcomes (filterable)
+const interests = await getRecruiterInterestsWithOutcomes(userId, "hired");
+
+// Get stats for dashboard
+const stats = await getRecruiterOutcomeStats(userId);
+// { total: 10, interested: 5, hired: 3, started: 2 }
+```
+
+### Not Searchable Implications
+
+Hire outcomes are **not currently factored into search**. The `interested` / `hired` / `started` status is private to the recruiter-worker pair and does not affect:
+- Worker search results
+- Worker profile visibility
+- Top Talent ranking
+
+This is intentional for private beta. Future iterations may consider surfacing "in active hiring process" indicators.
+
+### TODO: Dev UX Slice
+
+- List view with status filter tabs (All / Interested / Hired / Started)
+- Status update buttons on interest cards
+- Dashboard stats widget
+- Notes editing modal
+
+---
+
 ## Environment Variables
 
 See `.env.example` for all configuration options.

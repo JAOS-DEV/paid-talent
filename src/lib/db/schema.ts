@@ -58,6 +58,12 @@ export const photoModerationStatusEnum = pgEnum("photo_moderation_status", [
   "rejected",
 ]);
 
+export const hireOutcomeStatusEnum = pgEnum("hire_outcome_status", [
+  "interested",
+  "hired",
+  "started",
+]);
+
 export const users = pgTable(
   "users",
   {
@@ -286,6 +292,27 @@ export const profileInterests = pgTable(
   ]
 );
 
+export const hireOutcomes = pgTable(
+  "hire_outcomes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    interestId: uuid("interest_id")
+      .notNull()
+      .unique()
+      .references(() => profileInterests.id, { onDelete: "cascade" }),
+    status: hireOutcomeStatusEnum("status").notNull().default("interested"),
+    hiredAt: timestamp("hired_at", { mode: "date" }),
+    startedAt: timestamp("started_at", { mode: "date" }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("hire_outcomes_interest_id_idx").on(table.interestId),
+    index("hire_outcomes_status_idx").on(table.status),
+  ]
+);
+
 export const subscriptions = pgTable(
   "subscriptions",
   {
@@ -445,8 +472,19 @@ export const profileInterestsRelations = relations(
       fields: [profileInterests.workerProfileId],
       references: [workerProfiles.id],
     }),
+    hireOutcome: one(hireOutcomes, {
+      fields: [profileInterests.id],
+      references: [hireOutcomes.interestId],
+    }),
   })
 );
+
+export const hireOutcomesRelations = relations(hireOutcomes, ({ one }) => ({
+  interest: one(profileInterests, {
+    fields: [hireOutcomes.interestId],
+    references: [profileInterests.id],
+  }),
+}));
 
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   user: one(users, {
@@ -486,8 +524,11 @@ export type ProfileInterest = typeof profileInterests.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type VerificationEvent = typeof verificationEvents.$inferSelect;
 export type NewVerificationEvent = typeof verificationEvents.$inferInsert;
+export type HireOutcome = typeof hireOutcomes.$inferSelect;
+export type NewHireOutcome = typeof hireOutcomes.$inferInsert;
 export type VerificationStatus = (typeof verificationStatusEnum.enumValues)[number];
 export type VerificationDecision = (typeof verificationDecisionEnum.enumValues)[number];
 export type VerificationMethod = (typeof verificationMethodEnum.enumValues)[number];
 export type DocType = (typeof docTypeEnum.enumValues)[number];
 export type PhotoModerationStatus = (typeof photoModerationStatusEnum.enumValues)[number];
+export type HireOutcomeStatus = (typeof hireOutcomeStatusEnum.enumValues)[number];
