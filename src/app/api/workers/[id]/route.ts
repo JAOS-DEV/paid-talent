@@ -8,6 +8,7 @@ import {
   canViewContactDetails,
   type SubscriptionInfo,
 } from "@/lib/helpers/contact-visibility";
+import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -137,6 +138,12 @@ export async function GET(
     return NextResponse.json({ profile: result });
   } catch (error) {
     console.error("[Worker Profile] Error:", error);
+
+    const schemaError = formatSchemaErrorResponse(error);
+    if (schemaError) {
+      return NextResponse.json(schemaError, { status: 503 });
+    }
+
     return NextResponse.json(
       { error: "Failed to fetch worker profile" },
       { status: 500 }

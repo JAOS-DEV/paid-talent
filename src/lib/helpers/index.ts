@@ -12,3 +12,4 @@ export {
   type SearchableWorkerProfile,
   type WorkerSearchFilters,
 } from "./search-gate";
+export * from "./db-errors";
