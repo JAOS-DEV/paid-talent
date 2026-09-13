@@ -1,10 +1,17 @@
 import type { WorkerProfile } from "@/lib/db/schema";
 
+export const INCOMPLETE_PROFILE_REDIRECT_THRESHOLD = 30;
+
+type FieldSpec =
+  | keyof WorkerProfile
+  | { any: (keyof WorkerProfile)[] }
+  | { all: (keyof WorkerProfile)[] };
+
 export interface OnboardingStep {
   id: string;
   title: string;
   description: string;
-  field: keyof WorkerProfile | (keyof WorkerProfile)[];
+  field: FieldSpec;
   isRequired: boolean;
 }
 
@@ -34,7 +41,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     id: "experience",
     title: "Experience",
     description: "Your work experience",
-    field: ["experience", "experienceYears"],
+    field: { any: ["experience", "experienceYears"] },
     isRequired: true,
   },
   {
@@ -55,14 +62,14 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     id: "location",
     title: "Location & Pay",
     description: "Where and when you can work",
-    field: ["location", "availability", "expectedPayMin"],
+    field: { all: ["location", "availability"] },
     isRequired: true,
   },
   {
     id: "contact",
     title: "Contact Methods",
     description: "Optional ways to reach you",
-    field: ["lineId", "whatsappNumber", "phoneNumber"],
+    field: { any: ["lineId", "whatsappNumber", "phoneNumber"] },
     isRequired: false,
   },
 ];
@@ -74,19 +81,31 @@ export interface ProfileCompleteness {
   progress: number;
 }
 
-function isFieldComplete(
+function isSingleFieldComplete(
   profile: WorkerProfile,
-  field: keyof WorkerProfile | (keyof WorkerProfile)[]
+  field: keyof WorkerProfile
 ): boolean {
-  if (Array.isArray(field)) {
-    return field.some((f) => isFieldComplete(profile, f));
-  }
-
   const value = profile[field];
   if (value === null || value === undefined) return false;
   if (typeof value === "string" && value.trim() === "") return false;
   if (Array.isArray(value) && value.length === 0) return false;
   return true;
+}
+
+function isFieldComplete(profile: WorkerProfile, field: FieldSpec): boolean {
+  if (typeof field === "string") {
+    return isSingleFieldComplete(profile, field);
+  }
+
+  if ("any" in field) {
+    return field.any.some((f) => isSingleFieldComplete(profile, f));
+  }
+
+  if ("all" in field) {
+    return field.all.every((f) => isSingleFieldComplete(profile, f));
+  }
+
+  return false;
 }
 
 export function getProfileCompleteness(

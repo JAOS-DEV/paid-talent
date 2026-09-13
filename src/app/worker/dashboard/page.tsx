@@ -12,7 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui";
-import { getProfileCompleteness } from "@/lib/profile";
+import {
+  getProfileCompleteness,
+  INCOMPLETE_PROFILE_REDIRECT_THRESHOLD,
+} from "@/lib/profile";
 import type { WorkerProfile } from "@/lib/db/schema";
 
 export default function WorkerDashboardPage(): React.ReactElement {
@@ -30,7 +33,10 @@ export default function WorkerDashboardPage(): React.ReactElement {
           setProfile(data.profile);
 
           const completeness = getProfileCompleteness(data.profile);
-          if (!completeness.isComplete && completeness.progress < 30) {
+          if (
+            !completeness.isComplete &&
+            completeness.progress < INCOMPLETE_PROFILE_REDIRECT_THRESHOLD
+          ) {
             router.replace("/worker/onboarding");
             return;
           }
@@ -42,21 +48,19 @@ export default function WorkerDashboardPage(): React.ReactElement {
       }
     }
 
-    if (session?.user?.id && session.user.role === "worker") {
-      fetchProfile();
+    if (!session?.user?.id) {
+      return;
     }
+
+    if (session.user.role !== "worker") {
+      router.replace("/auth/signin");
+      return;
+    }
+
+    fetchProfile();
   }, [session, router]);
 
-  if (status === "loading" || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-charcoal-950">
-        <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!session || session.user.role !== "worker") {
-    router.replace("/auth/signin");
+  if (status === "loading" || loading || !session || session.user.role !== "worker") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-charcoal-950">
         <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />

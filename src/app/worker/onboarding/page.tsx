@@ -55,9 +55,16 @@ export default function WorkerOnboardingPage(): React.ReactElement {
       }
     }
 
-    if (session?.user?.id && session.user.role === "worker") {
-      fetchProfile();
+    if (!session?.user?.id) {
+      return;
     }
+
+    if (session.user.role !== "worker") {
+      router.replace("/auth/signin");
+      return;
+    }
+
+    fetchProfile();
   }, [session, router]);
 
   const handleStepComplete = useCallback(async (): Promise<void> => {
@@ -88,16 +95,7 @@ export default function WorkerOnboardingPage(): React.ReactElement {
     router.push("/worker/dashboard");
   }, [router]);
 
-  if (status === "loading" || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-charcoal-950">
-        <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!session || session.user.role !== "worker") {
-    router.replace("/auth/signin");
+  if (status === "loading" || loading || !session || session.user.role !== "worker") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-charcoal-950">
         <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />

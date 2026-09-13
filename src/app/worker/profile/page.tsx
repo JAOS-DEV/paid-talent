@@ -27,6 +27,7 @@ import {
   LANGUAGE_OPTIONS,
   AVAILABILITY_OPTIONS,
   getProfileCompleteness,
+  INCOMPLETE_PROFILE_REDIRECT_THRESHOLD,
 } from "@/lib/profile";
 import type { WorkerProfile } from "@/lib/db/schema";
 
@@ -83,7 +84,10 @@ export default function WorkerProfilePage(): React.ReactElement {
             setPhotoUrl(p.photoUrl);
 
             const completeness = getProfileCompleteness(p);
-            if (!completeness.isComplete && completeness.progress < 50) {
+            if (
+              !completeness.isComplete &&
+              completeness.progress < INCOMPLETE_PROFILE_REDIRECT_THRESHOLD
+            ) {
               router.replace("/worker/onboarding");
             }
           } else {
@@ -97,9 +101,16 @@ export default function WorkerProfilePage(): React.ReactElement {
       }
     }
 
-    if (session?.user?.id && session.user.role === "worker") {
-      fetchProfile();
+    if (!session?.user?.id) {
+      return;
     }
+
+    if (session.user.role !== "worker") {
+      router.replace("/auth/signin");
+      return;
+    }
+
+    fetchProfile();
   }, [session, router]);
 
   function showSuccess(message: string): void {
@@ -223,16 +234,7 @@ export default function WorkerProfilePage(): React.ReactElement {
     );
   }
 
-  if (status === "loading" || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-charcoal-950">
-        <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!session || session.user.role !== "worker") {
-    router.replace("/auth/signin");
+  if (status === "loading" || loading || !session || session.user.role !== "worker") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-charcoal-950">
         <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />
