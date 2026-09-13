@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { isOver18 } from "@/lib/helpers/age-verification";
+import { getPostAgeVerificationRedirect } from "@/lib/auth/sign-in-decision";
 import { z } from "zod";
 
 const verifyAgeSchema = z.object({
@@ -56,8 +57,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .where(eq(users.id, session.user.id))
       .limit(1);
 
-    const redirectUrl =
-      user?.role === "worker" ? "/worker/onboarding" : "/recruiter/dashboard";
+    const redirectUrl = getPostAgeVerificationRedirect(user?.role);
 
     return NextResponse.json({
       success: true,

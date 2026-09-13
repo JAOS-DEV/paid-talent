@@ -19,14 +19,16 @@ export function validateRegisterInput(input: unknown): {
   return { success: false, error: result.error.issues[0]?.message };
 }
 
-export function validateAge(dob: string): { valid: boolean; age: number } {
-  const dateOfBirth = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - dateOfBirth.getFullYear();
-  const monthDiff = today.getMonth() - dateOfBirth.getMonth();
+export function validateAge(
+  dob: string,
+  referenceDate: Date = new Date()
+): { valid: boolean; age: number } {
+  const dateOfBirth = new Date(dob + "T00:00:00");
+  let age = referenceDate.getFullYear() - dateOfBirth.getFullYear();
+  const monthDiff = referenceDate.getMonth() - dateOfBirth.getMonth();
   if (
     monthDiff < 0 ||
-    (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())
+    (monthDiff === 0 && referenceDate.getDate() < dateOfBirth.getDate())
   ) {
     age--;
   }
@@ -136,14 +138,8 @@ describe("Auth Register Validation", () => {
     });
 
     it("should reject user one day before 20th birthday", () => {
-      const today = new Date();
-      const dob = new Date(
-        today.getFullYear() - 20,
-        today.getMonth(),
-        today.getDate() + 1
-      );
-      const dobStr = dob.toISOString().split("T")[0];
-      const result = validateAge(dobStr);
+      const reference = new Date(2024, 5, 15); // June 15, 2024
+      const result = validateAge("2004-06-16", reference);
       expect(result.valid).toBe(false);
       expect(result.age).toBe(19);
     });

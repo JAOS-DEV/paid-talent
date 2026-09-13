@@ -237,3 +237,94 @@ test.describe("Mobile DOB Input Layout", () => {
     }
   });
 });
+
+test.describe("Auth Redirect Loop Regression (anonymous + signup intent)", () => {
+  test("unauthenticated users should be redirected from protected routes to signin", async ({ page }) => {
+    await page.goto("/worker/dashboard");
+    await expect(page).toHaveURL(/auth\/signin/);
+    await expect(page).toHaveURL(/callbackUrl/);
+  });
+
+  test("unauthenticated users should be redirected from recruiter routes to signin", async ({ page }) => {
+    await page.goto("/recruiter/dashboard");
+    await expect(page).toHaveURL(/auth\/signin/);
+  });
+
+  test("pre-auth public routes remain accessible without a session", async ({ page }) => {
+    await page.goto("/auth/role-select");
+    await expect(page.getByRole("heading", { name: /welcome to paid talent/i })).toBeVisible();
+
+    await page.goto("/auth/age-gate?role=worker");
+    await expect(page.getByRole("heading", { name: /age confirmation/i })).toBeVisible();
+
+    await page.goto("/auth/signin");
+    await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+
+    await page.goto("/");
+    await expect(page).toHaveTitle(/Paid Talent/i);
+  });
+
+  test("anonymous users cannot use post-auth DOB page (redirect to signin)", async ({ page }) => {
+    await page.goto("/auth/age-verification");
+    await expect(page).toHaveURL(/auth\/signin/);
+  });
+
+  test("worker signup path sets signup_intent_role cookie before Google OAuth", async ({
+    page,
+  }) => {
+    await page.goto("/auth/role-select");
+    await page.getByText(/i'm a worker/i).click();
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page).toHaveURL(/auth\/age-gate/);
+
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page).toHaveURL(/auth\/signin/);
+    await expect(page).toHaveURL(/role=worker/);
+    await expect(page).toHaveURL(/ageConfirmed=true/);
+
+    // Prevent leaving the app for real Google OAuth
+    await page.route("**/api/auth/**", async (route) => {
+      if (route.request().url().includes("signin/google") || route.request().url().includes("callback/google")) {
+        await route.abort();
+        return;
+      }
+      await route.continue();
+    });
+    await page.route("**/accounts.google.com/**", (route) => route.abort());
+
+    await page.getByRole("button", { name: /google/i }).click();
+
+    await expect
+      .poll(async () => {
+        const cookies = await page.context().cookies();
+        return cookies.find((c) => c.name === "signup_intent_role")?.value;
+      })
+      .toBe("worker");
+  });
+
+  test("recruiter signup path preserves role through age-gate into signin URL", async ({
+    page,
+  }) => {
+    await page.goto("/auth/role-select");
+    await page.getByText(/i'm a recruiter/i).click();
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page).toHaveURL(/role=recruiter/);
+
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /continue/i }).click();
+
+    await expect(page).toHaveURL(/auth\/signin/);
+    await expect(page).toHaveURL(/role=recruiter/);
+    await expect(page).toHaveURL(/ageConfirmed=true/);
+  });
+});
+
+/**
+ * Authenticated ageVerified=false → age-verification, JWT update after verify-age,
+ * and signIn completing (not aborting to age-verification) are covered by unit tests:
+ * - src/lib/auth/__tests__/sign-in-decision.test.ts
+ * - src/lib/auth/__tests__/middleware-gate.test.ts
+ *
+ * Real Google OAuth end-to-end cannot be automated without live credentials.
+ */

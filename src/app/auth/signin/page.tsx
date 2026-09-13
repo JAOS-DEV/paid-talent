@@ -75,6 +75,10 @@ function SignInForm(): React.ReactElement {
     setFormError(null);
     setIsLoading(true);
 
+    if (isSignupIntentMode && role) {
+      setSignupIntentCookie(role);
+    }
+
     // In signup mode, register the user first via POST API
     if (isSignupMode) {
       try {
