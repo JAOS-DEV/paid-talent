@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Dark charcoal base */
+  --color-charcoal-950: #0d0d0f;
+  --color-charcoal-900: #141418;
+  --color-charcoal-800: #1c1c22;
+  --color-charcoal-700: #26262e;
+  --color-charcoal-600: #32323c;
+  --color-charcoal-500: #4a4a58;
+  --color-charcoal-400: #6b6b7d;
+  --color-charcoal-300: #9191a3;
+  --color-charcoal-200: #c2c2cf;
+  --color-charcoal-100: #e8e8ed;
+
+  /* Purple primary */
+  --color-primary-950: #1a0a2e;
+  --color-primary-900: #2d1052;
+  --color-primary-800: #42187a;
+  --color-primary-700: #5a20a8;
+  --color-primary-600: #7c3aed;
+  --color-primary-500: #8b5cf6;
+  --color-primary-400: #a78bfa;
+  --color-primary-300: #c4b5fd;
+  --color-primary-200: #ddd6fe;
+  --color-primary-100: #ede9fe;
+
+  /* Gold for Top Talent only */
+  --color-gold-950: #1f1a05;
+  --color-gold-900: #3d3409;
+  --color-gold-800: #5c4f0e;
+  --color-gold-700: #7a6912;
+  --color-gold-600: #a38d18;
+  --color-gold-500: #d4af37;
+  --color-gold-400: #e5c45a;
+  --color-gold-300: #f0d87d;
+  --color-gold-200: #f7e9a6;
+  --color-gold-100: #fcf5d4;
+
+  /* Semantic colors */
+  --color-background: var(--color-charcoal-950);
+  --color-foreground: var(--color-charcoal-100);
+  --color-muted: var(--color-charcoal-400);
+  --color-border: var(--color-charcoal-700);
+  --color-card: var(--color-charcoal-900);
+  --color-card-hover: var(--color-charcoal-800);
+
+  /* Status colors */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+
+  /* Font */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Focus ring utility */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-charcoal-950;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-charcoal-900);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-charcoal-600);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-charcoal-500);
+}
