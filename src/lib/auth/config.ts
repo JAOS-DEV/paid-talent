@@ -8,6 +8,10 @@ import { users, workerProfiles, recruiterProfiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
 import { isOver18 } from "@/lib/helpers/age-verification";
+import {
+  applyJwtSessionUpdate,
+  resolveProviderSignInDecision,
+} from "@/lib/auth/sign-in-decision";
 
 let cachedNodemailer: Provider | null = null;
 
@@ -140,125 +144,82 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     async signIn({ user, account }) {
       const cookieStore = await cookies();
-      const signupIntentRole = cookieStore.get("signup_intent_role")?.value as UserRole | undefined;
+      const signupIntentRole = cookieStore.get("signup_intent_role")?.value as
+        | UserRole
+        | undefined;
 
-      // Handle OAuth providers (Google)
-      if (account?.provider === "google") {
-        const [existingUser] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, user.email!))
-          .limit(1);
-
-        if (!existingUser) {
-          if (signupIntentRole && ["worker", "recruiter"].includes(signupIntentRole)) {
-            const now = new Date();
-            const [newUser] = await db
-              .insert(users)
-              .values({
-                email: user.email!,
-                name: user.name ?? null,
-                image: user.image ?? null,
-                role: signupIntentRole,
-                ageVerified: false,
-                createdAt: now,
-                updatedAt: now,
-              })
-              .returning();
-
-            if (signupIntentRole === "worker") {
-              await db.insert(workerProfiles).values({
-                userId: newUser.id,
-                displayName: user.name || user.email!.split("@")[0],
-                createdAt: now,
-                updatedAt: now,
-              });
-            } else {
-              await db.insert(recruiterProfiles).values({
-                userId: newUser.id,
-                createdAt: now,
-                updatedAt: now,
-              });
-            }
-
-            user.id = newUser.id;
-            (user as { role: UserRole }).role = signupIntentRole;
-            (user as { ageVerified: boolean }).ageVerified = false;
-
-            // Return true to complete sign-in; middleware will redirect to age-verification
-            return true;
-          }
-
-          // No signup intent - need to select role first (abort sign-in)
-          return "/auth/role-select?email=" + encodeURIComponent(user.email!);
-        }
-
-        // Existing user - populate session data
-        user.id = existingUser.id;
-        (user as { role: UserRole }).role = existingUser.role as UserRole;
-        (user as { ageVerified: boolean }).ageVerified = existingUser.ageVerified;
-
-        // Return true to complete sign-in; if not age-verified, middleware handles redirect
+      const provider = account?.provider;
+      if (provider !== "google" && provider !== "email") {
+        return true;
       }
 
-      // Handle Email magic link provider
-      if (account?.provider === "email") {
-        const [existingUser] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, user.email!))
-          .limit(1);
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, user.email!))
+        .limit(1);
 
-        if (!existingUser) {
-          if (signupIntentRole && ["worker", "recruiter"].includes(signupIntentRole)) {
-            const now = new Date();
-            const [newUser] = await db
-              .insert(users)
-              .values({
-                email: user.email!,
-                name: user.name ?? null,
-                role: signupIntentRole,
-                ageVerified: false,
-                createdAt: now,
-                updatedAt: now,
-              })
-              .returning();
-
-            if (signupIntentRole === "worker") {
-              await db.insert(workerProfiles).values({
-                userId: newUser.id,
-                displayName: user.name || user.email!.split("@")[0],
-                createdAt: now,
-                updatedAt: now,
-              });
-            } else {
-              await db.insert(recruiterProfiles).values({
-                userId: newUser.id,
-                createdAt: now,
-                updatedAt: now,
-              });
+      const decision = resolveProviderSignInDecision({
+        existingUser: existingUser
+          ? {
+              id: existingUser.id,
+              role: existingUser.role as UserRole,
+              ageVerified: existingUser.ageVerified,
             }
+          : null,
+        signupIntentRole,
+        email: user.email!,
+      });
 
-            user.id = newUser.id;
-            (user as { role: UserRole }).role = signupIntentRole;
-            (user as { ageVerified: boolean }).ageVerified = false;
-
-            // Return true to complete sign-in; middleware will redirect to age-verification
-            return true;
-          }
-
-          // No signup intent - need to select role first (abort sign-in)
-          return "/auth/role-select?email=" + encodeURIComponent(user.email!);
-        }
-
-        // Existing user - populate session data
-        user.id = existingUser.id;
-        (user as { role: UserRole }).role = existingUser.role as UserRole;
-        (user as { ageVerified: boolean }).ageVerified = existingUser.ageVerified;
-
-        // Return true to complete sign-in; if not age-verified, middleware handles redirect
+      if (decision.kind === "abort_redirect") {
+        return decision.url;
       }
 
+      if (decision.kind === "complete_existing") {
+        user.id = decision.user.id;
+        (user as { role: UserRole }).role = decision.user.role;
+        (user as { ageVerified: boolean }).ageVerified =
+          decision.user.ageVerified;
+        // Complete sign-in; middleware redirects if ageVerified=false
+        return true;
+      }
+
+      // create_and_complete — new user with valid signup_intent_role
+      const role = decision.role;
+      const now = new Date();
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          email: user.email!,
+          name: user.name ?? null,
+          image: provider === "google" ? (user.image ?? null) : null,
+          role,
+          ageVerified: false,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+
+      if (role === "worker") {
+        await db.insert(workerProfiles).values({
+          userId: newUser.id,
+          displayName: user.name || user.email!.split("@")[0],
+          createdAt: now,
+          updatedAt: now,
+        });
+      } else {
+        await db.insert(recruiterProfiles).values({
+          userId: newUser.id,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      user.id = newUser.id;
+      (user as { role: UserRole }).role = role;
+      (user as { ageVerified: boolean }).ageVerified = false;
+
+      // Complete sign-in; middleware redirects to age-verification
       return true;
     },
     async jwt({ token, user, trigger, session }) {
@@ -269,8 +230,14 @@ export const authConfig: NextAuthConfig = {
       }
 
       if (trigger === "update" && session) {
-        token.role = (session as { role?: UserRole }).role ?? token.role;
-        token.ageVerified = (session as { ageVerified?: boolean }).ageVerified ?? token.ageVerified;
+        const updated = applyJwtSessionUpdate({
+          tokenRole: token.role as UserRole | undefined,
+          tokenAgeVerified: token.ageVerified as boolean | undefined,
+          sessionRole: (session as { role?: UserRole }).role,
+          sessionAgeVerified: (session as { ageVerified?: boolean }).ageVerified,
+        });
+        token.role = updated.role;
+        token.ageVerified = updated.ageVerified;
       }
 
       return token;
