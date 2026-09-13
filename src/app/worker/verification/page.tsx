@@ -206,7 +206,7 @@ function WhyWeAskModal({
           <p>We verify that:</p>
           <ul className="list-disc list-inside space-y-1 text-charcoal-500">
             <li>You are who you say you are</li>
-            <li>You meet our age requirement (20+)</li>
+            <li>You meet our age requirement (18+)</li>
             <li>Your profile represents a real person</li>
           </ul>
           <p className="text-charcoal-500">
@@ -500,7 +500,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
         <div className="text-center pt-3 border-t border-charcoal-800">
           <p className="text-charcoal-500 text-xs">
-            Used only for age and identity checks · 20+
+            Used only for age and identity checks · 18+
           </p>
           <button
             onClick={() => setShowWhyModal(true)}
@@ -626,7 +626,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
         <div className="text-center pt-3 border-t border-charcoal-800">
           <p className="text-charcoal-500 text-xs">
-            Used only for age and identity checks · 20+
+            Used only for age and identity checks · 18+
           </p>
           <button
             onClick={() => setShowWhyModal(true)}
@@ -720,7 +720,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
         <div className="text-center pt-2 border-t border-charcoal-800">
           <p className="text-charcoal-500 text-xs">
-            Used only for age and identity checks · 20+
+            Used only for age and identity checks · 18+
           </p>
         </div>
       </div>

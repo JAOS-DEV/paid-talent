@@ -44,8 +44,8 @@ async function validateAndCreateUser(
     age--;
   }
 
-  if (age < 20) {
-    return { success: false, error: "Paid Talent is for adults 20+. You can't create an account under 20.", status: 403 };
+  if (age < 18) {
+    return { success: false, error: "Paid Talent is for adults 18+. You can't create an account under 18.", status: 403 };
   }
 
   const [existingUser] = await db

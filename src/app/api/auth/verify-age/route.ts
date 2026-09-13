@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { db, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { isOver20 } from "@/lib/helpers/age-verification";
+import { isOver18 } from "@/lib/helpers/age-verification";
 import { z } from "zod";
 
 const verifyAgeSchema = z.object({
@@ -31,9 +31,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { dateOfBirth } = validation.data;
     const dob = new Date(dateOfBirth);
 
-    if (!isOver20(dob)) {
+    if (!isOver18(dob)) {
       return NextResponse.json(
-        { error: "Paid Talent is for adults 20+. You can't create an account under 20." },
+        { error: "Paid Talent is for adults 18+. You can't create an account under 18." },
         { status: 403 }
       );
     }

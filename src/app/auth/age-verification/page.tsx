@@ -40,15 +40,15 @@ export default function AgeVerificationPage(): React.ReactElement {
     }
 
     if (!confirmed) {
-      setError("Confirm you're 20+ to continue.");
+      setError("Confirm you're 18+ to continue.");
       return;
     }
 
     const age = calculateAge(dateOfBirth);
 
-    if (age < 20) {
+    if (age < 18) {
       setError(
-        "Paid Talent is for adults 20+. You can't create an account under 20."
+        "Paid Talent is for adults 18+. You can't create an account under 18."
       );
       return;
     }
@@ -127,10 +127,10 @@ export default function AgeVerificationPage(): React.ReactElement {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-charcoal-100 mb-2">
-            Age Verification
+            Confirm your date of birth
           </h1>
           <p className="text-charcoal-400">
-            We use this once to verify you&apos;re 20+.
+            We use this once to verify you&apos;re 18+.
           </p>
         </div>
 
@@ -140,7 +140,7 @@ export default function AgeVerificationPage(): React.ReactElement {
               <div className="w-full min-w-0 max-w-full overflow-hidden">
                 <Input
                   type="date"
-                  label="Date of Birth"
+                  label="Date of birth"
                   value={dateOfBirth}
                   onChange={(e) => setDateOfBirth(e.target.value)}
                   max={new Date().toISOString().split("T")[0]}
@@ -161,8 +161,7 @@ export default function AgeVerificationPage(): React.ReactElement {
                   htmlFor="age-confirm"
                   className="text-sm text-charcoal-300"
                 >
-                  I confirm that I am 20 years of age or older and agree to the
-                  terms of service
+                  I confirm I am 18 or older.
                 </label>
               </div>
 
@@ -179,14 +178,14 @@ export default function AgeVerificationPage(): React.ReactElement {
                 loading={isLoading}
                 disabled={!dateOfBirth || !confirmed}
               >
-                Verify & Continue
+                Verify & continue
               </Button>
             </form>
           </CardContent>
         </Card>
 
         <p className="text-center text-charcoal-500 text-xs mt-6">
-          20+ only · Thailand
+          Stored for age verification only.
         </p>
       </div>
     </div>

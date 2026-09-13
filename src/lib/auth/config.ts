@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { users, workerProfiles, recruiterProfiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
-import { isOver20 } from "@/lib/helpers/age-verification";
+import { isOver18 } from "@/lib/helpers/age-verification";
 
 let cachedNodemailer: Provider | null = null;
 
@@ -295,7 +295,7 @@ export async function createUserWithRole(
   name?: string
 ): Promise<typeof users.$inferSelect> {
   const now = new Date();
-  const ageVerified = dateOfBirth ? isOver20(dateOfBirth) : false;
+  const ageVerified = dateOfBirth ? isOver18(dateOfBirth) : false;
 
   const [newUser] = await db
     .insert(users)
@@ -314,4 +314,4 @@ export async function createUserWithRole(
   return newUser;
 }
 
-export { isOver20, isOver20 as isOver18 };
+export { isOver18 };

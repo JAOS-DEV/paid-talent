@@ -83,11 +83,11 @@ test.describe("Authentication Flow Smoke Tests", () => {
   });
 
   test.describe("Age Gate Page (Pre-auth)", () => {
-    test("should display age gate with 20+ checkbox", async ({ page }) => {
+    test("should display age gate with 18+ checkbox", async ({ page }) => {
       await page.goto("/auth/age-gate?role=worker");
 
       await expect(page.getByRole("heading", { name: /age confirmation/i })).toBeVisible();
-      await expect(page.getByText(/20 years of age or older/i)).toBeVisible();
+      await expect(page.getByText(/I confirm I am 18 or older/i)).toBeVisible();
     });
 
     test("should require checkbox to continue", async ({ page }) => {

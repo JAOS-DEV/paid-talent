@@ -38,8 +38,7 @@ function AgeGateForm(): React.ReactElement {
               htmlFor="age-confirm"
               className="text-sm text-charcoal-300 leading-relaxed"
             >
-              I confirm that I am <strong className="text-charcoal-100">20 years of age or older</strong> and
-              agree to the terms of service
+              I confirm I am 18 or older.
             </label>
           </div>
 
@@ -81,7 +80,7 @@ export default function AgeGatePage(): React.ReactElement {
             Age Confirmation
           </h1>
           <p className="text-charcoal-400">
-            You must be 20+ to use Paid Talent.
+            This platform is for adults only.
           </p>
         </div>
 
@@ -101,7 +100,7 @@ export default function AgeGatePage(): React.ReactElement {
         </Suspense>
 
         <p className="text-center text-charcoal-500 text-xs mt-6">
-          20+ only · Thailand
+          18+ only · Thailand
         </p>
       </div>
     </div>
