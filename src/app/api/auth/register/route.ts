@@ -6,6 +6,22 @@ import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
 import { z } from "zod";
 
+/**
+ * SECURITY NOTE: This route creates user records but does NOT establish sessions.
+ *
+ * This is designed to be used as a callback URL for the Google OAuth flow:
+ * 1. User authenticates with Google OAuth
+ * 2. Google redirects to this endpoint with role/dob params
+ * 3. We create the user record if needed
+ * 4. The session was already established by Google OAuth
+ *
+ * This route does NOT grant authentication - it only creates database records.
+ * Session establishment ONLY happens through:
+ * - Google OAuth (secure - verified by Google)
+ * - Email magic link (secure - verified by email ownership)
+ * - Credentials provider (gated by AUTH_DEV_BYPASS for local development only)
+ */
+
 const registerSchema = z.object({
   email: z.string().email(),
   role: z.enum(["worker", "recruiter"]),

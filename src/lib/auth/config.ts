@@ -7,6 +7,26 @@ import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
 import { isOver18 } from "@/lib/helpers/age-verification";
 
+/**
+ * SECURITY: Determines if the development-only email bypass is allowed.
+ *
+ * The Credentials provider with email-only sign-in is a DEVELOPMENT CONVENIENCE ONLY.
+ * It allows seeded test accounts to sign in without OAuth or magic links.
+ *
+ * This bypass is ONLY enabled when ALL conditions are met:
+ * 1. NODE_ENV === 'development'
+ * 2. AUTH_DEV_BYPASS === 'true' (explicit opt-in)
+ *
+ * NEVER enable this in production. The bypass allows account takeover if enabled
+ * in any environment where untrusted users can access the application.
+ */
+export function isDevBypassAllowed(): boolean {
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const hasExplicitBypass = process.env.AUTH_DEV_BYPASS === "true";
+
+  return isDevelopment && hasExplicitBypass;
+}
+
 export const authConfig: NextAuthConfig = {
   providers: [
     Google({
@@ -22,6 +42,17 @@ export const authConfig: NextAuthConfig = {
       },
       async authorize(credentials) {
         if (!credentials?.email) return null;
+
+        // SECURITY: Block email-only sign-in unless dev bypass is explicitly enabled.
+        // In production, users MUST authenticate via OAuth (Google) or a verified
+        // magic link/OTP flow. Email string alone is NEVER sufficient proof of identity.
+        if (!isDevBypassAllowed()) {
+          console.warn(
+            "[AUTH SECURITY] Credentials provider blocked: dev bypass not enabled. " +
+            "Set NODE_ENV=development AND AUTH_DEV_BYPASS=true for local testing only."
+          );
+          return null;
+        }
 
         const email = credentials.email as string;
         const [existingUser] = await db
