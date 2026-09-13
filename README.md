@@ -98,12 +98,66 @@ npm run db:generate
 # Run pending migrations
 npm run db:migrate
 
+# Seed database with sample data (development only)
+npm run db:seed
+
 # Open Drizzle Studio (database UI)
 npm run db:studio
 
 # Push schema directly (development only)
 npm run db:push
 ```
+
+### Local Development Seed Data
+
+The `db:seed` script populates the database with sample users for local development and testing. **This script is blocked in production** (`NODE_ENV=production`).
+
+#### Prerequisites
+
+1. PostgreSQL running with `DATABASE_URL` configured
+2. Migrations applied: `npm run db:migrate`
+
+#### Running the Seed
+
+```bash
+npm run db:seed
+```
+
+#### Seeded Accounts
+
+**Workers (8 total):**
+| Email | Location | Status |
+|-------|----------|--------|
+| `worker1@example.com` | Pattaya (Central) | ⭐ Top Talent |
+| `worker2@example.com` | Bangkok (Sukhumvit) | ⭐ Top Talent |
+| `worker3@example.com` | Pattaya (Jomtien) | ⭐ Top Talent |
+| `worker4@example.com` | Bangkok (Silom) | Normal |
+| `worker5@example.com` | Pattaya (Walking Street) | Normal |
+| `worker6@example.com` | Bangkok (Thonglor) | Normal |
+| `worker7@example.com` | Pattaya (Beach Road) | Normal |
+| `worker8@example.com` | Bangkok (Asoke) | Normal |
+
+**Recruiters (2 total):**
+| Email | Subscription |
+|-------|--------------|
+| `recruiter-free@example.com` | 🆓 Free (no Top Talent access) |
+| `recruiter-pro@example.com` | 💳 Active Top Talent Unlock |
+
+#### Signing In as Seed Users
+
+1. Start the dev server: `npm run dev`
+2. Navigate to: http://localhost:3000/auth/signin
+3. Click "Sign in with Email"
+4. Enter any seed email (e.g., `worker1@example.com`)
+5. You're signed in! (No password required for dev)
+
+The Credentials provider allows email-only authentication for existing users, making local development convenient.
+
+#### Top Talent Ranking
+
+Top Talent workers have 15 profile views seeded (within the 30-day window), while normal workers have only 2. This ensures Top Talent workers meet the ranking criteria:
+- Minimum 5 views in the time window
+- Top 10% by view count among all profiles
 
 ### Build for Production
 
