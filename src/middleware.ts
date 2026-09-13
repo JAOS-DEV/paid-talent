@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
+import { db, workerProfiles } from "@/lib/db";
+import { eq } from "drizzle-orm";
+import { getProfileCompleteness } from "@/lib/profile";
+import { getHomeRedirectDestination } from "@/lib/helpers/home-redirect";
 
 const publicRoutes = [
   "/",
@@ -13,6 +17,18 @@ const publicRoutes = [
 
 const workerOnlyRoutes = ["/worker"];
 const recruiterOnlyRoutes = ["/recruiter", "/search"];
+
+async function getWorkerProfileCompleteness(
+  userId: string
+): Promise<ReturnType<typeof getProfileCompleteness>> {
+  const [profile] = await db
+    .select()
+    .from(workerProfiles)
+    .where(eq(workerProfiles.userId, userId))
+    .limit(1);
+
+  return getProfileCompleteness(profile || null);
+}
 
 export default async function middleware(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
@@ -43,7 +59,7 @@ export default async function middleware(req: NextRequest): Promise<NextResponse
     return NextResponse.redirect(signInUrl);
   }
 
-  const user = session.user as { ageVerified?: boolean; role?: string };
+  const user = session.user as { ageVerified?: boolean; role?: string; id?: string };
 
   if (!user.ageVerified) {
     if (pathname === "/auth/age-verification") {
@@ -58,6 +74,24 @@ export default async function middleware(req: NextRequest): Promise<NextResponse
     }
 
     return NextResponse.redirect(new URL("/auth/age-verification", req.url));
+  }
+
+  if (pathname === "/") {
+    let profileCompleteness = null;
+
+    if (user.role === "worker" && user.id) {
+      profileCompleteness = await getWorkerProfileCompleteness(user.id);
+    }
+
+    const redirectResult = getHomeRedirectDestination({
+      isAuthenticated: true,
+      role: (user.role as "worker" | "recruiter") || null,
+      profileCompleteness,
+    });
+
+    if (redirectResult.shouldRedirect && redirectResult.destination) {
+      return NextResponse.redirect(new URL(redirectResult.destination, req.url));
+    }
   }
 
   const isWorkerRoute = workerOnlyRoutes.some(
