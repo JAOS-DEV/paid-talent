@@ -30,7 +30,7 @@ export function validateAge(dob: string): { valid: boolean; age: number } {
   ) {
     age--;
   }
-  return { valid: age >= 18, age };
+  return { valid: age >= 20, age };
 }
 
 export function getSignupRedirectUrl(role: "worker" | "recruiter"): string {
@@ -96,7 +96,7 @@ describe("Auth Register Validation", () => {
   });
 
   describe("validateAge", () => {
-    it("should validate user is 18 or older", () => {
+    it("should validate user is 20 or older", () => {
       const today = new Date();
       const dob = new Date(
         today.getFullYear() - 25,
@@ -109,43 +109,43 @@ describe("Auth Register Validation", () => {
       expect(result.age).toBe(25);
     });
 
-    it("should validate exactly 18 years old", () => {
+    it("should validate exactly 20 years old", () => {
       const today = new Date();
       const dob = new Date(
-        today.getFullYear() - 18,
+        today.getFullYear() - 20,
         today.getMonth(),
         today.getDate()
       );
       const dobStr = dob.toISOString().split("T")[0];
       const result = validateAge(dobStr);
       expect(result.valid).toBe(true);
-      expect(result.age).toBe(18);
+      expect(result.age).toBe(20);
     });
 
-    it("should reject user under 18", () => {
+    it("should reject user under 20", () => {
       const today = new Date();
       const dob = new Date(
-        today.getFullYear() - 16,
+        today.getFullYear() - 18,
         today.getMonth(),
         today.getDate()
       );
       const dobStr = dob.toISOString().split("T")[0];
       const result = validateAge(dobStr);
       expect(result.valid).toBe(false);
-      expect(result.age).toBe(16);
+      expect(result.age).toBe(18);
     });
 
-    it("should reject user one day before 18th birthday", () => {
+    it("should reject user one day before 20th birthday", () => {
       const today = new Date();
       const dob = new Date(
-        today.getFullYear() - 18,
+        today.getFullYear() - 20,
         today.getMonth(),
         today.getDate() + 1
       );
       const dobStr = dob.toISOString().split("T")[0];
       const result = validateAge(dobStr);
       expect(result.valid).toBe(false);
-      expect(result.age).toBe(17);
+      expect(result.age).toBe(19);
     });
   });
 

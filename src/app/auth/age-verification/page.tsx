@@ -40,15 +40,15 @@ export default function AgeVerificationPage(): React.ReactElement {
     }
 
     if (!confirmed) {
-      setError("Confirm you're 18+ to continue.");
+      setError("Confirm you're 20+ to continue.");
       return;
     }
 
     const age = calculateAge(dateOfBirth);
 
-    if (age < 18) {
+    if (age < 20) {
       setError(
-        "Paid Talent is for adults 18+. You can't create an account under 18."
+        "Paid Talent is for adults 20+. You can't create an account under 20."
       );
       return;
     }
@@ -130,7 +130,7 @@ export default function AgeVerificationPage(): React.ReactElement {
             Confirm your date of birth
           </h1>
           <p className="text-charcoal-400">
-            We use this once to verify you&apos;re 18+.
+            We use this once to verify you&apos;re 20+.
           </p>
         </div>
 
@@ -161,7 +161,7 @@ export default function AgeVerificationPage(): React.ReactElement {
                   htmlFor="age-confirm"
                   className="text-sm text-charcoal-300"
                 >
-                  I confirm I am 18 or older.
+                  I confirm I am 20 or older.
                 </label>
               </div>
 

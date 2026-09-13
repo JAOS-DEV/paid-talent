@@ -15,7 +15,7 @@ function AgeGateForm(): React.ReactElement {
 
   const handleContinue = (): void => {
     if (!confirmed) {
-      setError("Confirm you're 18+ to continue.");
+      setError("Confirm you're 20+ to continue.");
       return;
     }
 
@@ -47,11 +47,11 @@ function AgeGateForm(): React.ReactElement {
                 htmlFor="age-confirm"
                 className="text-sm text-charcoal-300 leading-relaxed"
               >
-                I confirm I am 18 or older.
+                I confirm I am 20 or older.
               </label>
             </div>
             <p className="text-charcoal-500 text-xs">
-              You must be 18+ to use Paid Talent.
+              You must be 20+ to use Paid Talent.
             </p>
           </div>
 
@@ -118,7 +118,7 @@ export default function AgeGatePage(): React.ReactElement {
         </Suspense>
 
         <p className="text-center text-charcoal-500 text-xs mt-6">
-          18+ only · Thailand
+          20+ only · Thailand
         </p>
       </div>
     </div>

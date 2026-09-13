@@ -33,7 +33,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!isOver18(dob)) {
       return NextResponse.json(
-        { error: "Paid Talent is for adults 18+. You can't create an account under 18." },
+        { error: "Paid Talent is for adults 20+. You can't create an account under 20." },
         { status: 403 }
       );
     }
