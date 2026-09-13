@@ -4,14 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Header, Footer } from "@/components/layout";
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Badge,
-} from "@/components/ui";
+import { Button, Card, CardContent, Badge } from "@/components/ui";
 import type { VerificationStatus, DocType } from "@/lib/db/schema";
 
 interface ChallengeCode {
@@ -20,16 +13,16 @@ interface ChallengeCode {
   issuedAt: string;
   expiresAt: string;
   isExpired?: boolean;
-  instructions: string;
 }
 
-interface VerificationState {
-  verificationStatus: VerificationStatus;
-  hasIdDocument: boolean;
-  hasChallengeCode: boolean;
-}
-
-type VerificationStep = "intro" | "challenge" | "id_upload" | "video_upload" | "submit" | "pending" | "verified" | "rejected";
+type VerificationStep =
+  | "intro"
+  | "camera"
+  | "recording"
+  | "review"
+  | "pending"
+  | "verified"
+  | "rejected";
 
 const DOC_TYPE_OPTIONS: { value: DocType; label: string }[] = [
   { value: "passport", label: "Passport" },
@@ -38,18 +31,153 @@ const DOC_TYPE_OPTIONS: { value: DocType; label: string }[] = [
   { value: "other", label: "Other Government ID" },
 ];
 
+function generateDisplayCode(code: string): string {
+  return code.slice(0, 2).toUpperCase() + code.slice(2, 4).toUpperCase();
+}
+
+function SilhouetteFrame(): React.ReactElement {
+  return (
+    <div className="relative w-full aspect-[3/4] max-w-[280px] mx-auto bg-charcoal-900 rounded-2xl overflow-hidden border-2 border-charcoal-700">
+      <svg
+        viewBox="0 0 200 267"
+        className="absolute inset-0 w-full h-full"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <ellipse
+          cx="100"
+          cy="90"
+          rx="45"
+          ry="55"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeDasharray="8 4"
+          className="text-charcoal-600"
+        />
+        <path
+          d="M55 160 Q55 145 100 145 Q145 145 145 160 L145 200 Q145 220 100 220 Q55 220 55 200 Z"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeDasharray="8 4"
+          className="text-charcoal-600"
+          fill="none"
+        />
+        <rect
+          x="130"
+          y="70"
+          width="50"
+          height="70"
+          rx="4"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeDasharray="6 3"
+          className="text-primary-500/60"
+        />
+        <text
+          x="155"
+          y="110"
+          textAnchor="middle"
+          className="text-[10px] fill-primary-400/60"
+        >
+          ID
+        </text>
+      </svg>
+      <div className="absolute bottom-4 left-0 right-0 text-center">
+        <p className="text-charcoal-500 text-xs">Position yourself in frame</p>
+      </div>
+    </div>
+  );
+}
+
+function ChecklistItem({
+  text,
+  checked = false,
+}: {
+  text: string;
+  checked?: boolean;
+}): React.ReactElement {
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${checked ? "bg-green-500/20 text-green-400" : "bg-charcoal-700 text-charcoal-500"}`}
+      >
+        {checked ? (
+          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        ) : (
+          <div className="w-1.5 h-1.5 rounded-full bg-current" />
+        )}
+      </div>
+      <span
+        className={`text-sm ${checked ? "text-charcoal-300" : "text-charcoal-400"}`}
+      >
+        {text}
+      </span>
+    </div>
+  );
+}
+
+function WhyWeAskModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}): React.ReactElement | null {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-charcoal-950/80"
+        onClick={onClose}
+      />
+      <div className="relative bg-charcoal-900 rounded-xl p-6 max-w-sm w-full border border-charcoal-700">
+        <h3 className="text-lg font-semibold text-charcoal-100 mb-3">
+          Why we verify identity
+        </h3>
+        <div className="space-y-3 text-charcoal-400 text-sm">
+          <p>
+            Identity verification helps us maintain a trusted platform for both
+            workers and recruiters.
+          </p>
+          <p>We verify that:</p>
+          <ul className="list-disc list-inside space-y-1 text-charcoal-500">
+            <li>You are who you say you are</li>
+            <li>You meet our age requirement (18+)</li>
+            <li>Your profile represents a real person</li>
+          </ul>
+          <p className="text-charcoal-500">
+            Your ID and video are used only for verification and are securely
+            stored with limited retention.
+          </p>
+        </div>
+        <Button fullWidth className="mt-4" onClick={onClose}>
+          Got it
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function WorkerVerificationPage(): React.ReactElement {
   const { data: session, status } = useSession();
   const router = useRouter();
-  
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<VerificationStep>("intro");
-  
-  const [, setVerificationState] = useState<VerificationState | null>(null);
-  const [challengeCode, setChallengeCode] = useState<ChallengeCode | null>(null);
-  
+  const [showWhyModal, setShowWhyModal] = useState(false);
+
+  const [challengeCode, setChallengeCode] = useState<ChallengeCode | null>(
+    null
+  );
   const [docType, setDocType] = useState<DocType>("passport");
   const [idDocumentKey, setIdDocumentKey] = useState<string | null>(null);
   const [livenessVideoKey, setLivenessVideoKey] = useState<string | null>(null);
@@ -61,9 +189,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
       const res = await fetch("/api/worker/verification");
       if (res.ok) {
         const data = await res.json();
-        setVerificationState(data.verification);
-        
-        const s = data.verification.verificationStatus;
+        const s = data.verification.verificationStatus as VerificationStatus;
         if (s === "pending") {
           setCurrentStep("pending");
         } else if (s === "verified") {
@@ -97,18 +223,18 @@ export default function WorkerVerificationPage(): React.ReactElement {
     if (session?.user?.role !== "worker") {
       return;
     }
-    
+
     let cancelled = false;
-    
+
     async function loadData(): Promise<void> {
       if (cancelled) return;
       await fetchVerificationStatus();
       if (cancelled) return;
       await fetchChallengeCode();
     }
-    
+
     loadData();
-    
+
     return () => {
       cancelled = true;
     };
@@ -127,7 +253,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
     return <div />;
   }
 
-  async function handleGenerateChallenge(): Promise<void> {
+  async function handleStartVerification(): Promise<void> {
     setError(null);
     setSubmitting(true);
     try {
@@ -137,9 +263,9 @@ export default function WorkerVerificationPage(): React.ReactElement {
       const data = await res.json();
       if (res.ok) {
         setChallengeCode(data.challenge);
-        setCurrentStep("challenge");
+        setCurrentStep("camera");
       } else {
-        setError(data.error || "Failed to generate challenge code");
+        setError(data.error || "Failed to start verification");
       }
     } catch {
       setError("Network error. Please try again.");
@@ -176,7 +302,6 @@ export default function WorkerVerificationPage(): React.ReactElement {
       }
 
       setIdDocumentKey(data.key);
-      setCurrentStep("video_upload");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -212,7 +337,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
       }
 
       setLivenessVideoKey(data.key);
-      setCurrentStep("submit");
+      setCurrentStep("review");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -222,7 +347,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
   async function handleSubmitVerification(): Promise<void> {
     if (!idDocumentKey || !livenessVideoKey) {
-      setError("Please complete all upload steps");
+      setError("Please complete all steps");
       return;
     }
 
@@ -241,11 +366,6 @@ export default function WorkerVerificationPage(): React.ReactElement {
       const data = await res.json();
       if (res.ok) {
         setCurrentStep("pending");
-        setVerificationState({
-          verificationStatus: "pending",
-          hasIdDocument: true,
-          hasChallengeCode: true,
-        });
       } else {
         setError(data.error || "Submission failed");
         if (data.details) {
@@ -275,366 +395,500 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
   function renderIntroStep(): React.ReactNode {
     return (
-      <Card padding="lg">
-        <CardHeader>
-          <CardTitle>Identity Verification</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
-            <h3 className="font-semibold text-charcoal-100 mb-2">Why verification is required</h3>
-            <p className="text-charcoal-400 text-sm">
-              To protect recruiters and maintain platform trust, we require all workers to verify their identity before their profile becomes visible in search results.
-            </p>
+      <div className="space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-charcoal-100">
+            Verify it&apos;s you
+          </h1>
+          <p className="text-charcoal-400 mt-2">
+            Quick step to confirm your identity.
+          </p>
+        </div>
+
+        <SilhouetteFrame />
+
+        <div className="space-y-3">
+          <ChecklistItem text="Hold ID beside face" />
+          <ChecklistItem text="Keep face and ID in frame" />
+          <ChecklistItem text="Read the code clearly" />
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-charcoal-300 mb-2">
+              ID Document Type
+            </label>
+            <select
+              className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              value={docType}
+              onChange={(e) => setDocType(e.target.value as DocType)}
+            >
+              {DOC_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="font-semibold text-charcoal-100">What you&apos;ll need:</h3>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary-600/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-xs text-primary-400 font-medium">1</span>
-                </div>
-                <div>
-                  <p className="text-charcoal-200 font-medium">Government-issued ID</p>
-                  <p className="text-charcoal-500 text-sm">Passport, Thai National ID, or Driver&apos;s License</p>
-                </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary-600/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-xs text-primary-400 font-medium">2</span>
-                </div>
-                <div>
-                  <p className="text-charcoal-200 font-medium">Short liveness video</p>
-                  <p className="text-charcoal-500 text-sm">Record yourself holding your ID and speaking a verification code</p>
-                </div>
-              </li>
-            </ul>
-          </div>
+          <Button
+            fullWidth
+            onClick={handleStartVerification}
+            loading={submitting}
+          >
+            Start video
+          </Button>
+        </div>
 
-          <div className="pt-4">
-            <Button fullWidth onClick={handleGenerateChallenge} loading={submitting}>
-              Start Verification
-            </Button>
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <p className="text-red-300 text-sm">{error}</p>
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        <div className="text-center pt-2 border-t border-charcoal-800">
+          <p className="text-charcoal-500 text-xs">
+            Used only for age and identity checks · 18+
+          </p>
+          <button
+            onClick={() => setShowWhyModal(true)}
+            className="text-primary-400 text-xs mt-1 hover:text-primary-300 transition-colors"
+          >
+            Why we ask
+          </button>
+        </div>
+      </div>
     );
   }
 
-  function renderChallengeStep(): React.ReactNode {
+  function renderCameraStep(): React.ReactNode {
+    const displayCode = challengeCode
+      ? generateDisplayCode(challengeCode.code)
+      : "----";
+
     return (
-      <Card padding="lg">
-        <CardHeader>
-          <CardTitle>Step 1: Your Verification Code</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {challengeCode && (
-            <>
-              <div className="bg-charcoal-800 rounded-lg p-6 text-center border border-charcoal-700">
-                <p className="text-charcoal-400 text-sm mb-2">Your Challenge Code</p>
-                <p className="text-4xl font-mono font-bold text-primary-400 tracking-wider">
-                  {challengeCode.displayCode}
+      <div className="space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-charcoal-100">
+            Verify it&apos;s you
+          </h1>
+          <p className="text-charcoal-400 mt-2">
+            Upload your ID, then record a short video.
+          </p>
+        </div>
+
+        <div className="relative">
+          <SilhouetteFrame />
+          <div className="absolute top-4 left-0 right-0 flex justify-center">
+            <div className="bg-charcoal-900/90 border border-primary-500/50 rounded-lg px-4 py-2">
+              <p className="text-charcoal-400 text-xs text-center mb-1">
+                Read this code aloud
+              </p>
+              <p className="text-3xl font-mono font-bold text-primary-400 tracking-widest text-center">
+                {displayCode}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <ChecklistItem text="Hold ID beside face" checked={!!idDocumentKey} />
+          <ChecklistItem
+            text="Keep face and ID in frame"
+            checked={!!idDocumentKey}
+          />
+          <ChecklistItem text="Read the code clearly" />
+        </div>
+
+        <Card padding="md">
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-charcoal-200 mb-2">
+                  Step 1: Upload ID photo
                 </p>
-                <p className="text-charcoal-500 text-sm mt-3">
-                  Code expires in 30 minutes
-                </p>
+                {idDocumentKey ? (
+                  <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                    <svg
+                      className="w-5 h-5 text-green-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    <span className="text-green-300 text-sm">
+                      ID uploaded successfully
+                    </span>
+                  </div>
+                ) : (
+                  <label className="block">
+                    <div className="border-2 border-dashed border-charcoal-600 rounded-lg p-4 text-center cursor-pointer hover:border-primary-500/50 transition-colors">
+                      {idUploading ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
+                          <span className="text-charcoal-400 text-sm">
+                            Uploading...
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <svg
+                            className="w-8 h-8 text-charcoal-500 mx-auto mb-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                          <span className="text-primary-400 text-sm font-medium">
+                            Tap to upload ID photo
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleIdFileChange}
+                      disabled={idUploading}
+                    />
+                  </label>
+                )}
               </div>
 
-              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                <p className="text-yellow-300 text-sm font-medium mb-1">Important:</p>
-                <p className="text-yellow-200/70 text-sm">
-                  {challengeCode.instructions}
+              <div>
+                <p className="text-sm font-medium text-charcoal-200 mb-2">
+                  Step 2: Record verification video
                 </p>
+                {!idDocumentKey ? (
+                  <p className="text-charcoal-500 text-sm">
+                    Upload your ID first
+                  </p>
+                ) : (
+                  <label className="block">
+                    <div className="border-2 border-dashed border-charcoal-600 rounded-lg p-4 text-center cursor-pointer hover:border-primary-500/50 transition-colors">
+                      {videoUploading ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
+                          <span className="text-charcoal-400 text-sm">
+                            Uploading video...
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <svg
+                            className="w-8 h-8 text-charcoal-500 mx-auto mb-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
+                          </svg>
+                          <span className="text-primary-400 text-sm font-medium">
+                            Tap to record video
+                          </span>
+                          <p className="text-charcoal-500 text-xs mt-1">
+                            Hold ID beside face and read: {displayCode}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime"
+                      className="hidden"
+                      onChange={handleVideoFileChange}
+                      disabled={videoUploading || !idDocumentKey}
+                    />
+                  </label>
+                )}
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              <div className="space-y-4">
-                <label className="block">
-                  <span className="text-sm font-medium text-charcoal-200 mb-1.5 block">
-                    ID Document Type
-                  </span>
-                  <select
-                    className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    value={docType}
-                    onChange={(e) => setDocType(e.target.value as DocType)}
-                  >
-                    {DOC_TYPE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <p className="text-red-300 text-sm">{error}</p>
+          </div>
+        )}
 
-              <Button fullWidth onClick={() => setCurrentStep("id_upload")}>
-                Continue to Upload ID
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
+        <Button
+          variant="outline"
+          fullWidth
+          onClick={() => setCurrentStep("intro")}
+        >
+          Back
+        </Button>
+
+        <div className="text-center pt-2 border-t border-charcoal-800">
+          <p className="text-charcoal-500 text-xs">
+            Used only for age and identity checks · 18+
+          </p>
+          <button
+            onClick={() => setShowWhyModal(true)}
+            className="text-primary-400 text-xs mt-1 hover:text-primary-300 transition-colors"
+          >
+            Why we ask
+          </button>
+        </div>
+      </div>
     );
   }
 
-  function renderIdUploadStep(): React.ReactNode {
+  function renderReviewStep(): React.ReactNode {
     return (
-      <Card padding="lg">
-        <CardHeader>
-          <CardTitle>Step 2: Upload ID Document</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
-            <p className="text-charcoal-300 text-sm">
-              Upload a clear photo of your {DOC_TYPE_OPTIONS.find(d => d.value === docType)?.label || "ID document"}. 
-              Make sure all text is readable and the photo is not blurry.
-            </p>
-          </div>
+      <div className="space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-charcoal-100">
+            Ready to submit
+          </h1>
+          <p className="text-charcoal-400 mt-2">
+            Review your submission before sending.
+          </p>
+        </div>
 
-          <div className="border-2 border-dashed border-charcoal-600 rounded-lg p-8 text-center">
-            {idUploading ? (
-              <div className="flex flex-col items-center">
-                <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full mb-3" />
-                <p className="text-charcoal-400">Uploading...</p>
-              </div>
-            ) : (
-              <>
-                <svg className="w-12 h-12 text-charcoal-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <label className="cursor-pointer">
-                  <span className="text-primary-400 font-medium">Click to upload</span>
-                  <span className="text-charcoal-500"> or drag and drop</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={handleIdFileChange}
-                  />
-                </label>
-                <p className="text-charcoal-500 text-sm mt-2">JPG, PNG, or WebP (max 10MB)</p>
-              </>
-            )}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+            <svg
+              className="w-5 h-5 text-green-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            <span className="text-green-300 text-sm">ID document uploaded</span>
           </div>
+          <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+            <svg
+              className="w-5 h-5 text-green-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            <span className="text-green-300 text-sm">
+              Verification video recorded
+            </span>
+          </div>
+        </div>
 
-          <Button variant="outline" fullWidth onClick={() => setCurrentStep("challenge")}>
+        <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
+          <p className="text-charcoal-300 text-sm">
+            <span className="text-charcoal-400">Document type:</span>{" "}
+            {DOC_TYPE_OPTIONS.find((d) => d.value === docType)?.label}
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <p className="text-red-300 text-sm">{error}</p>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <Button
+            fullWidth
+            onClick={handleSubmitVerification}
+            loading={submitting}
+          >
+            Submit verification
+          </Button>
+          <Button
+            variant="outline"
+            fullWidth
+            onClick={() => setCurrentStep("camera")}
+          >
             Back
           </Button>
-        </CardContent>
-      </Card>
-    );
-  }
+        </div>
 
-  function renderVideoUploadStep(): React.ReactNode {
-    return (
-      <Card padding="lg">
-        <CardHeader>
-          <CardTitle>Step 3: Record Liveness Video</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {idDocumentKey && (
-            <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="text-green-300 text-sm">ID document uploaded successfully</span>
-            </div>
-          )}
-
-          <div className="bg-charcoal-800 rounded-lg p-4 border border-charcoal-700">
-            <p className="text-charcoal-200 font-medium mb-2">Your Challenge Code:</p>
-            <p className="text-2xl font-mono font-bold text-primary-400">{challengeCode?.displayCode}</p>
-          </div>
-
-          <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
-            <h4 className="font-medium text-charcoal-200 mb-2">Recording Instructions:</h4>
-            <ol className="space-y-2 text-charcoal-400 text-sm list-decimal list-inside">
-              <li>Hold your ID document next to your face</li>
-              <li>Clearly say today&apos;s date</li>
-              <li>Read the challenge code above out loud</li>
-              <li>Keep recording for at least 5 seconds</li>
-            </ol>
-          </div>
-
-          <div className="border-2 border-dashed border-charcoal-600 rounded-lg p-8 text-center">
-            {videoUploading ? (
-              <div className="flex flex-col items-center">
-                <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full mb-3" />
-                <p className="text-charcoal-400">Uploading video...</p>
-              </div>
-            ) : (
-              <>
-                <svg className="w-12 h-12 text-charcoal-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                <label className="cursor-pointer">
-                  <span className="text-primary-400 font-medium">Click to upload video</span>
-                  <input
-                    type="file"
-                    accept="video/mp4,video/webm,video/quicktime"
-                    className="hidden"
-                    onChange={handleVideoFileChange}
-                  />
-                </label>
-                <p className="text-charcoal-500 text-sm mt-2">MP4, WebM, or MOV (max 50MB)</p>
-              </>
-            )}
-          </div>
-
-          <Button variant="outline" fullWidth onClick={() => setCurrentStep("id_upload")}>
-            Back
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  function renderSubmitStep(): React.ReactNode {
-    return (
-      <Card padding="lg">
-        <CardHeader>
-          <CardTitle>Step 4: Review & Submit</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="text-green-300 text-sm">ID document uploaded</span>
-            </div>
-            <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="text-green-300 text-sm">Liveness video uploaded</span>
-            </div>
-          </div>
-
-          <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
-            <p className="text-charcoal-200 text-sm">
-              <strong>Document Type:</strong> {DOC_TYPE_OPTIONS.find(d => d.value === docType)?.label}
-            </p>
-          </div>
-
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-              <p className="text-red-300 text-sm">{error}</p>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <Button fullWidth onClick={handleSubmitVerification} loading={submitting}>
-              Submit for Verification
-            </Button>
-            <Button variant="outline" fullWidth onClick={() => setCurrentStep("video_upload")}>
-              Back
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="text-center pt-2 border-t border-charcoal-800">
+          <p className="text-charcoal-500 text-xs">
+            Used only for age and identity checks · 18+
+          </p>
+        </div>
+      </div>
     );
   }
 
   function renderPendingStep(): React.ReactNode {
     return (
-      <Card padding="lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-3">
-            <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <div className="space-y-6">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-8 h-8 text-blue-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
-            Verification Pending
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-            <p className="text-blue-200 text-sm">
-              Your verification documents are being reviewed. This usually takes 1-2 business days.
-            </p>
           </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-charcoal-400">Status</span>
-              <Badge variant="warning">Under Review</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-charcoal-400">Profile Visibility</span>
-              <Badge variant="default">Not Live</Badge>
-            </div>
-          </div>
-
-          <p className="text-charcoal-500 text-sm">
-            Once approved, your profile will automatically become visible to recruiters. 
-            We&apos;ll notify you when the review is complete.
+          <h1 className="text-2xl font-bold text-charcoal-100">
+            Verification pending
+          </h1>
+          <p className="text-charcoal-400 mt-2">
+            We&apos;re reviewing your submission. This usually takes 1-2
+            business days.
           </p>
+        </div>
 
-          <Button variant="outline" fullWidth onClick={() => router.push("/worker/dashboard")}>
-            Return to Dashboard
-          </Button>
-        </CardContent>
-      </Card>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between py-2">
+            <span className="text-charcoal-400">Status</span>
+            <Badge variant="warning">Under review</Badge>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-charcoal-400">Profile visibility</span>
+            <Badge variant="default">Not live</Badge>
+          </div>
+        </div>
+
+        <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
+          <p className="text-charcoal-400 text-sm">
+            Once approved, your profile will automatically become visible to
+            recruiters. We&apos;ll notify you when the review is complete.
+          </p>
+        </div>
+
+        <Button
+          variant="outline"
+          fullWidth
+          onClick={() => router.push("/worker/dashboard")}
+        >
+          Return to dashboard
+        </Button>
+      </div>
     );
   }
 
   function renderVerifiedStep(): React.ReactNode {
     return (
-      <Card padding="lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-3">
-            <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <div className="space-y-6">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-8 h-8 text-green-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
-            Verification Complete
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-            <p className="text-green-200 text-sm">
-              Your identity has been verified. Your profile is now visible to recruiters.
-            </p>
           </div>
+          <h1 className="text-2xl font-bold text-charcoal-100">
+            You&apos;re verified
+          </h1>
+          <p className="text-charcoal-400 mt-2">
+            Your identity has been confirmed. Your profile is now visible to
+            recruiters.
+          </p>
+        </div>
 
-          <Button fullWidth onClick={() => router.push("/worker/dashboard")}>
-            Go to Dashboard
-          </Button>
-        </CardContent>
-      </Card>
+        <Button fullWidth onClick={() => router.push("/worker/dashboard")}>
+          Go to dashboard
+        </Button>
+      </div>
     );
   }
 
   function renderRejectedStep(): React.ReactNode {
     return (
-      <Card padding="lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-3">
-            <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <div className="space-y-6">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-8 h-8 text-red-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
-            Verification Rejected
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-            <p className="text-red-200 text-sm">
-              Your verification was not approved. This could be due to:
-            </p>
-            <ul className="text-red-200/70 text-sm mt-2 list-disc list-inside">
-              <li>Unclear or unreadable ID document</li>
-              <li>Face not visible in liveness video</li>
-              <li>Incorrect challenge code spoken</li>
-              <li>ID document not matching video</li>
-            </ul>
           </div>
+          <h1 className="text-2xl font-bold text-charcoal-100">
+            Verification unsuccessful
+          </h1>
+          <p className="text-charcoal-400 mt-2">
+            We couldn&apos;t verify your identity. Please try again.
+          </p>
+        </div>
 
-          <Button fullWidth onClick={handleGenerateChallenge} loading={submitting}>
-            Try Again
+        <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
+          <p className="text-charcoal-300 text-sm font-medium mb-2">
+            Common issues:
+          </p>
+          <ul className="text-charcoal-400 text-sm space-y-1 list-disc list-inside">
+            <li>ID photo was unclear or cut off</li>
+            <li>Face wasn&apos;t visible in video</li>
+            <li>Code wasn&apos;t read clearly</li>
+            <li>ID didn&apos;t match the person in video</li>
+          </ul>
+        </div>
+
+        <div className="space-y-3">
+          <Button
+            fullWidth
+            onClick={handleStartVerification}
+            loading={submitting}
+          >
+            Try again
           </Button>
-          <Button variant="outline" fullWidth onClick={() => router.push("/worker/dashboard")}>
-            Return to Dashboard
+          <Button
+            variant="outline"
+            fullWidth
+            onClick={() => router.push("/worker/dashboard")}
+          >
+            Return to dashboard
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
@@ -642,14 +896,11 @@ export default function WorkerVerificationPage(): React.ReactElement {
     switch (currentStep) {
       case "intro":
         return renderIntroStep();
-      case "challenge":
-        return renderChallengeStep();
-      case "id_upload":
-        return renderIdUploadStep();
-      case "video_upload":
-        return renderVideoUploadStep();
-      case "submit":
-        return renderSubmitStep();
+      case "camera":
+      case "recording":
+        return renderCameraStep();
+      case "review":
+        return renderReviewStep();
       case "pending":
         return renderPendingStep();
       case "verified":
@@ -661,63 +912,20 @@ export default function WorkerVerificationPage(): React.ReactElement {
     }
   }
 
-  const stepLabels = ["Code", "Upload ID", "Video", "Submit"];
-  const stepIndex = ["intro", "challenge", "id_upload", "video_upload", "submit"].indexOf(currentStep);
-  const showProgress = stepIndex >= 0 && stepIndex < 5;
-
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
 
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="max-w-md mx-auto px-4">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-charcoal-100">
-              Identity Verification
-            </h1>
-            <p className="text-charcoal-400 mt-1">
-              Verify your identity to make your profile visible
-            </p>
-          </div>
-
-          {showProgress && (
-            <div className="mb-6">
-              <div className="flex justify-between mb-2">
-                {stepLabels.map((label, idx) => (
-                  <span 
-                    key={label}
-                    className={`text-xs ${idx <= Math.max(0, stepIndex - 1) ? "text-primary-400" : "text-charcoal-500"}`}
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-1">
-                {stepLabels.map((_, idx) => (
-                  <div
-                    key={idx}
-                    className={`h-1.5 flex-1 rounded-full ${
-                      idx < stepIndex ? "bg-primary-500" :
-                      idx === stepIndex ? "bg-primary-400" :
-                      "bg-charcoal-700"
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {error && !["submit", "rejected"].includes(currentStep) && (
-            <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-              <p className="text-red-300 text-sm">{error}</p>
-            </div>
-          )}
-
-          {renderCurrentStep()}
-        </div>
+        <div className="max-w-sm mx-auto px-4">{renderCurrentStep()}</div>
       </main>
 
       <Footer />
+
+      <WhyWeAskModal
+        isOpen={showWhyModal}
+        onClose={() => setShowWhyModal(false)}
+      />
     </div>
   );
 }
