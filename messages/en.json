@@ -1,0 +1,107 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "error": "Something went wrong",
+    "success": "Success"
+  },
+  "navigation": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "search": "Search",
+    "settings": "Settings",
+    "signIn": "Sign In",
+    "signOut": "Sign Out"
+  },
+  "auth": {
+    "signInTitle": "Sign In",
+    "signInSubtitle": "Sign in to your account",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "you@example.com",
+    "continueWithEmail": "Continue with Email",
+    "continueWithGoogle": "Continue with Google",
+    "checkEmail": "Check your email",
+    "checkEmailDescription": "A sign-in link has been sent to your email address.",
+    "linkExpiry": "The link will expire in 24 hours for your security.",
+    "backToSignIn": "Back to Sign In"
+  },
+  "worker": {
+    "dashboard": {
+      "title": "Worker Dashboard",
+      "welcome": "Welcome back",
+      "profileViews": "Profile Views",
+      "interests": "Interests Received",
+      "topTalentStatus": "Top Talent Status",
+      "viewProfile": "View Profile",
+      "editProfile": "Edit Profile"
+    },
+    "profile": {
+      "title": "My Profile",
+      "displayName": "Display Name",
+      "bio": "About Me",
+      "bioPlaceholder": "Tell recruiters about yourself...",
+      "experience": "Experience",
+      "experiencePlaceholder": "Describe your work experience...",
+      "location": "Location",
+      "area": "Area",
+      "languages": "Languages",
+      "contact": "Contact Information",
+      "lineId": "LINE ID",
+      "whatsapp": "WhatsApp",
+      "phone": "Phone Number",
+      "photos": "Photos",
+      "addPhoto": "Add Photo",
+      "saveChanges": "Save Changes"
+    },
+    "verification": {
+      "title": "Identity Verification",
+      "required": "Verification Required",
+      "requiredDescription": "Complete identity verification to become searchable by recruiters.",
+      "pending": "Verification Pending",
+      "pendingDescription": "Your verification is being reviewed. This usually takes 1-2 business days.",
+      "verified": "Verified",
+      "verifiedDescription": "Your identity has been verified. Your profile is now searchable.",
+      "rejected": "Verification Rejected",
+      "rejectedDescription": "Your verification was rejected. Please try again with valid documents.",
+      "startVerification": "Start Verification",
+      "uploadId": "Upload ID Document",
+      "recordVideo": "Record Liveness Video",
+      "challengeCode": "Your challenge code"
+    }
+  },
+  "recruiter": {
+    "dashboard": {
+      "title": "Recruiter Dashboard",
+      "welcome": "Welcome back",
+      "searchWorkers": "Search Workers",
+      "myInterests": "My Interests",
+      "subscription": "Subscription"
+    },
+    "search": {
+      "title": "Find Workers",
+      "filters": "Filters",
+      "location": "Location",
+      "availability": "Availability",
+      "clearFilters": "Clear Filters",
+      "noResults": "No workers found",
+      "topTalent": "Top Talent",
+      "contactLocked": "Subscribe to view contact"
+    }
+  },
+  "subscription": {
+    "free": "Free Plan",
+    "topTalentUnlock": "Top Talent Unlock",
+    "subscribe": "Subscribe",
+    "manage": "Manage Subscription",
+    "active": "Active",
+    "expired": "Expired"
+  }
+}

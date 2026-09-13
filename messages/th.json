@@ -1,0 +1,107 @@
+{
+  "common": {
+    "loading": "กำลังโหลด...",
+    "save": "บันทึก",
+    "cancel": "ยกเลิก",
+    "edit": "แก้ไข",
+    "delete": "ลบ",
+    "confirm": "ยืนยัน",
+    "back": "ย้อนกลับ",
+    "next": "ถัดไป",
+    "submit": "ส่ง",
+    "error": "เกิดข้อผิดพลาด",
+    "success": "สำเร็จ"
+  },
+  "navigation": {
+    "home": "หน้าแรก",
+    "dashboard": "แดชบอร์ด",
+    "profile": "โปรไฟล์",
+    "search": "ค้นหา",
+    "settings": "ตั้งค่า",
+    "signIn": "เข้าสู่ระบบ",
+    "signOut": "ออกจากระบบ"
+  },
+  "auth": {
+    "signInTitle": "เข้าสู่ระบบ",
+    "signInSubtitle": "เข้าสู่ระบบบัญชีของคุณ",
+    "emailLabel": "ที่อยู่อีเมล",
+    "emailPlaceholder": "you@example.com",
+    "continueWithEmail": "ดำเนินการต่อด้วยอีเมล",
+    "continueWithGoogle": "ดำเนินการต่อด้วย Google",
+    "checkEmail": "ตรวจสอบอีเมลของคุณ",
+    "checkEmailDescription": "ลิงก์เข้าสู่ระบบถูกส่งไปยังที่อยู่อีเมลของคุณแล้ว",
+    "linkExpiry": "ลิงก์จะหมดอายุใน 24 ชั่วโมงเพื่อความปลอดภัยของคุณ",
+    "backToSignIn": "กลับไปหน้าเข้าสู่ระบบ"
+  },
+  "worker": {
+    "dashboard": {
+      "title": "แดชบอร์ดผู้ทำงาน",
+      "welcome": "ยินดีต้อนรับกลับมา",
+      "profileViews": "การเข้าชมโปรไฟล์",
+      "interests": "ความสนใจที่ได้รับ",
+      "topTalentStatus": "สถานะ Top Talent",
+      "viewProfile": "ดูโปรไฟล์",
+      "editProfile": "แก้ไขโปรไฟล์"
+    },
+    "profile": {
+      "title": "โปรไฟล์ของฉัน",
+      "displayName": "ชื่อที่แสดง",
+      "bio": "เกี่ยวกับฉัน",
+      "bioPlaceholder": "บอกผู้รับสมัครเกี่ยวกับตัวคุณ...",
+      "experience": "ประสบการณ์",
+      "experiencePlaceholder": "อธิบายประสบการณ์การทำงานของคุณ...",
+      "location": "ที่ตั้ง",
+      "area": "พื้นที่",
+      "languages": "ภาษา",
+      "contact": "ข้อมูลติดต่อ",
+      "lineId": "LINE ID",
+      "whatsapp": "WhatsApp",
+      "phone": "เบอร์โทรศัพท์",
+      "photos": "รูปภาพ",
+      "addPhoto": "เพิ่มรูปภาพ",
+      "saveChanges": "บันทึกการเปลี่ยนแปลง"
+    },
+    "verification": {
+      "title": "การยืนยันตัวตน",
+      "required": "ต้องการการยืนยัน",
+      "requiredDescription": "ทำการยืนยันตัวตนเพื่อให้ผู้รับสมัครค้นหาได้",
+      "pending": "รอการตรวจสอบ",
+      "pendingDescription": "การยืนยันของคุณกำลังถูกตรวจสอบ โดยปกติใช้เวลา 1-2 วันทำการ",
+      "verified": "ยืนยันแล้ว",
+      "verifiedDescription": "ตัวตนของคุณได้รับการยืนยันแล้ว โปรไฟล์ของคุณสามารถค้นหาได้แล้ว",
+      "rejected": "การยืนยันถูกปฏิเสธ",
+      "rejectedDescription": "การยืนยันของคุณถูกปฏิเสธ กรุณาลองใหม่ด้วยเอกสารที่ถูกต้อง",
+      "startVerification": "เริ่มการยืนยัน",
+      "uploadId": "อัปโหลดเอกสารยืนยันตัวตน",
+      "recordVideo": "บันทึกวิดีโอ Liveness",
+      "challengeCode": "รหัสท้าทายของคุณ"
+    }
+  },
+  "recruiter": {
+    "dashboard": {
+      "title": "แดชบอร์ดผู้รับสมัคร",
+      "welcome": "ยินดีต้อนรับกลับมา",
+      "searchWorkers": "ค้นหาผู้ทำงาน",
+      "myInterests": "ความสนใจของฉัน",
+      "subscription": "การสมัครสมาชิก"
+    },
+    "search": {
+      "title": "ค้นหาผู้ทำงาน",
+      "filters": "ตัวกรอง",
+      "location": "ที่ตั้ง",
+      "availability": "ความพร้อม",
+      "clearFilters": "ล้างตัวกรอง",
+      "noResults": "ไม่พบผู้ทำงาน",
+      "topTalent": "Top Talent",
+      "contactLocked": "สมัครสมาชิกเพื่อดูข้อมูลติดต่อ"
+    }
+  },
+  "subscription": {
+    "free": "แผนฟรี",
+    "topTalentUnlock": "ปลดล็อค Top Talent",
+    "subscribe": "สมัครสมาชิก",
+    "manage": "จัดการการสมัครสมาชิก",
+    "active": "ใช้งานอยู่",
+    "expired": "หมดอายุ"
+  }
+}
