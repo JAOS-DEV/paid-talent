@@ -220,6 +220,7 @@ worker_profiles
 
 ```
 src/lib/ranking/index.ts
+src/lib/helpers/ranking.ts  (scoring functions & weights)
 ```
 
 ### Pluggable Interface
@@ -233,33 +234,83 @@ interface RankingProvider {
 }
 ```
 
-### Default Implementation: View-Based Ranking
+### Default Implementation: Composite Ranking v1.1
+
+The default `CompositeRankingProvider` (v1.1) calculates a composite score (0-100) from four weighted factors:
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Profile Completeness | 25% (0-25 pts) | Rewards complete profiles based on required onboarding steps |
+| Unique Recruiter Views | 30% (0-30 pts) | Counts distinct recruiter views with logarithmic diminishing returns |
+| Interest Rate | 25% (0-25 pts) | Counts recruiter interests received with logarithmic scaling |
+| Recency | 20% (0-20 pts) | Linear decay favoring recently updated profiles |
+
+**Scoring Details:**
+
+1. **Profile Completeness**: Uses existing `getProfileCompleteness()` which calculates completion percentage based on 7 required onboarding steps (photo, name, roles, experience, languages, bio, location/availability).
+
+2. **Unique Recruiter Views**: Uses logarithmic scaling to provide diminishing returns. A profile with 15 unique recruiter views in the time window achieves near-maximum score. Formula: `log(views + 1) / log(cap + 1)`.
+
+3. **Interest Rate**: Counts total interests received from recruiters. Uses same logarithmic scaling; ~10 interests yields maximum score.
+
+4. **Recency**: Linear decay from max points at update time to 0 at the time window boundary (default 30 days). Fresh profiles are rewarded; stale profiles lose recency points.
+
+**Top Talent Threshold**: A profile is "Top Talent" if its composite score >= 90% of the maximum possible score (i.e., score >= 90 with default weights).
+
+### Legacy Implementation: View-Based Ranking
+
+The original `ViewBasedRankingProvider` is still available for backwards compatibility:
 
 - Counts profile views in a rolling 30-day window
 - Top 10% of viewed profiles = Top Talent
 - Minimum 5 views required for Top Talent status
 
-### Customization
+### Switching Providers
 
 ```typescript
-import { setRankingProvider } from '@/lib/ranking';
+import { setRankingProvider, ViewBasedRankingProvider, CompositeRankingProvider } from '@/lib/ranking';
 
-// Implement custom ranking
-class CustomRankingProvider implements RankingProvider {
-  // ...
-}
+// Use legacy view-based ranking
+setRankingProvider(new ViewBasedRankingProvider());
 
-setRankingProvider(new CustomRankingProvider());
+// Use composite v1.1 ranking (default)
+setRankingProvider(new CompositeRankingProvider());
 ```
 
 ### Configuration
 
 ```typescript
+// Base criteria (backwards compatible)
 interface RankingCriteria {
   timeWindowDays?: number;     // Default: 30
   topTalentThreshold?: number; // Default: 0.1 (top 10%)
   minViews?: number;           // Default: 5
 }
+
+// Extended v1.1 criteria
+interface V11RankingCriteria extends RankingCriteria {
+  weights?: Partial<ScoringWeights>;
+  viewCapForMaxScore?: number;     // Default: 15
+  interestCapForMaxScore?: number; // Default: 10
+}
+
+interface ScoringWeights {
+  profileCompleteness: number;  // Default: 25
+  uniqueViews: number;          // Default: 30
+  interestRate: number;         // Default: 25
+  recency: number;              // Default: 20
+}
+```
+
+### Stable Types for API Consumers
+
+The following types are exported for UI/API consumers:
+
+```typescript
+// From @/lib/ranking
+export type { RankedWorkerProfile, RankingCriteria, RankingProvider };
+export type { V11RankingCriteria, ScoreComponents };
+export { DEFAULT_SCORING_WEIGHTS, DEFAULT_V11_CRITERIA };
 ```
 
 ---
