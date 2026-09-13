@@ -272,7 +272,127 @@ See [docs/architecture.md](docs/architecture.md) for detailed documentation on:
 ### MVP Constraints
 - **No chat** - Interest expression only
 - **No worker payouts** - Direct contact after unlock
-- **English first** - i18n ready but not implemented
+- **i18n foundation** - English (default) + Thai supported
+
+## Internationalization (i18n)
+
+The app supports multiple languages using [next-intl](https://next-intl-docs.vercel.app/). Currently configured for:
+- **English** (`en`) - Default
+- **Thai** (`th`)
+
+### Using Translations
+
+In server components:
+
+```typescript
+import { getTranslations } from "next-intl/server";
+
+export default async function Page() {
+  const t = await getTranslations("worker.dashboard");
+  return <h1>{t("title")}</h1>;
+}
+```
+
+In client components:
+
+```typescript
+"use client";
+
+import { useTranslations } from "@/lib/i18n";
+
+export default function Component() {
+  const t = useTranslations("worker.dashboard");
+  return <h1>{t("title")}</h1>;
+}
+```
+
+### Message Files
+
+Translations are stored in `/messages/`:
+- `en.json` - English strings
+- `th.json` - Thai strings
+
+### Adding New Translation Keys
+
+1. Add the key to both `messages/en.json` and `messages/th.json`:
+
+```json
+// messages/en.json
+{
+  "worker": {
+    "newFeature": {
+      "title": "New Feature",
+      "description": "This is a new feature"
+    }
+  }
+}
+```
+
+```json
+// messages/th.json
+{
+  "worker": {
+    "newFeature": {
+      "title": "ฟีเจอร์ใหม่",
+      "description": "นี่คือฟีเจอร์ใหม่"
+    }
+  }
+}
+```
+
+2. Use in components:
+
+```typescript
+const t = useTranslations("worker.newFeature");
+return <h1>{t("title")}</h1>;
+```
+
+### Adding a New Language
+
+1. Add the locale to `src/lib/i18n/config.ts`:
+
+```typescript
+export const locales = ["en", "th", "ja"] as const;
+
+export const localeNames: Record<Locale, string> = {
+  en: "English",
+  th: "ไทย",
+  ja: "日本語",
+};
+```
+
+2. Create `messages/ja.json` with all translated strings
+
+3. The new locale is automatically available for routing
+
+### Locale Switching
+
+Use the `useLocale` hook for client-side locale switching:
+
+```typescript
+"use client";
+
+import { useLocale } from "@/lib/i18n";
+
+export function LanguageSwitcher() {
+  const { locale, locales, localeNames, switchLocale } = useLocale();
+  
+  return (
+    <select value={locale} onChange={(e) => switchLocale(e.target.value as Locale)}>
+      {locales.map((l) => (
+        <option key={l} value={l}>{localeNames[l]}</option>
+      ))}
+    </select>
+  );
+}
+```
+
+### Locale Routing
+
+The app uses `as-needed` locale prefix routing:
+- `/` → Default locale (English)
+- `/th/worker/dashboard` → Thai locale
+- `/en/worker/dashboard` → Explicit English locale (optional)
 
 ## Customization
 
@@ -322,12 +442,104 @@ class AWSRekognitionProvider implements ModerationProvider {
 setModerationProvider(new AWSRekognitionProvider());
 ```
 
+## Email Authentication (Magic Links)
+
+Paid Talent uses **magic link authentication** for secure email-based sign-in. When configured, users receive a sign-in link via email instead of using passwords. A session is only created after clicking the link, preventing account hijacking.
+
+### How It Works
+
+1. User enters email on sign-in page
+2. System sends a sign-in link to their email
+3. User clicks the link (expires in 24 hours)
+4. Session is created and user is signed in
+
+**User sees:** After submitting their email, users are redirected to `/auth/verify-request` which displays "Check your email" instructions.
+
+### Setting Up Email (Resend Recommended)
+
+[Resend](https://resend.com) is the recommended email provider for Next.js apps. It's easy to set up and has a generous free tier.
+
+#### 1. Create a Resend Account
+
+1. Sign up at [resend.com](https://resend.com)
+2. Verify your domain (or use Resend's test domain for development)
+3. Create an API key in the dashboard
+
+#### 2. Configure Environment Variables
+
+Add these to your `.env.local`:
+
+```bash
+# Resend SMTP Configuration
+EMAIL_SERVER="smtp://resend:re_YOUR_API_KEY@smtp.resend.com:465"
+EMAIL_FROM="Paid Talent <noreply@yourdomain.com>"
+```
+
+**Format breakdown:**
+- `smtp://` - Protocol
+- `resend` - SMTP username (always "resend" for Resend)
+- `re_YOUR_API_KEY` - Your Resend API key (starts with `re_`)
+- `@smtp.resend.com:465` - Resend SMTP server and port
+
+#### Alternative Email Providers
+
+```bash
+# Gmail (requires App Password)
+EMAIL_SERVER="smtp://your.email@gmail.com:your-app-password@smtp.gmail.com:587"
+EMAIL_FROM="Paid Talent <your.email@gmail.com>"
+
+# SendGrid
+EMAIL_SERVER="smtp://apikey:SG.xxxxx@smtp.sendgrid.net:587"
+EMAIL_FROM="Paid Talent <noreply@yourdomain.com>"
+
+# Mailgun
+EMAIL_SERVER="smtp://postmaster@yourdomain.com:your-password@smtp.mailgun.org:587"
+EMAIL_FROM="Paid Talent <noreply@yourdomain.com>"
+```
+
+### Development Mode (No Email Required)
+
+For local development with seeded test accounts, you can bypass email verification entirely. This is **insecure** and should **never** be enabled in production.
+
+#### Enable Dev Bypass
+
+Add to `.env.local`:
+
+```bash
+AUTH_DEV_BYPASS="true"
+```
+
+**Requirements:**
+- `NODE_ENV` must be `development` (default for `npm run dev`)
+- `AUTH_DEV_BYPASS` must be explicitly set to `"true"`
+
+When enabled:
+- Sign-in page shows "Dev Bypass" option
+- Enter any seeded email (e.g., `worker1@example.com`)
+- Instant sign-in without email verification
+
+#### Security Warning
+
+> **DANGER:** Never enable `AUTH_DEV_BYPASS` in production, staging, or any internet-accessible environment. This bypass allows anyone who knows a registered email address to hijack that account.
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Email provider not configured" | Set `EMAIL_SERVER` and `EMAIL_FROM` in `.env.local` |
+| Emails not arriving | Check spam folder; verify domain with email provider |
+| "Invalid credentials" | Verify API key format and SMTP server details |
+| Link expired | Links expire after 24 hours; request a new one |
+
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `AUTH_SECRET` | Yes | NextAuth.js secret |
+| `EMAIL_SERVER` | Prod | SMTP connection URL for magic links |
+| `EMAIL_FROM` | Prod | "From" address for sign-in emails |
+| `AUTH_DEV_BYPASS` | No | Set to `"true"` for local dev only |
 | `S3_*` | Yes | S3-compatible storage config |
 | `STRIPE_*` | Yes | Stripe API keys |
 | `GOOGLE_CLIENT_*` | No | Google OAuth credentials |
