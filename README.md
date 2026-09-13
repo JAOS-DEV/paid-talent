@@ -117,6 +117,8 @@ The `db:seed` script populates the database with sample users for local developm
 1. PostgreSQL running with `DATABASE_URL` configured
 2. Migrations applied: `npm run db:migrate`
 
+> **Note:** The `db:seed` and `db:migrate` scripts load environment variables in Next.js order: `.env` first, then `.env.local` (which takes precedence). You can use either file for `DATABASE_URL`.
+
 #### Running the Seed
 
 ```bash

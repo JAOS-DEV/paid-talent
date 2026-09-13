@@ -1,7 +1,7 @@
+import "./load-env";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { eq, and } from "drizzle-orm";
-import "dotenv/config";
 import * as schema from "./schema";
 
 const SEED_USERS = {
