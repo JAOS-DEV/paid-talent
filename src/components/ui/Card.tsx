@@ -28,6 +28,7 @@ export function Card({
     <div
       className={`
         bg-charcoal-900 border border-charcoal-700 rounded-xl
+        w-full min-w-0 max-w-full overflow-hidden
         ${hover ? "hover:bg-charcoal-800 hover:border-charcoal-600 transition-colors cursor-pointer" : ""}
         ${paddingStyles[padding]}
         ${className}

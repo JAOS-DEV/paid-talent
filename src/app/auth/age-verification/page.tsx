@@ -1,15 +1,13 @@
 "use client";
 
-import React, { useState, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Button, Card, CardContent, Input } from "@/components/ui";
-import type { UserRole } from "@/types/auth";
 
-function AgeVerificationForm(): React.ReactElement {
+export default function AgeVerificationPage(): React.ReactElement {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const role = searchParams.get("role") as UserRole | null;
-  const email = searchParams.get("email");
+  const { data: session, status, update: updateSession } = useSession();
 
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [confirmed, setConfirmed] = useState(false);
@@ -42,95 +40,76 @@ function AgeVerificationForm(): React.ReactElement {
     }
 
     if (!confirmed) {
-      setError("Please confirm that you are 18 years or older");
+      setError("Confirm you're 20+ to continue.");
       return;
     }
 
     const age = calculateAge(dateOfBirth);
 
-    if (age < 18) {
+    if (age < 20) {
       setError(
-        "You must be 18 years or older to use this platform. Access denied."
+        "Paid Talent is for adults 20+. You can't create an account under 20."
       );
-      return;
-    }
-
-    if (!role) {
-      router.push("/auth/role-select");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const params = new URLSearchParams();
-      params.set("role", role);
-      params.set("dob", dateOfBirth);
-      if (email) params.set("email", email);
+      const response = await fetch("/api/auth/verify-age", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dateOfBirth }),
+      });
 
-      router.push(`/auth/signin?${params.toString()}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Failed to verify age. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+
+      await updateSession({ ageVerified: true });
+
+      router.push(data.redirectUrl || "/");
+      router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <Card padding="lg">
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Input
-            type="date"
-            label="Date of Birth"
-            value={dateOfBirth}
-            onChange={(e) => setDateOfBirth(e.target.value)}
-            max={new Date().toISOString().split("T")[0]}
-            required
-          />
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md min-w-0">
+          <Card padding="lg" className="w-full min-w-0">
+            <CardContent>
+              <div className="animate-pulse space-y-4">
+                <div className="h-10 bg-charcoal-700 rounded" />
+                <div className="h-10 bg-charcoal-700 rounded" />
+                <div className="h-12 bg-charcoal-700 rounded" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
-          <div className="flex items-start space-x-3">
-            <input
-              type="checkbox"
-              id="age-confirm"
-              checked={confirmed}
-              onChange={(e) => setConfirmed(e.target.checked)}
-              className="mt-1 w-4 h-4 rounded border-charcoal-600 bg-charcoal-800 text-primary-600 focus:ring-primary-500 focus:ring-offset-charcoal-900"
-            />
-            <label
-              htmlFor="age-confirm"
-              className="text-sm text-charcoal-300"
-            >
-              I confirm that I am 18 years of age or older and agree to the
-              terms of service
-            </label>
-          </div>
+  if (status === "unauthenticated" || !session) {
+    router.push("/auth/signin");
+    return (
+      <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
+        <p className="text-charcoal-400">Redirecting to sign in...</p>
+      </div>
+    );
+  }
 
-          {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          <Button
-            type="submit"
-            fullWidth
-            size="lg"
-            loading={isLoading}
-            disabled={!dateOfBirth || !confirmed}
-          >
-            Verify & Continue
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-export default function AgeVerificationPage(): React.ReactElement {
   return (
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md min-w-0">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-full bg-primary-600/20 flex items-center justify-center mx-auto mb-4">
             <svg
@@ -151,26 +130,63 @@ export default function AgeVerificationPage(): React.ReactElement {
             Age Verification
           </h1>
           <p className="text-charcoal-400">
-            This platform is for users 18 years and older only
+            We use this once to verify you&apos;re 20+.
           </p>
         </div>
 
-        <Suspense fallback={
-          <Card padding="lg">
-            <CardContent>
-              <div className="animate-pulse space-y-4">
-                <div className="h-10 bg-charcoal-700 rounded" />
-                <div className="h-10 bg-charcoal-700 rounded" />
+        <Card padding="lg" className="w-full min-w-0">
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6 w-full min-w-0">
+              <div className="w-full min-w-0 max-w-full overflow-hidden">
+                <Input
+                  type="date"
+                  label="Date of Birth"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  max={new Date().toISOString().split("T")[0]}
+                  required
+                  className="w-full min-w-0 max-w-full"
+                />
               </div>
-            </CardContent>
-          </Card>
-        }>
-          <AgeVerificationForm />
-        </Suspense>
+
+              <div className="flex items-start space-x-3">
+                <input
+                  type="checkbox"
+                  id="age-confirm"
+                  checked={confirmed}
+                  onChange={(e) => setConfirmed(e.target.checked)}
+                  className="mt-1 w-5 h-5 min-w-[20px] rounded border-charcoal-600 bg-charcoal-800 text-primary-600 focus:ring-primary-500 focus:ring-offset-charcoal-900"
+                />
+                <label
+                  htmlFor="age-confirm"
+                  className="text-sm text-charcoal-300"
+                >
+                  I confirm that I am 20 years of age or older and agree to the
+                  terms of service
+                </label>
+              </div>
+
+              {error && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                fullWidth
+                size="lg"
+                loading={isLoading}
+                disabled={!dateOfBirth || !confirmed}
+              >
+                Verify & Continue
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
         <p className="text-center text-charcoal-500 text-xs mt-6">
-          Your date of birth is stored securely and used only for age
-          verification purposes.
+          20+ only · Thailand
         </p>
       </div>
     </div>
