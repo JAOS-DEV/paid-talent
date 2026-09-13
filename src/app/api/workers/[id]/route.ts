@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { db, workerProfiles, profileInterests, subscriptions } from "@/lib/db";
+import {
+  db,
+  workerProfiles,
+  profileInterests,
+  subscriptions,
+  hireOutcomes,
+} from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { isProfileTopTalent, recordProfileView } from "@/lib/ranking";
 import {
@@ -10,6 +16,7 @@ import {
 } from "@/lib/helpers/contact-visibility";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 import { getApprovedPhotosForWorker } from "@/lib/moderation";
+import type { HireOutcomeStatus } from "@/lib/db/schema";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -49,6 +56,10 @@ export interface WorkerProfileDetail {
     phoneNumber: string | null;
   };
   hasExpressedInterest: boolean;
+  interestId?: string;
+  hireOutcomeStatus?: HireOutcomeStatus;
+  hiredAt?: string | null;
+  startedAt?: string | null;
 }
 
 export async function GET(
@@ -105,9 +116,15 @@ export async function GET(
       subscription: subscription as SubscriptionInfo | null ?? null,
     });
 
-    const [existingInterest] = await db
-      .select()
+    const [interestWithOutcome] = await db
+      .select({
+        interestId: profileInterests.id,
+        outcomeStatus: hireOutcomes.status,
+        hiredAt: hireOutcomes.hiredAt,
+        startedAt: hireOutcomes.startedAt,
+      })
       .from(profileInterests)
+      .leftJoin(hireOutcomes, eq(profileInterests.id, hireOutcomes.interestId))
       .where(
         and(
           eq(profileInterests.recruiterUserId, session.user.id),
@@ -150,7 +167,13 @@ export async function GET(
         whatsappNumber: contactVisible ? profile.whatsappNumber : null,
         phoneNumber: contactVisible ? profile.phoneNumber : null,
       },
-      hasExpressedInterest: !!existingInterest,
+      hasExpressedInterest: !!interestWithOutcome,
+      ...(interestWithOutcome && {
+        interestId: interestWithOutcome.interestId,
+        hireOutcomeStatus: interestWithOutcome.outcomeStatus ?? "interested",
+        hiredAt: interestWithOutcome.hiredAt?.toISOString() ?? null,
+        startedAt: interestWithOutcome.startedAt?.toISOString() ?? null,
+      }),
     };
 
     return NextResponse.json({ profile: result });

@@ -84,6 +84,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
+      interestId: newInterest.id,
       interest: {
         id: newInterest.id,
         workerProfileId: newInterest.workerProfileId,
