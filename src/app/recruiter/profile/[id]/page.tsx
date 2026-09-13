@@ -18,8 +18,10 @@ import {
   HireOutcomeStatusBadge,
   HireOutcomeActions,
 } from "@/components/hire-outcomes";
+import { OpeningInterestSelect } from "@/components/recruiter";
+import { getRecruiterOpenings } from "@/lib/recruiter-profile/actions";
 import type { WorkerProfileDetail } from "@/app/api/workers/[id]/route";
-import type { HireOutcomeStatus } from "@/lib/db/schema";
+import type { HireOutcomeStatus, RecruiterOpening } from "@/lib/db/schema";
 
 interface ProfilePageProps {
   params: Promise<{ id: string }>;
@@ -94,11 +96,38 @@ export default function ProfileDetailPage({
   const [interestSent, setInterestSent] = useState(false);
   const [interestOutcome, setInterestOutcome] =
     useState<InterestOutcomeData | null>(null);
+  const [selectedOpeningId, setSelectedOpeningId] = useState("");
+  const [publishedOpenings, setPublishedOpenings] = useState<
+    Pick<RecruiterOpening, "id" | "role" | "area" | "isPublished">[]
+  >([]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
 
     let cancelled = false;
+
+    const loadOpenings = async (): Promise<void> => {
+      try {
+        const openings = await getRecruiterOpenings();
+        if (cancelled) return;
+        setPublishedOpenings(
+          openings
+            .filter((o) => o.isPublished)
+            .map((o) => ({
+              id: o.id,
+              role: o.role,
+              area: o.area,
+              isPublished: o.isPublished,
+            }))
+        );
+      } catch {
+        if (!cancelled) {
+          setPublishedOpenings([]);
+        }
+      }
+    };
+
+    void loadOpenings();
 
     const loadProfile = async (): Promise<void> => {
       try {
@@ -150,7 +179,10 @@ export default function ProfileDetailPage({
       const response = await fetch("/api/interests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workerProfileId: profile.id }),
+        body: JSON.stringify({
+          workerProfileId: profile.id,
+          openingId: selectedOpeningId || null,
+        }),
       });
 
       if (response.ok) {
@@ -592,19 +624,28 @@ export default function ProfileDetailPage({
                   </>
                 ) : (
                   <>
-                    <Button
-                      fullWidth
-                      onClick={handleExpressInterest}
-                      disabled={interestSent || interestLoading}
-                      loading={interestLoading}
-                    >
-                      {interestSent ? "Interest Sent" : "I'm Interested"}
-                    </Button>
-                    <Link href="/recruiter/search" className="flex-1">
-                      <Button variant="outline" fullWidth>
-                        Back to Search
-                      </Button>
-                    </Link>
+                    <div className="w-full space-y-3">
+                      <OpeningInterestSelect
+                        openings={publishedOpenings}
+                        value={selectedOpeningId}
+                        onChange={setSelectedOpeningId}
+                      />
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <Button
+                          fullWidth
+                          onClick={handleExpressInterest}
+                          disabled={interestSent || interestLoading}
+                          loading={interestLoading}
+                        >
+                          {interestSent ? "Interest Sent" : "I'm Interested"}
+                        </Button>
+                        <Link href="/recruiter/search" className="flex-1">
+                          <Button variant="outline" fullWidth>
+                            Back to Search
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
                   </>
                 )}
               </div>

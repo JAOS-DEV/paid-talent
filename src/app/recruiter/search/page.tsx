@@ -14,7 +14,10 @@ import {
   TopTalentBadge,
 } from "@/components/ui";
 import { AdSense } from "@/components/ads";
+import { OpeningInterestSelect } from "@/components/recruiter";
+import { getRecruiterOpenings } from "@/lib/recruiter-profile/actions";
 import type { SearchWorkerResult } from "@/app/api/workers/search/route";
+import type { RecruiterOpening } from "@/lib/db/schema";
 
 interface WorkerCardProps {
   worker: SearchWorkerResult;
@@ -178,6 +181,10 @@ export default function SearchPage(): React.ReactElement {
   const [total, setTotal] = useState(0);
   const [hasTopTalentAccess, setHasTopTalentAccess] = useState(false);
   const [sentInterests, setSentInterests] = useState<Set<string>>(new Set());
+  const [selectedOpeningId, setSelectedOpeningId] = useState("");
+  const [publishedOpenings, setPublishedOpenings] = useState<
+    Pick<RecruiterOpening, "id" | "role" | "area" | "isPublished">[]
+  >([]);
 
   const fetchWorkers = useCallback(async () => {
     try {
@@ -228,10 +235,33 @@ export default function SearchPage(): React.ReactElement {
     }
   }, []);
 
+  const fetchPublishedOpenings = useCallback(async () => {
+    try {
+      const openings = await getRecruiterOpenings();
+      setPublishedOpenings(
+        openings
+          .filter((o) => o.isPublished)
+          .map((o) => ({
+            id: o.id,
+            role: o.role,
+            area: o.area,
+            isPublished: o.isPublished,
+          }))
+      );
+    } catch {
+      setPublishedOpenings([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (status === "authenticated") {
       const loadData = async (): Promise<void> => {
-        await Promise.all([fetchWorkers(), checkSubscription(), fetchInterests()]);
+        await Promise.all([
+          fetchWorkers(),
+          checkSubscription(),
+          fetchInterests(),
+          fetchPublishedOpenings(),
+        ]);
       };
       void loadData();
     }
@@ -263,7 +293,10 @@ export default function SearchPage(): React.ReactElement {
       const response = await fetch("/api/interests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workerProfileId }),
+        body: JSON.stringify({
+          workerProfileId,
+          openingId: selectedOpeningId || null,
+        }),
       });
       if (response.ok) {
         setSentInterests((prev) => new Set([...prev, workerProfileId]));
@@ -390,6 +423,21 @@ export default function SearchPage(): React.ReactElement {
             </div>
 
             <div className="lg:col-span-3">
+              <Card padding="md" className="mb-4">
+                <CardContent>
+                  <OpeningInterestSelect
+                    openings={publishedOpenings}
+                    value={selectedOpeningId}
+                    onChange={setSelectedOpeningId}
+                    id="search-interest-opening"
+                  />
+                  <p className="text-xs text-charcoal-500 mt-2">
+                    Applies to &quot;I&apos;m Interested&quot; on worker cards below.
+                    Optional — leave as General interest if you prefer.
+                  </p>
+                </CardContent>
+              </Card>
+
               <div className="flex items-center justify-between mb-4">
                 <p className="text-charcoal-400 text-sm">
                   {loading

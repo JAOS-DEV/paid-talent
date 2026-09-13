@@ -83,6 +83,12 @@ src/
 |-------|------|-------------|
 | `/recruiter/dashboard` | Page | Recruiter dashboard |
 | `/recruiter/search` | Page | Worker search with filters |
+| `/recruiter/profile` | Page | Authenticated recruiter's own venue profile editor |
+| `/recruiter/profile/[id]` | Page | Worker profile detail (recruiter viewing a worker) |
+| `/recruiter/openings` | Page | List own openings (draft + published) |
+| `/recruiter/openings/new` | Page | Create opening (draft or publish) |
+| `/recruiter/openings/[id]/edit` | Page | Edit own opening |
+| `/recruiter/interests` | Page | Interests / hire outcomes |
 
 **Access**: Recruiter role only (middleware enforced)
 
@@ -1039,6 +1045,17 @@ interface InterestContextForWorker {
 | Worker: No openings at venue | "No openings at this venue right now" |
 | Worker: No interests | "No interest yet — keep your profile fresh" |
 
+### UI Routes (recruiter UX)
+
+| Route | Description |
+|-------|-------------|
+| `/recruiter/profile` | Own venue profile editor + completeness |
+| `/recruiter/openings` | Openings list with publish/unpublish/delete |
+| `/recruiter/openings/new` | Create opening |
+| `/recruiter/openings/[id]/edit` | Edit own opening (404 if missing/unauthorized) |
+
+Interest expression on search and worker profile detail optionally attaches a **published** opening via `openingId`. Logo file upload is out of scope (worker media/moderation path is not reused); `logoUrl` remains backend-supported for later.
+
 ### Authorization Rules
 
 1. **Profile update**: Only the recruiter who owns the profile can update it
@@ -1046,13 +1063,11 @@ interface InterestContextForWorker {
 3. **Interest context**: Workers can view interest context for interests sent to their profile
 4. **Published openings**: Visible to all workers; unpublished openings only visible to owner
 
-### TODO: Dev UX Slice
+### Remaining UX TODOs
 
-- Recruiter profile edit form (mobile-first)
-- Openings list with create/edit/delete/publish controls
 - Worker interest list with recruiter context cards
 - "View openings" / "View venue" CTAs from interest
-- Empty states with locked copy
+- Recruiter logo upload when a safe media path exists
 
 ### Out of Scope
 
