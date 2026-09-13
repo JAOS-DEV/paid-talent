@@ -16,6 +16,7 @@ import {
   getLivenessVideoBuffer,
 } from "@/lib/storage/s3";
 import type { VerificationStatus, VerificationDecision } from "@/lib/db/schema";
+import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 
 const verifyRequestSchema = z.object({
   action: z.enum(["approve", "reject", "revoke"]),
@@ -216,6 +217,12 @@ export async function POST(
     });
   } catch (error) {
     console.error("[Admin Verify Worker] Error:", error);
+
+    const schemaError = formatSchemaErrorResponse(error);
+    if (schemaError) {
+      return NextResponse.json(schemaError, { status: 503 });
+    }
+
     return NextResponse.json(
       { error: "Failed to verify worker" },
       { status: 500 }

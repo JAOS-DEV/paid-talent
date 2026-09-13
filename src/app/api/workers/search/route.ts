@@ -9,6 +9,7 @@ import {
   validateSearchParams,
   buildFilterCriteria,
 } from "@/lib/helpers/search-filters";
+import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 
 export interface SearchWorkerResult {
   id: string;
@@ -137,6 +138,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
   } catch (error) {
     console.error("[Workers Search] Error:", error);
+
+    const schemaError = formatSchemaErrorResponse(error);
+    if (schemaError) {
+      return NextResponse.json(schemaError, { status: 503 });
+    }
+
     return NextResponse.json(
       { error: "Failed to search workers" },
       { status: 500 }

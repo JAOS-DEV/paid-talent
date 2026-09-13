@@ -148,6 +148,43 @@ All protected routes check:
 
 ---
 
+## Local Development & Migrations
+
+### After Pulling Changes
+
+When you pull changes that include schema updates (new migrations), update your local database:
+
+```bash
+npm run db:migrate
+npm run db:seed  # Optional: refresh sample data
+```
+
+### Migration Errors
+
+**"type already exists" (42710)** — Your database has schema objects but the migration journal is out of sync. Run:
+
+```bash
+npm run db:repair
+```
+
+**"column does not exist" (42703)** — Schema is behind. The API will return a 503 with a helpful message pointing to `db:repair` or `db:migrate`.
+
+### Database Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run db:migrate` | Apply pending migrations |
+| `npm run db:repair` | Fix journal desync (use when migrate fails) |
+| `npm run db:seed` | Populate sample data (dev only) |
+| `npm run db:generate` | Generate migration from schema changes |
+| `npm run db:studio` | Open Drizzle Studio (database UI) |
+
+### Nuclear Option
+
+If repair doesn't work, reset the database completely and re-run setup. See [README](../README.md#local-development-after-git-pull) for instructions.
+
+---
+
 ## Database Schema
 
 ### Tables

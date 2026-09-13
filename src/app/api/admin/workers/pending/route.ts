@@ -8,6 +8,7 @@ import {
   getSignedLivenessVideoUrl,
 } from "@/lib/storage/s3";
 import { formatChallengeCodeForDisplay } from "@/lib/verification";
+import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 
 export async function GET(): Promise<NextResponse> {
   try {
@@ -116,6 +117,12 @@ export async function GET(): Promise<NextResponse> {
     });
   } catch (error) {
     console.error("[Admin Workers Pending] Error:", error);
+
+    const schemaError = formatSchemaErrorResponse(error);
+    if (schemaError) {
+      return NextResponse.json(schemaError, { status: 503 });
+    }
+
     return NextResponse.json(
       { error: "Failed to fetch pending workers" },
       { status: 500 }

@@ -47,6 +47,8 @@ A platform connecting skilled workers with recruiters. Workers create profiles s
    npm install
    ```
 
+> **⚠️ After pulling new changes:** If the pull includes schema changes (migrations), you must run `npm run db:migrate` before starting the dev server. If migrate fails with "type already exists", run `npm run db:repair` instead. See [Local Development After Git Pull](#local-development-after-git-pull) for troubleshooting.
+
 3. **Set up environment variables**
 
    ```bash
@@ -98,6 +100,9 @@ npm run db:generate
 # Run pending migrations
 npm run db:migrate
 
+# Repair database schema desync (use when migrate fails)
+npm run db:repair
+
 # Seed database with sample data (development only)
 npm run db:seed
 
@@ -107,6 +112,47 @@ npm run db:studio
 # Push schema directly (development only)
 npm run db:push
 ```
+
+### Local Development After Git Pull
+
+After pulling changes that include schema updates (e.g., new columns, tables, or types), you must update your local database:
+
+```bash
+npm run db:migrate
+npm run db:seed  # Optional: refresh sample data
+```
+
+**Common Error: "type already exists" or "column does not exist"**
+
+If you see errors like:
+- `PostgresError: type "subscription_plan" already exists`
+- `PostgresError: column "verification_status" does not exist`
+
+This means your database schema is out of sync with the migration journal. Use the repair tool:
+
+```bash
+npm run db:repair
+```
+
+The repair tool will:
+1. Check your database state
+2. Sync the migration journal if needed
+3. Apply any missing schema changes (like verification columns)
+
+**Nuclear Option: Full Database Reset**
+
+If repair doesn't work or you want a fresh start:
+
+1. **Neon (cloud):** Go to Neon Console → Your Project → Settings → Delete all data (or create a new branch)
+2. **Local PostgreSQL:** Drop and recreate the database
+   ```bash
+   dropdb paid_talent && createdb paid_talent
+   ```
+3. Run fresh setup:
+   ```bash
+   npm run db:migrate
+   npm run db:seed
+   ```
 
 ### Local Development Seed Data
 
