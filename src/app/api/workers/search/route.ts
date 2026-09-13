@@ -4,17 +4,10 @@ import { auth } from "@/lib/auth";
 import { db, workerProfiles } from "@/lib/db";
 import { eq, and, ilike, sql, type SQL } from "drizzle-orm";
 import { isProfileTopTalent } from "@/lib/ranking";
-import { z } from "zod";
-
-const searchParamsSchema = z.object({
-  query: z.string().optional(),
-  role: z.string().optional(),
-  area: z.string().optional(),
-  availability: z.string().optional(),
-  verified: z.enum(["true", "false"]).optional(),
-  limit: z.coerce.number().min(1).max(100).default(20),
-  offset: z.coerce.number().min(0).default(0),
-});
+import {
+  validateSearchParams,
+  buildFilterCriteria,
+} from "@/lib/helpers/search-filters";
 
 export interface SearchWorkerResult {
   id: string;
@@ -45,7 +38,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const { searchParams } = new URL(request.url);
-    const params = searchParamsSchema.safeParse({
+    const validation = validateSearchParams({
       query: searchParams.get("query") || undefined,
       role: searchParams.get("role") || undefined,
       area: searchParams.get("area") || undefined,
@@ -55,39 +48,39 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       offset: searchParams.get("offset") || 0,
     });
 
-    if (!params.success) {
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Invalid search parameters", details: params.error.issues },
+        { error: "Invalid search parameters", details: validation.errors },
         { status: 400 }
       );
     }
 
-    const { query, role, area, availability, verified, limit, offset } =
-      params.data;
+    const { limit, offset } = validation.data!;
+    const filters = buildFilterCriteria(validation.data!);
 
     const conditions: SQL[] = [eq(workerProfiles.isPublished, true)];
 
-    if (query) {
+    if (filters.query) {
       conditions.push(
-        sql`(${ilike(workerProfiles.displayName, `%${query}%`)} OR ${ilike(workerProfiles.description, `%${query}%`)})`
+        sql`(${ilike(workerProfiles.displayName, `%${filters.query}%`)} OR ${ilike(workerProfiles.description, `%${filters.query}%`)})`
       );
     }
 
-    if (role) {
+    if (filters.role) {
       conditions.push(
-        sql`${workerProfiles.jobRoles}::jsonb ? ${role}`
+        sql`${workerProfiles.jobRoles}::jsonb ? ${filters.role}`
       );
     }
 
-    if (area) {
-      conditions.push(ilike(workerProfiles.area, `%${area}%`));
+    if (filters.area) {
+      conditions.push(ilike(workerProfiles.area, `%${filters.area}%`));
     }
 
-    if (availability) {
-      conditions.push(ilike(workerProfiles.availability, `%${availability}%`));
+    if (filters.availability) {
+      conditions.push(ilike(workerProfiles.availability, `%${filters.availability}%`));
     }
 
-    if (verified === "true") {
+    if (filters.verifiedOnly) {
       conditions.push(eq(workerProfiles.isVerified, true));
     }
 
