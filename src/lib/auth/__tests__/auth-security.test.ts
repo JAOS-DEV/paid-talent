@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { isDevBypassAllowed } from "../config";
+import { isDevBypassAllowed, isEmailProviderConfigured } from "../config";
 
 describe("Auth Security - Dev Bypass Gate", () => {
   const originalEnv = { ...process.env };
@@ -7,6 +7,8 @@ describe("Auth Security - Dev Bypass Gate", () => {
   beforeEach(() => {
     delete process.env.NODE_ENV;
     delete process.env.AUTH_DEV_BYPASS;
+    delete process.env.EMAIL_SERVER;
+    delete process.env.EMAIL_FROM;
   });
 
   afterEach(() => {
@@ -118,6 +120,73 @@ describe("Auth Security - Dev Bypass Gate", () => {
 
         expect(isDevBypassAllowed()).toBe(tc.expected);
       }
+    });
+  });
+});
+
+describe("Auth Security - Email Provider Configuration", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    delete process.env.EMAIL_SERVER;
+    delete process.env.EMAIL_FROM;
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  describe("isEmailProviderConfigured", () => {
+    it("should return false when EMAIL_SERVER is not set", () => {
+      process.env.EMAIL_FROM = "test@example.com";
+
+      expect(isEmailProviderConfigured()).toBe(false);
+    });
+
+    it("should return false when EMAIL_FROM is not set", () => {
+      process.env.EMAIL_SERVER = "smtp://localhost:587";
+
+      expect(isEmailProviderConfigured()).toBe(false);
+    });
+
+    it("should return false when both are not set", () => {
+      expect(isEmailProviderConfigured()).toBe(false);
+    });
+
+    it("should return true when both EMAIL_SERVER and EMAIL_FROM are set", () => {
+      process.env.EMAIL_SERVER = "smtp://localhost:587";
+      process.env.EMAIL_FROM = "test@example.com";
+
+      expect(isEmailProviderConfigured()).toBe(true);
+    });
+
+    it("should return true with full SMTP URL", () => {
+      process.env.EMAIL_SERVER = "smtp://user:password@smtp.example.com:587";
+      process.env.EMAIL_FROM = "Paid Talent <noreply@paidtalent.com>";
+
+      expect(isEmailProviderConfigured()).toBe(true);
+    });
+  });
+
+  describe("Security requirements for magic link", () => {
+    it("REGRESSION: email submit without magic link config should not create session", () => {
+      // Without EMAIL_SERVER configured, the email provider won't be added
+      // and the credentials provider is gated by dev bypass
+      process.env.NODE_ENV = "production";
+      
+      expect(isEmailProviderConfigured()).toBe(false);
+      expect(isDevBypassAllowed()).toBe(false);
+    });
+
+    it("production with magic link should NOT allow dev bypass", () => {
+      process.env.NODE_ENV = "production";
+      process.env.AUTH_DEV_BYPASS = "true";
+      process.env.EMAIL_SERVER = "smtp://localhost:587";
+      process.env.EMAIL_FROM = "test@example.com";
+
+      // Even with magic link configured, dev bypass should be blocked in production
+      expect(isEmailProviderConfigured()).toBe(true);
+      expect(isDevBypassAllowed()).toBe(false);
     });
   });
 });

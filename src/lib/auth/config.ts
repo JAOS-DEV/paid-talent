@@ -1,6 +1,7 @@
 import { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import Nodemailer from "next-auth/providers/nodemailer";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -27,62 +28,96 @@ export function isDevBypassAllowed(): boolean {
   return isDevelopment && hasExplicitBypass;
 }
 
-export const authConfig: NextAuthConfig = {
-  providers: [
+/**
+ * Check if Email (magic link) provider is properly configured.
+ * Requires EMAIL_SERVER environment variable to be set.
+ */
+export function isEmailProviderConfigured(): boolean {
+  return !!process.env.EMAIL_SERVER && !!process.env.EMAIL_FROM;
+}
+
+/**
+ * Build the list of authentication providers based on environment configuration.
+ */
+function buildProviders(): NextAuthConfig["providers"] {
+  const providers: NextAuthConfig["providers"] = [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
       allowDangerousEmailAccountLinking: true,
     }),
-    Credentials({
-      id: "credentials",
-      name: "Email",
-      credentials: {
-        email: { label: "Email", type: "email" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email) return null;
+  ];
 
-        // SECURITY: Block email-only sign-in unless dev bypass is explicitly enabled.
-        // In production, users MUST authenticate via OAuth (Google) or a verified
-        // magic link/OTP flow. Email string alone is NEVER sufficient proof of identity.
-        if (!isDevBypassAllowed()) {
-          console.warn(
-            "[AUTH SECURITY] Credentials provider blocked: dev bypass not enabled. " +
-            "Set NODE_ENV=development AND AUTH_DEV_BYPASS=true for local testing only."
-          );
+  // Add Email (magic link) provider if configured
+  // This is the SECURE way to authenticate via email - sends a link, session only after click
+  if (isEmailProviderConfigured()) {
+    providers.push(
+      Nodemailer({
+        id: "email",
+        name: "Email",
+        server: process.env.EMAIL_SERVER!,
+        from: process.env.EMAIL_FROM!,
+      })
+    );
+  }
+
+  // Add Credentials provider for dev bypass ONLY
+  // This is INSECURE and only for local development with seeded test accounts
+  if (isDevBypassAllowed()) {
+    providers.push(
+      Credentials({
+        id: "credentials",
+        name: "Dev Bypass",
+        credentials: {
+          email: { label: "Email", type: "email" },
+        },
+        async authorize(credentials) {
+          if (!credentials?.email) return null;
+
+          // Double-check bypass is allowed (defense in depth)
+          if (!isDevBypassAllowed()) {
+            console.warn("[AUTH SECURITY] Credentials authorize called but bypass not allowed");
+            return null;
+          }
+
+          const email = credentials.email as string;
+          const [existingUser] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+
+          if (existingUser) {
+            return {
+              id: existingUser.id,
+              email: existingUser.email,
+              name: existingUser.name,
+              image: existingUser.image,
+              role: existingUser.role,
+              ageVerified: existingUser.ageVerified,
+            };
+          }
+
           return null;
-        }
+        },
+      })
+    );
+  }
 
-        const email = credentials.email as string;
-        const [existingUser] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, email))
-          .limit(1);
+  return providers;
+}
 
-        if (existingUser) {
-          return {
-            id: existingUser.id,
-            email: existingUser.email,
-            name: existingUser.name,
-            image: existingUser.image,
-            role: existingUser.role,
-            ageVerified: existingUser.ageVerified,
-          };
-        }
-
-        return null;
-      },
-    }),
-  ],
+export const authConfig: NextAuthConfig = {
+  providers: buildProviders(),
   pages: {
     signIn: "/auth/signin",
+    verifyRequest: "/auth/verify-request",
     error: "/auth/error",
     newUser: "/onboarding",
   },
   callbacks: {
     async signIn({ user, account }) {
+      // Handle OAuth providers (Google)
       if (account?.provider === "google") {
         const [existingUser] = await db
           .select()
@@ -98,6 +133,25 @@ export const authConfig: NextAuthConfig = {
           return "/auth/age-verification";
         }
       }
+
+      // Handle Email magic link provider
+      if (account?.provider === "email") {
+        const [existingUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, user.email!))
+          .limit(1);
+
+        if (!existingUser) {
+          // New user via magic link - redirect to role selection
+          return "/auth/role-select?email=" + encodeURIComponent(user.email!);
+        }
+
+        if (!existingUser.ageVerified) {
+          return "/auth/age-verification?email=" + encodeURIComponent(user.email!);
+        }
+      }
+
       return true;
     },
     async jwt({ token, user, trigger, session }) {
