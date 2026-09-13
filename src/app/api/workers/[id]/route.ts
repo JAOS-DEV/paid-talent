@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { db, workerProfiles, profileInterests } from "@/lib/db";
+import { db, workerProfiles, profileInterests, subscriptions } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { isProfileTopTalent, recordProfileView } from "@/lib/ranking";
-import { hasTopTalentAccess } from "@/lib/stripe";
-import { canViewContact } from "@/lib/contact-visibility";
+import {
+  canViewContactDetails,
+  type SubscriptionInfo,
+} from "@/lib/helpers/contact-visibility";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -76,13 +78,21 @@ export async function GET(
     await recordProfileView(profile.id, session.user.id);
 
     const isTopTalent = await isProfileTopTalent(profile.id);
-    const viewerHasAccess = await hasTopTalentAccess(session.user.id);
     const isOwnProfile = profile.userId === session.user.id;
 
-    const contactVisible = canViewContact({
+    const [subscription] = await db
+      .select({
+        status: subscriptions.status,
+        plan: subscriptions.plan,
+      })
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, session.user.id))
+      .limit(1);
+
+    const contactVisible = canViewContactDetails({
       isOwnProfile,
-      viewerHasTopTalentAccess: viewerHasAccess,
-      profileIsTopTalent: isTopTalent,
+      isTopTalent,
+      subscription: subscription as SubscriptionInfo | null ?? null,
     });
 
     const [existingInterest] = await db

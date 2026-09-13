@@ -4,9 +4,12 @@ import {
   hasTopTalentPlan,
   canAccessTopTalentContact,
   determineContactVisibility,
+  determineContactVisibilityWithOwnership,
+  canViewContactDetails,
   getVisibleContactFields,
   maskContactField,
   type SubscriptionInfo,
+  type ContactVisibilityParams,
 } from "../contact-visibility";
 
 describe("contact-visibility helpers", () => {
@@ -194,6 +197,136 @@ describe("contact-visibility helpers", () => {
 
     it("should mask email correctly", () => {
       expect(maskContactField("user@example.com", false)).toBe("us****om");
+    });
+  });
+
+  describe("determineContactVisibilityWithOwnership", () => {
+    it("should always allow viewing own profile", () => {
+      const params: ContactVisibilityParams = {
+        isOwnProfile: true,
+        isTopTalent: true,
+        subscription: null,
+      };
+      const result = determineContactVisibilityWithOwnership(params);
+      expect(result).toEqual({
+        canViewContact: true,
+        reason: "own_profile",
+      });
+    });
+
+    it("should allow own profile even for Top Talent without subscription", () => {
+      const params: ContactVisibilityParams = {
+        isOwnProfile: true,
+        isTopTalent: true,
+        subscription: { status: "canceled", plan: "free" },
+      };
+      const result = determineContactVisibilityWithOwnership(params);
+      expect(result).toEqual({
+        canViewContact: true,
+        reason: "own_profile",
+      });
+    });
+
+    it("should fall back to subscription check when not own profile", () => {
+      const sub: SubscriptionInfo = { status: "active", plan: "top_talent_unlock" };
+      const params: ContactVisibilityParams = {
+        isOwnProfile: false,
+        isTopTalent: true,
+        subscription: sub,
+      };
+      const result = determineContactVisibilityWithOwnership(params);
+      expect(result).toEqual({
+        canViewContact: true,
+        reason: "has_subscription",
+      });
+    });
+
+    it("should deny Top Talent view without subscription when not own profile", () => {
+      const params: ContactVisibilityParams = {
+        isOwnProfile: false,
+        isTopTalent: true,
+        subscription: null,
+      };
+      const result = determineContactVisibilityWithOwnership(params);
+      expect(result).toEqual({
+        canViewContact: false,
+        reason: "subscription_required",
+      });
+    });
+
+    it("should allow non-Top Talent view without subscription when not own profile", () => {
+      const params: ContactVisibilityParams = {
+        isOwnProfile: false,
+        isTopTalent: false,
+        subscription: null,
+      };
+      const result = determineContactVisibilityWithOwnership(params);
+      expect(result).toEqual({
+        canViewContact: true,
+        reason: "not_top_talent",
+      });
+    });
+  });
+
+  describe("canViewContactDetails", () => {
+    it("should return true for own profile", () => {
+      expect(
+        canViewContactDetails({
+          isOwnProfile: true,
+          isTopTalent: true,
+          subscription: null,
+        })
+      ).toBe(true);
+    });
+
+    it("should return true for non-Top Talent profiles", () => {
+      expect(
+        canViewContactDetails({
+          isOwnProfile: false,
+          isTopTalent: false,
+          subscription: null,
+        })
+      ).toBe(true);
+    });
+
+    it("should return true for Top Talent with valid subscription", () => {
+      expect(
+        canViewContactDetails({
+          isOwnProfile: false,
+          isTopTalent: true,
+          subscription: { status: "active", plan: "top_talent_unlock" },
+        })
+      ).toBe(true);
+    });
+
+    it("should return false for Top Talent without subscription", () => {
+      expect(
+        canViewContactDetails({
+          isOwnProfile: false,
+          isTopTalent: true,
+          subscription: null,
+        })
+      ).toBe(false);
+    });
+
+    it("should return false for Top Talent with free subscription", () => {
+      expect(
+        canViewContactDetails({
+          isOwnProfile: false,
+          isTopTalent: true,
+          subscription: { status: "active", plan: "free" },
+        })
+      ).toBe(false);
+    });
+
+    it("should return false for Top Talent with canceled subscription", () => {
+      expect(
+        canViewContactDetails({
+          isOwnProfile: false,
+          isTopTalent: true,
+          subscription: { status: "canceled", plan: "top_talent_unlock" },
+        })
+      ).toBe(false);
     });
   });
 });
