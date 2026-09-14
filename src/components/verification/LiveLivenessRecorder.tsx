@@ -6,10 +6,13 @@ import {
   LIVE_RECORDING_COUNTDOWN_SECONDS,
   LIVE_RECORDING_MAX_SECONDS,
   LIVE_RECORDING_MIN_SECONDS,
+  bindRecordedPlaybackElement,
   classifyGetUserMediaError,
+  detachLivePreviewElement,
   messageForLiveRecordingError,
   pickSupportedLivenessMimeType,
   resolveLivenessUploadContentType,
+  stopMediaStream,
   type LivenessUploadContentType,
 } from "@/lib/verification/liveness-recording";
 
@@ -22,6 +25,68 @@ interface LiveLivenessRecorderProps {
   onRecorded: (blob: Blob, contentType: LivenessUploadContentType) => void;
   onCancel: () => void;
   onError: (message: string) => void;
+  onReacquireCamera: () => void;
+}
+
+function LivePreviewVideo({
+  stream,
+  videoRef,
+}: {
+  stream: MediaStream;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+}): React.ReactElement {
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+    const playAttempt = video.play();
+    if (playAttempt) {
+      void playAttempt.catch(() => undefined);
+    }
+
+    return () => {
+      detachLivePreviewElement(video);
+    };
+  }, [stream, videoRef]);
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      muted
+      playsInline
+      data-testid="liveness-live-preview"
+      className="absolute inset-0 w-full h-full object-cover"
+    />
+  );
+}
+
+function RecordedPlaybackVideo({
+  objectUrl,
+}: {
+  objectUrl: string;
+}): React.ReactElement {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    bindRecordedPlaybackElement(videoRef.current, objectUrl);
+  }, [objectUrl]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={objectUrl}
+      controls
+      playsInline
+      data-testid="liveness-playback"
+      className="absolute inset-0 w-full h-full object-cover"
+    />
+  );
 }
 
 export function LiveLivenessRecorder({
@@ -31,15 +96,17 @@ export function LiveLivenessRecorder({
   onRecorded,
   onCancel,
   onError,
+  onReacquireCamera,
 }: LiveLivenessRecorderProps): React.ReactElement {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const playbackRef = useRef<HTMLVideoElement | null>(null);
+  const livePreviewRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const stopTimerRef = useRef<number | null>(null);
   const countdownTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const streamRef = useRef(stream);
+  const liveReleasedRef = useRef(false);
 
   const [phase, setPhase] = useState<RecorderPhase>("preview");
   const [countdown, setCountdown] = useState(LIVE_RECORDING_COUNTDOWN_SECONDS);
@@ -71,23 +138,21 @@ export function LiveLivenessRecorder({
     }
   }, []);
 
+  const releaseLiveStream = useCallback((): void => {
+    detachLivePreviewElement(livePreviewRef.current);
+    if (!liveReleasedRef.current) {
+      stopMediaStream(streamRef.current);
+      liveReleasedRef.current = true;
+    }
+  }, []);
+
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) {
-      return;
+    if (streamRef.current !== stream) {
+      streamRef.current = stream;
+      liveReleasedRef.current = false;
+      setPhase("preview");
+      setElapsedSeconds(0);
     }
-
-    video.srcObject = stream;
-    video.muted = true;
-    video.playsInline = true;
-    const playAttempt = video.play();
-    if (playAttempt) {
-      void playAttempt.catch(() => undefined);
-    }
-
-    return () => {
-      video.srcObject = null;
-    };
   }, [stream]);
 
   useEffect(() => {
@@ -99,6 +164,10 @@ export function LiveLivenessRecorder({
         mediaRecorderRef.current.state !== "inactive"
       ) {
         mediaRecorderRef.current.stop();
+      }
+      if (!liveReleasedRef.current) {
+        stopMediaStream(streamRef.current);
+        liveReleasedRef.current = true;
       }
     };
   }, [clearTimers, revokeObjectUrl]);
@@ -119,6 +188,7 @@ export function LiveLivenessRecorder({
         return;
       }
 
+      releaseLiveStream();
       revokeObjectUrl();
       objectUrlRef.current = URL.createObjectURL(blob);
       setPlaybackUrl(objectUrlRef.current);
@@ -126,7 +196,7 @@ export function LiveLivenessRecorder({
       setRecordedContentType(contentType);
       setPhase("review");
     },
-    [onError, revokeObjectUrl]
+    [onError, releaseLiveStream, revokeObjectUrl]
   );
 
   const stopRecording = useCallback((): void => {
@@ -195,7 +265,13 @@ export function LiveLivenessRecorder({
     stopTimerRef.current = window.setTimeout(() => {
       stopRecording();
     }, LIVE_RECORDING_MAX_SECONDS * 1000);
-  }, [clearTimers, finalizeRecording, onError, stopRecording, stream]);
+  }, [
+    clearTimers,
+    finalizeRecording,
+    onError,
+    stopRecording,
+    stream,
+  ]);
 
   const handleStartRecording = useCallback((): void => {
     setRecordedBlob(null);
@@ -224,8 +300,8 @@ export function LiveLivenessRecorder({
     setRecordedBlob(null);
     setRecordedContentType(null);
     setElapsedSeconds(0);
-    setPhase("preview");
-  }, [clearTimers, revokeObjectUrl]);
+    onReacquireCamera();
+  }, [clearTimers, onReacquireCamera, revokeObjectUrl]);
 
   const handleUseVideo = useCallback((): void => {
     if (!recordedBlob || !recordedContentType) {
@@ -233,6 +309,11 @@ export function LiveLivenessRecorder({
     }
     onRecorded(recordedBlob, recordedContentType);
   }, [onRecorded, recordedBlob, recordedContentType]);
+
+  const handleCancel = useCallback((): void => {
+    releaseLiveStream();
+    onCancel();
+  }, [onCancel, releaseLiveStream]);
 
   const remainingSeconds = Math.max(
     LIVE_RECORDING_MAX_SECONDS - elapsedSeconds,
@@ -244,21 +325,23 @@ export function LiveLivenessRecorder({
   return (
     <div className="space-y-4" data-testid="liveness-recorder">
       <div className="relative w-full aspect-[3/4] max-w-[280px] mx-auto bg-charcoal-900 rounded-2xl overflow-hidden border-2 border-charcoal-700">
-        {phase === "review" && playbackUrl ? (
-          <video
-            ref={playbackRef}
-            src={playbackUrl}
-            controls
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+        {phase === "review" ? (
+          playbackUrl ? (
+            <RecordedPlaybackVideo
+              key={playbackUrl}
+              objectUrl={playbackUrl}
+            />
+          ) : (
+            <div
+              className="absolute inset-0 bg-charcoal-900"
+              data-testid="liveness-reacquiring"
+            />
+          )
         ) : (
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover"
+          <LivePreviewVideo
+            key={stream.id}
+            stream={stream}
+            videoRef={livePreviewRef}
           />
         )}
 
@@ -299,7 +382,7 @@ export function LiveLivenessRecorder({
           </Button>
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             className="block w-full text-center text-xs text-charcoal-500 hover:text-charcoal-300"
           >
             Cancel

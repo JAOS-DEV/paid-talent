@@ -23,9 +23,11 @@ vi.mock("@/components/verification/LiveLivenessRecorder", () => ({
   LiveLivenessRecorder: ({
     onRecorded,
     onCancel,
+    onReacquireCamera,
   }: {
     onRecorded: (blob: Blob, contentType: "video/webm") => void;
     onCancel: () => void;
+    onReacquireCamera: () => void;
   }): React.ReactElement => (
     <div data-testid="liveness-recorder">
       <button
@@ -38,6 +40,9 @@ vi.mock("@/components/verification/LiveLivenessRecorder", () => ({
         }
       >
         Use this video
+      </button>
+      <button type="button" onClick={onReacquireCamera}>
+        Record again
       </button>
       <button type="button" onClick={onCancel}>
         Cancel
@@ -404,6 +409,79 @@ describe("Worker verification page", () => {
     expect(
       fetchMock.mock.calls.some((call) => String(call[0]) === "https://s3.test/video")
     ).toBe(true);
+  });
+
+  it("requests a new MediaStream when the worker taps Record again", async () => {
+    workerSession();
+    const firstStream = { id: "stream-1", getTracks: () => [{ stop: vi.fn() }] };
+    const secondStream = { id: "stream-2", getTracks: () => [{ stop: vi.fn() }] };
+    const getUserMedia = vi
+      .fn()
+      .mockResolvedValueOnce(firstStream)
+      .mockResolvedValueOnce(secondStream);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/worker/verification") {
+        return jsonResponse({
+          success: true,
+          verification: { verificationStatus: "unverified" },
+        });
+      }
+      if (url === "/api/worker/verification/upload") {
+        return jsonResponse({
+          success: true,
+          uploadUrl: "https://s3.test/id",
+          key: "verification-docs/worker-1/id.jpg",
+        });
+      }
+      if (url === "https://s3.test/id") {
+        return { ok: true, json: async () => ({}) } as Response;
+      }
+      if (url === "/api/worker/verification/challenge") {
+        return jsonResponse({
+          success: true,
+          challenge: {
+            code: "123456",
+            displayCode: "123-456",
+            issuedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+          },
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("MediaRecorder", class FakeRecorder {});
+    vi.stubGlobal("navigator", {
+      mediaDevices: { getUserMedia },
+    });
+
+    render(<WorkerVerificationPage />);
+    await screen.findByText("Upload ID photo");
+    fireEvent.change(screen.getByTestId("verification-id-file-input"), {
+      target: {
+        files: [new File(["id-bytes"], "id.jpg", { type: "image/jpeg" })],
+      },
+    });
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /continue to video verification/i,
+      })
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /open camera/i }));
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(await screen.findByRole("button", { name: /record again/i }));
+    await waitFor(() => {
+      expect(getUserMedia).toHaveBeenCalledTimes(2);
+    });
+    expect(getUserMedia.mock.calls[1]?.[0]).toEqual({
+      video: { facingMode: "user" },
+      audio: true,
+    });
+    expect(
+      document.querySelector('input[type="file"][accept*="video"]')
+    ).toBeNull();
   });
 
   it("handles an expired challenge on the video step", async () => {

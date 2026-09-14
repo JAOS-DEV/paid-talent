@@ -2,12 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ALLOWED_LIVENESS_VIDEO_TYPES } from "@/lib/storage/s3";
 import {
   LIVENESS_UPLOAD_CONTENT_TYPES,
+  bindRecordedPlaybackElement,
   classifyGetUserMediaError,
+  detachLivePreviewElement,
   isLiveRecordingApiAvailable,
   isLiveRecordingSupported,
   messageForLiveRecordingError,
   pickSupportedLivenessMimeType,
   resolveLivenessUploadContentType,
+  stopMediaStream,
   toAllowedLivenessContentType,
 } from "../liveness-recording";
 
@@ -55,6 +58,44 @@ describe("liveness recording helpers", () => {
   it("does not claim live recording is available without getUserMedia and MediaRecorder", () => {
     expect(isLiveRecordingApiAvailable()).toBe(false);
     expect(isLiveRecordingSupported(() => false)).toBe(false);
+  });
+
+  it("detaches a live preview srcObject without throwing on double-stop", () => {
+    const stop = vi.fn();
+    const stream = {
+      getTracks: () => [{ stop }],
+    } as unknown as MediaStream;
+    const video = document.createElement("video");
+    Object.defineProperty(video, "srcObject", {
+      configurable: true,
+      writable: true,
+      value: stream,
+    });
+    video.pause = vi.fn();
+
+    detachLivePreviewElement(video);
+    expect(video.srcObject).toBeNull();
+
+    stopMediaStream(stream);
+    stopMediaStream(stream);
+    expect(stop).toHaveBeenCalledTimes(2);
+  });
+
+  it("binds playback to a Blob URL with srcObject cleared and audio unmuted", () => {
+    const video = document.createElement("video");
+    Object.defineProperty(video, "srcObject", {
+      configurable: true,
+      writable: true,
+      value: { id: "live" },
+    });
+    video.load = vi.fn();
+    video.muted = true;
+
+    bindRecordedPlaybackElement(video, "blob:recorded");
+    expect(video.srcObject).toBeNull();
+    expect(video.muted).toBe(false);
+    expect(video.getAttribute("src")).toBe("blob:recorded");
+    expect(video.load).toHaveBeenCalled();
   });
 });
 
