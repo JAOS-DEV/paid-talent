@@ -54,4 +54,11 @@ describe("worker dashboard incomplete-profile redirect removal", () => {
       /isRecruiterRoute && role !== ["']recruiter["']/
     );
   });
+
+  it("keeps WorkerConfirmationCard on the worker dashboard", () => {
+    expect(dashboardSource).toMatch(/WorkerConfirmationCard/);
+    expect(dashboardSource).toMatch(
+      /\/api\/worker\/hire-confirmations\/pending/
+    );
+  });
 });

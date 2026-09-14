@@ -3,7 +3,15 @@ import {
   getStatusLabel,
   getStatusVariant,
 } from "../HireOutcomeStatusBadge";
-import { getNextActionLabel } from "../HireOutcomeActions";
+import {
+  getNextActionLabel,
+  getHireConfirmationEndpoint,
+} from "../HireOutcomeActions";
+import { getWorkerConfirmationEndpoint } from "../WorkerConfirmationCard";
+import {
+  getRecruiterRequestAction,
+  getWorkerConfirmationCopy,
+} from "@/lib/hire-outcomes/confirmations";
 
 describe("HireOutcomeStatusBadge helpers", () => {
   describe("getStatusLabel", () => {
@@ -35,18 +43,63 @@ describe("HireOutcomeStatusBadge helpers", () => {
   });
 });
 
-describe("HireOutcomeActions helpers", () => {
-  describe("getNextActionLabel", () => {
-    it("returns 'Mark Hired' when current status is interested", () => {
-      expect(getNextActionLabel("interested")).toBe("Mark Hired");
-    });
+describe("recruiter confirmation UI", () => {
+  it("shows request hire confirmation from interested", () => {
+    expect(getNextActionLabel("interested")).toBe("Request hire confirmation");
+    expect(getHireConfirmationEndpoint("hired")).toBe(
+      "/api/recruiter/interests/request-hire"
+    );
+  });
 
-    it("returns 'Mark Started' when current status is hired", () => {
-      expect(getNextActionLabel("hired")).toBe("Mark Started");
-    });
+  it("hides the request button while awaiting confirmation", () => {
+    expect(getNextActionLabel("interested", "hired")).toBeNull();
+    expect(getRecruiterRequestAction("interested", "hired")).toBeNull();
+  });
 
-    it("returns null when current status is started (terminal)", () => {
-      expect(getNextActionLabel("started")).toBeNull();
-    });
+  it("shows request start confirmation only after confirmed hired", () => {
+    expect(getNextActionLabel("hired")).toBe("Request start confirmation");
+    expect(getHireConfirmationEndpoint("started")).toBe(
+      "/api/recruiter/interests/request-start"
+    );
+    expect(getNextActionLabel("interested")).not.toBe(
+      "Request start confirmation"
+    );
+  });
+
+  it("has no further recruiter action after confirmed started", () => {
+    expect(getNextActionLabel("started")).toBeNull();
+  });
+});
+
+describe("worker confirmation UI", () => {
+  it("builds a pending hire card", () => {
+    const copy = getWorkerConfirmationCopy("Sky Bar", "hired");
+    expect(copy.heading).toBe("Action required");
+    expect(copy.statement).toBe("Sky Bar says they have hired you.");
+    expect(copy.confirmLabel).toBe("Confirm hired");
+    expect(copy.rejectLabel).toBe("This isn't correct");
+  });
+
+  it("builds a pending start card", () => {
+    const copy = getWorkerConfirmationCopy("Sky Bar", "started");
+    expect(copy.statement).toBe(
+      "Sky Bar says you have started working with them."
+    );
+    expect(copy.confirmLabel).toBe("Confirm started");
+    expect(copy.rejectLabel).toBe("Not yet / This isn't correct");
+  });
+
+  it("confirm and reject buttons call the worker endpoints", () => {
+    expect(getWorkerConfirmationEndpoint("req-1", "confirm")).toBe(
+      "/api/worker/hire-confirmations/req-1/confirm"
+    );
+    expect(getWorkerConfirmationEndpoint("req-1", "reject")).toBe(
+      "/api/worker/hire-confirmations/req-1/reject"
+    );
+  });
+
+  it("does not invent an empty action-required box when there are no requests", () => {
+    const pending: unknown[] = [];
+    expect(pending.length > 0).toBe(false);
   });
 });

@@ -13,14 +13,27 @@ import {
   CardTitle,
 } from "@/components/ui";
 import { VerificationStatusBanner } from "@/components/verification";
+import { WorkerConfirmationCard } from "@/components/hire-outcomes";
 import { getProfileCompleteness } from "@/lib/profile";
 import { getWorkerDashboardProfileAction } from "@/lib/helpers/worker-dashboard-access";
 import type { WorkerProfile } from "@/lib/db/schema";
+import type { ConfirmationRequestedStatus } from "@/lib/hire-outcomes/confirmations";
+
+interface PendingHireConfirmation {
+  id: string;
+  requestedStatus: ConfirmationRequestedStatus;
+  requestedAt: string;
+  venueName: string;
+  openingContext: string | null;
+}
 
 export default function WorkerDashboardPage(): React.ReactElement {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [profile, setProfile] = useState<WorkerProfile | null>(null);
+  const [pendingConfirmations, setPendingConfirmations] = useState<
+    PendingHireConfirmation[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,6 +43,14 @@ export default function WorkerDashboardPage(): React.ReactElement {
         if (res.ok) {
           const data = await res.json();
           setProfile(data.profile);
+
+          const confirmationsRes = await fetch(
+            "/api/worker/hire-confirmations/pending"
+          );
+          if (confirmationsRes.ok) {
+            const confirmationsData = await confirmationsRes.json();
+            setPendingConfirmations(confirmationsData.requests ?? []);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch profile:", error);
@@ -77,6 +98,26 @@ export default function WorkerDashboardPage(): React.ReactElement {
               Manage your profile and see who&apos;s interested
             </p>
           </div>
+
+          {pendingConfirmations.length > 0 && (
+            <div className="mb-6 space-y-4">
+              {pendingConfirmations.map((request) => (
+                <WorkerConfirmationCard
+                  key={request.id}
+                  requestId={request.id}
+                  venueName={request.venueName}
+                  openingContext={request.openingContext}
+                  requestedStatus={request.requestedStatus}
+                  requestedAt={request.requestedAt}
+                  onResponded={() => {
+                    setPendingConfirmations((current) =>
+                      current.filter((item) => item.id !== request.id)
+                    );
+                  }}
+                />
+              ))}
+            </div>
+          )}
 
           <div className="mb-6">
             <VerificationStatusBanner

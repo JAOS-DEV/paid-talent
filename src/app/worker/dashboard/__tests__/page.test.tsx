@@ -34,6 +34,20 @@ vi.mock("@/components/verification", () => ({
   VerificationStatusBanner: (): React.ReactElement => <div>Verification</div>,
 }));
 
+vi.mock("@/components/hire-outcomes", () => ({
+  WorkerConfirmationCard: ({
+    venueName,
+    requestedStatus,
+  }: {
+    venueName: string;
+    requestedStatus: string;
+  }): React.ReactElement => (
+    <div data-testid="hire-confirmation-card">
+      {venueName} {requestedStatus}
+    </div>
+  ),
+}));
+
 import WorkerDashboardPage from "../page";
 
 function createMockProfile(
@@ -90,29 +104,45 @@ function mockWorkerSession(): void {
   });
 }
 
+function mockDashboardFetches(options: {
+  profile?: WorkerProfile | null;
+  pending?: Array<{
+    id: string;
+    requestedStatus: "hired" | "started";
+    requestedAt: string;
+    venueName: string;
+    openingContext: string | null;
+  }>;
+}): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockImplementation(async (url: string) => {
+      if (String(url).includes("/api/worker/hire-confirmations/pending")) {
+        return {
+          ok: true,
+          json: async () => ({ requests: options.pending ?? [] }),
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({ profile: options.profile ?? null }),
+      };
+    })
+  );
+}
+
 describe("WorkerDashboardPage", () => {
   beforeEach(() => {
     replace.mockReset();
     push.mockReset();
     useSession.mockReset();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ profile: null }),
-      })
-    );
+    mockDashboardFetches({ profile: null });
   });
 
   it("lets a 0% complete worker stay on the dashboard", async () => {
     mockWorkerSession();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ profile: createMockProfile() }),
-      })
-    );
+    mockDashboardFetches({ profile: createMockProfile() });
 
     render(<WorkerDashboardPage />);
 
@@ -123,17 +153,11 @@ describe("WorkerDashboardPage", () => {
 
   it("lets a worker below 30% complete stay on the dashboard with Complete Profile", async () => {
     mockWorkerSession();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          profile: createMockProfile({
-            photoUrl: "https://example.com/photo.jpg",
-          }),
-        }),
-      })
-    );
+    mockDashboardFetches({
+      profile: createMockProfile({
+        photoUrl: "https://example.com/photo.jpg",
+      }),
+    });
 
     render(<WorkerDashboardPage />);
 
@@ -148,24 +172,18 @@ describe("WorkerDashboardPage", () => {
 
   it("keeps complete-profile behaviour for a finished profile", async () => {
     mockWorkerSession();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          profile: createMockProfile({
-            photoUrl: "https://example.com/photo.jpg",
-            displayName: "Ada",
-            jobRoles: ["Bartender"],
-            experienceYears: 3,
-            languages: ["English"],
-            bio: "Experienced bartender",
-            location: "Bangkok",
-            availability: "Full-time",
-          }),
-        }),
-      })
-    );
+    mockDashboardFetches({
+      profile: createMockProfile({
+        photoUrl: "https://example.com/photo.jpg",
+        displayName: "Ada",
+        jobRoles: ["Bartender"],
+        experienceYears: 3,
+        languages: ["English"],
+        bio: "Experienced bartender",
+        location: "Bangkok",
+        availability: "Full-time",
+      }),
+    });
 
     render(<WorkerDashboardPage />);
 
@@ -173,6 +191,32 @@ describe("WorkerDashboardPage", () => {
     expect(screen.getByRole("button", { name: /edit profile/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /complete profile/i })).not.toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("renders WorkerConfirmationCard when a hire confirmation is pending", async () => {
+    mockWorkerSession();
+    mockDashboardFetches({
+      profile: createMockProfile({
+        photoUrl: "https://example.com/photo.jpg",
+      }),
+      pending: [
+        {
+          id: "conf-1",
+          requestedStatus: "hired",
+          requestedAt: "2026-03-01T00:00:00.000Z",
+          venueName: "Sky Bar",
+          openingContext: "Bartender — Central Pattaya",
+        },
+      ],
+    });
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByTestId("hire-confirmation-card")).toHaveTextContent(
+      "Sky Bar hired"
+    );
+    expect(replace).not.toHaveBeenCalledWith("/worker/onboarding");
+    expect(screen.getByRole("button", { name: /complete profile/i })).toBeInTheDocument();
   });
 
   it("does not allow a recruiter to stay on the worker dashboard", async () => {
