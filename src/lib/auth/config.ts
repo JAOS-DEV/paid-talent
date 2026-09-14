@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { users, workerProfiles, recruiterProfiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
-import { isOver18 } from "@/lib/helpers/age-verification";
+import { meetsMinimumAge } from "@/lib/helpers/age-verification";
 import { resolveProviderSignInDecision } from "@/lib/auth/sign-in-decision";
 import {
   authPages,
@@ -235,7 +235,7 @@ export async function createUserWithRole(
   name?: string
 ): Promise<typeof users.$inferSelect> {
   const now = new Date();
-  const ageVerified = dateOfBirth ? isOver18(dateOfBirth) : false;
+  const ageVerified = dateOfBirth ? meetsMinimumAge(dateOfBirth) : false;
 
   const [newUser] = await db
     .insert(users)
@@ -254,4 +254,4 @@ export async function createUserWithRole(
   return newUser;
 }
 
-export { isOver18 };
+export { meetsMinimumAge };

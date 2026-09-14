@@ -23,7 +23,7 @@ export function Footer(): React.ReactElement {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
-                  href="/auth/role-select?role=worker"
+                  href="/auth/age-gate?role=worker"
                   className="text-charcoal-400 hover:text-charcoal-200 transition-colors"
                 >
                   Create Profile
@@ -47,7 +47,7 @@ export function Footer(): React.ReactElement {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
-                  href="/auth/role-select?role=recruiter"
+                  href="/auth/age-gate?role=recruiter"
                   className="text-charcoal-400 hover:text-charcoal-200 transition-colors"
                 >
                   Start Recruiting

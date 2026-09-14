@@ -9,4 +9,4 @@ export const {
 } = NextAuth(authConfig);
 
 export { authConfig } from "./config";
-export { createUserWithRole, isOver18, isDevBypassAllowed, isEmailProviderConfigured } from "./config";
+export { createUserWithRole, meetsMinimumAge, isDevBypassAllowed, isEmailProviderConfigured } from "./config";

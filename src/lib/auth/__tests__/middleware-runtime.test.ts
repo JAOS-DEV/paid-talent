@@ -104,6 +104,10 @@ describe("middleware runtime safety", () => {
     expect(imported.some((file) => file.endsWith("/lib/auth/config.ts"))).toBe(
       false
     );
+    expect(
+      imported.some((file) => file.includes("signup-intent-action"))
+    ).toBe(false);
+    expect(source).not.toContain("next/headers");
   });
 
   it("edge auth config import graph stays free of DB and Node mailer code", () => {

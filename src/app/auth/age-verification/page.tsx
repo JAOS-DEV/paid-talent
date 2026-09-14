@@ -1,34 +1,34 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Button, Card, CardContent, Input } from "@/components/ui";
+import { meetsMinimumAge } from "@/lib/helpers/age-verification";
 
 export default function AgeVerificationPage(): React.ReactElement {
   const router = useRouter();
   const { data: session, status, update: updateSession } = useSession();
 
   const [dateOfBirth, setDateOfBirth] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const calculateAge = useCallback((dob: string): number => {
-    const today = new Date();
-    const birthDate = new Date(dob);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
+  const maxDate = new Date().toISOString().split("T")[0];
 
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && today.getDate() < birthDate.getDate())
-    ) {
-      age--;
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/signin");
     }
+  }, [status, router]);
 
-    return age;
-  }, []);
+  const handleDateOfBirthChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>): void => {
+      setDateOfBirth(event.target.value);
+      setError(null);
+    },
+    []
+  );
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -39,14 +39,9 @@ export default function AgeVerificationPage(): React.ReactElement {
       return;
     }
 
-    if (!confirmed) {
-      setError("Confirm you're 20+ to continue.");
-      return;
-    }
+    const dob = new Date(dateOfBirth);
 
-    const age = calculateAge(dateOfBirth);
-
-    if (age < 20) {
+    if (!meetsMinimumAge(dob)) {
       setError(
         "Paid Talent is for adults 20+. You can't create an account under 20."
       );
@@ -99,7 +94,6 @@ export default function AgeVerificationPage(): React.ReactElement {
   }
 
   if (status === "unauthenticated" || !session) {
-    router.push("/auth/signin");
     return (
       <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
         <p className="text-charcoal-400">Redirecting to sign in...</p>
@@ -142,27 +136,11 @@ export default function AgeVerificationPage(): React.ReactElement {
                   type="date"
                   label="Date of birth"
                   value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
-                  max={new Date().toISOString().split("T")[0]}
+                  onChange={handleDateOfBirthChange}
+                  max={maxDate}
                   required
                   className="w-full min-w-0 max-w-full"
                 />
-              </div>
-
-              <div className="flex items-start space-x-3">
-                <input
-                  type="checkbox"
-                  id="age-confirm"
-                  checked={confirmed}
-                  onChange={(e) => setConfirmed(e.target.checked)}
-                  className="mt-1 w-5 h-5 min-w-[20px] rounded border-charcoal-600 bg-charcoal-800 text-primary-600 focus:ring-primary-500 focus:ring-offset-charcoal-900"
-                />
-                <label
-                  htmlFor="age-confirm"
-                  className="text-sm text-charcoal-300"
-                >
-                  I confirm I am 20 or older.
-                </label>
               </div>
 
               {error && (
@@ -176,7 +154,7 @@ export default function AgeVerificationPage(): React.ReactElement {
                 fullWidth
                 size="lg"
                 loading={isLoading}
-                disabled={!dateOfBirth || !confirmed}
+                disabled={!dateOfBirth || isLoading}
               >
                 Verify & continue
               </Button>

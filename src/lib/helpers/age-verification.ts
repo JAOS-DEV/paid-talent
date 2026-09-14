@@ -15,7 +15,7 @@ export function calculateAge(dateOfBirth: Date, referenceDate: Date = new Date()
   return age;
 }
 
-export function isOver18(dateOfBirth: Date, referenceDate: Date = new Date()): boolean {
+export function meetsMinimumAge(dateOfBirth: Date, referenceDate: Date = new Date()): boolean {
   return calculateAge(dateOfBirth, referenceDate) >= MIN_AGE_REQUIREMENT;
 }
 
@@ -24,7 +24,7 @@ export function isAgeValid(dateOfBirth: Date, referenceDate: Date = new Date()):
   return age >= MIN_AGE_REQUIREMENT && age <= 120;
 }
 
-export function getDateOfBirth18YearsAgo(referenceDate: Date = new Date()): Date {
+export function getMinimumAgeDateOfBirth(referenceDate: Date = new Date()): Date {
   const dob = new Date(referenceDate);
   dob.setFullYear(dob.getFullYear() - MIN_AGE_REQUIREMENT);
   return dob;

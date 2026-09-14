@@ -85,6 +85,30 @@ describe("resolveProviderSignInDecision", () => {
         expect(decision.role).toBe("worker");
       }
     });
+
+    it("REGRESSION: valid worker Google signup completes instead of aborting to role-select", () => {
+      const decision = resolveProviderSignInDecision({
+        existingUser: null,
+        signupIntentRole: "worker",
+        email,
+      });
+
+      expect(decision.kind).not.toBe("abort_redirect");
+      expect(decision.kind).toBe("create_and_complete");
+      expect(JSON.stringify(decision)).not.toContain("/auth/role-select");
+    });
+
+    it("REGRESSION: valid recruiter Google signup completes instead of aborting to role-select", () => {
+      const decision = resolveProviderSignInDecision({
+        existingUser: null,
+        signupIntentRole: "recruiter",
+        email,
+      });
+
+      expect(decision.kind).not.toBe("abort_redirect");
+      expect(decision.kind).toBe("create_and_complete");
+      expect(JSON.stringify(decision)).not.toContain("/auth/role-select");
+    });
   });
 
   describe("new users without valid signup intent", () => {
@@ -159,6 +183,39 @@ describe("resolveProviderSignInDecision", () => {
       expect(decision).toEqual({
         kind: "complete_existing",
         user: { id: "u4", role: "recruiter", ageVerified: true },
+      });
+    });
+
+    it("existing verified worker login completes without role-select or age-gate", () => {
+      const decision = resolveProviderSignInDecision({
+        existingUser: {
+          id: "u5",
+          role: "worker",
+          ageVerified: true,
+        },
+        signupIntentRole: undefined,
+        email,
+      });
+
+      expect(decision.kind).toBe("complete_existing");
+      expect(JSON.stringify(decision)).not.toContain("/auth/role-select");
+      expect(JSON.stringify(decision)).not.toContain("/auth/age-gate");
+    });
+
+    it("existing unverified login completes and is not sent through account creation", () => {
+      const decision = resolveProviderSignInDecision({
+        existingUser: {
+          id: "u6",
+          role: "worker",
+          ageVerified: false,
+        },
+        signupIntentRole: "recruiter",
+        email,
+      });
+
+      expect(decision).toEqual({
+        kind: "complete_existing",
+        user: { id: "u6", role: "worker", ageVerified: false },
       });
     });
   });
