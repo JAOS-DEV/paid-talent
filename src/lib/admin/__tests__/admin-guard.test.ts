@@ -5,6 +5,7 @@ import {
   buildVerificationDecisionBody,
   canSubmitVerificationApprove,
 } from "../review-actions";
+import { formatModerationConfidencePercent } from "../format-confidence";
 
 describe("resolveAdminPageAccess", () => {
   const originalEnv = { ...process.env };
@@ -93,8 +94,20 @@ describe("resolveAdminPageAccess", () => {
   });
 });
 
+describe("formatModerationConfidencePercent", () => {
+  it("formats stored integer percent without multiplying by 100", () => {
+    expect(formatModerationConfidencePercent(85)).toBe("85%");
+    expect(formatModerationConfidencePercent(92)).toBe("92%");
+  });
+
+  it("shows em dash for null/undefined confidence", () => {
+    expect(formatModerationConfidencePercent(null)).toBe("—");
+    expect(formatModerationConfidencePercent(undefined)).toBe("—");
+  });
+});
+
 describe("verification / photo review action payloads", () => {
-  it("builds approve body with optional metadata", () => {
+  it("builds approve body with optional metadata when explicitly provided", () => {
     const body = buildVerificationDecisionBody({
       action: "approve",
       docType: "thai_id",
@@ -111,6 +124,60 @@ describe("verification / photo review action payloads", () => {
       issuingCountry: "TH",
       notes: "Looks good",
     });
+  });
+
+  it("omits blank optional metadata", () => {
+    const body = buildVerificationDecisionBody({
+      action: "approve",
+      docType: "",
+      last4: "  ",
+      issuingCountry: "",
+      notes: "",
+      canApprove: true,
+    });
+
+    expect(body).toEqual({ action: "approve" });
+    expect(body).not.toHaveProperty("docType");
+    expect(body).not.toHaveProperty("issuingCountry");
+  });
+
+  it("includes explicitly selected docType only", () => {
+    const body = buildVerificationDecisionBody({
+      action: "approve",
+      docType: "passport",
+      canApprove: true,
+    });
+
+    expect(body).toEqual({
+      action: "approve",
+      docType: "passport",
+    });
+  });
+
+  it("includes explicitly entered country only", () => {
+    const body = buildVerificationDecisionBody({
+      action: "reject",
+      issuingCountry: "TH",
+      canApprove: false,
+    });
+
+    expect(body).toEqual({
+      action: "reject",
+      issuingCountry: "TH",
+    });
+  });
+
+  it("reject with untouched fields does not contain guessed Thai metadata", () => {
+    const body = buildVerificationDecisionBody({
+      action: "reject",
+      canApprove: false,
+    });
+
+    expect(body).toEqual({ action: "reject" });
+    expect(body).not.toHaveProperty("docType");
+    expect(body).not.toHaveProperty("issuingCountry");
+    expect(JSON.stringify(body)).not.toContain("thai_id");
+    expect(JSON.stringify(body)).not.toContain("TH");
   });
 
   it("builds reject body and omits empty optional fields", () => {
@@ -146,12 +213,5 @@ describe("verification / photo review action payloads", () => {
     });
     expect(buildPhotoRejectBody("  ")).toEqual({});
     expect(buildPhotoRejectBody()).toEqual({});
-  });
-
-  it("photo approve uses POST with no body requirement", () => {
-    // Documented contract for UI: POST /api/admin/photos/:id/approve
-    expect("/api/admin/photos/photo-1/approve").toMatch(
-      /\/api\/admin\/photos\/[^/]+\/approve$/
-    );
   });
 });

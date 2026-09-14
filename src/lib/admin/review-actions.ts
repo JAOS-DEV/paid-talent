@@ -6,7 +6,8 @@ export type VerificationDocType =
 
 export interface VerificationDecisionInput {
   action: "approve" | "reject";
-  docType: VerificationDocType;
+  /** Omit or leave unset until the admin explicitly selects a type. */
+  docType?: VerificationDocType | "";
   last4?: string;
   issuingCountry?: string;
   notes?: string;
@@ -16,6 +17,7 @@ export interface VerificationDecisionInput {
 /**
  * Build the JSON body for POST /api/admin/workers/[id]/verify.
  * Returns null when approve is requested but canApprove is false.
+ * Optional metadata is only included when the admin provided a value.
  */
 export function buildVerificationDecisionBody(
   input: VerificationDecisionInput
@@ -26,8 +28,17 @@ export function buildVerificationDecisionBody(
 
   const body: Record<string, string> = {
     action: input.action,
-    docType: input.docType,
   };
+
+  const docType = input.docType?.trim();
+  if (
+    docType === "passport" ||
+    docType === "thai_id" ||
+    docType === "drivers_license" ||
+    docType === "other"
+  ) {
+    body.docType = docType;
+  }
 
   const last4 = input.last4?.trim();
   const issuingCountry = input.issuingCountry?.trim();

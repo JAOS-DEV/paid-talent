@@ -16,6 +16,8 @@ export {
   canSubmitVerificationApprove,
 } from "./review-actions";
 
+export { formatModerationConfidencePercent } from "./format-confidence";
+
 export function getAdminEmailAllowlist(): string[] {
   const envValue = process.env.ADMIN_EMAILS;
   if (!envValue) {

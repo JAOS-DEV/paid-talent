@@ -61,9 +61,9 @@ function VerificationCard({
   worker,
   onResolved,
 }: VerificationCardProps): React.ReactElement {
-  const [docType, setDocType] = useState<VerificationDocType>("thai_id");
+  const [docType, setDocType] = useState<VerificationDocType | "">("");
   const [last4, setLast4] = useState("");
-  const [issuingCountry, setIssuingCountry] = useState("TH");
+  const [issuingCountry, setIssuingCountry] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState<"approve" | "reject" | null>(
     null
@@ -77,7 +77,7 @@ function VerificationCard({
     async (action: "approve" | "reject") => {
       const body = buildVerificationDecisionBody({
         action,
-        docType,
+        docType: docType || undefined,
         last4,
         issuingCountry,
         notes,
@@ -217,11 +217,12 @@ function VerificationCard({
               id={`docType-${worker.id}`}
               value={docType}
               onChange={(e) =>
-                setDocType(e.target.value as VerificationDocType)
+                setDocType(e.target.value as VerificationDocType | "")
               }
               disabled={!!submitting || !!success}
               className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100"
             >
+              <option value="">Select document type</option>
               {DOC_TYPE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -242,12 +243,15 @@ function VerificationCard({
             onChange={(e) => setIssuingCountry(e.target.value.slice(0, 3))}
             maxLength={3}
             disabled={!!submitting || !!success}
+            placeholder="e.g. TH"
           />
           <Input
             label="Admin notes (optional)"
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => setNotes(e.target.value.slice(0, 500))}
+            maxLength={500}
             disabled={!!submitting || !!success}
+            helperText={`${notes.length}/500`}
           />
         </div>
 

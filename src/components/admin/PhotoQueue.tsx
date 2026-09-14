@@ -3,6 +3,7 @@
 import React, { useCallback, useState } from "react";
 import { Button, Card, CardContent, Badge, Input } from "@/components/ui";
 import { buildPhotoRejectBody } from "@/lib/admin/review-actions";
+import { formatModerationConfidencePercent } from "@/lib/admin/format-confidence";
 
 export interface PendingPhoto {
   id: string;
@@ -111,11 +112,9 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
               <span className="text-charcoal-500">Reason: </span>
               {photo.moderationReason || "—"}
             </p>
-            <p className="text-sm text-charcoal-300">
+              <p className="text-sm text-charcoal-300">
               <span className="text-charcoal-500">Confidence: </span>
-              {photo.moderationConfidence != null
-                ? `${Math.round(photo.moderationConfidence * 100)}%`
-                : "—"}
+              {formatModerationConfidencePercent(photo.moderationConfidence)}
             </p>
             <p className="text-sm text-charcoal-300">
               <span className="text-charcoal-500">Categories: </span>
