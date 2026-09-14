@@ -129,6 +129,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       livenessVideoKey,
       challengeCode: existingProfile.challengeCode,
       challengeIssuedAt: existingProfile.challengeIssuedAt,
+      boundIdDocumentKey: existingProfile.idDocumentKey,
     });
 
     if (!submissionValidation.isValid) {

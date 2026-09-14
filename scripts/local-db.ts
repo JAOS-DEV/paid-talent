@@ -367,17 +367,24 @@ export async function stopPrDb(prNumber: number): Promise<void> {
 export async function runLocalE2E(playwrightArgs: string[] = []): Promise<void> {
   await startLocalDb("test");
   await resetLocalDb("test");
+  const e2ePort = process.env.PAID_TALENT_E2E_PORT || "3000";
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     DATABASE_URL: localDatabaseUrl("test"),
     AUTH_DEV_BYPASS: "true",
     NODE_ENV: "development",
+    PLAYWRIGHT_REUSE_SERVER: "false",
+    PORT: e2ePort,
+    BASE_URL: `http://localhost:${e2ePort}`,
+    PLAYWRIGHT_WEB_SERVER_COMMAND: `npx next dev --port ${e2ePort}`,
   };
   assertLocalDatabase(env.DATABASE_URL, {
     action: "authenticated e2e",
     expectedDatabase: LOCAL_DB_TARGETS.test.database,
   });
-  console.log(`Running Playwright against ${describeDatabaseTarget(env.DATABASE_URL)}`);
+  console.log(
+    `Running Playwright against ${describeDatabaseTarget(env.DATABASE_URL)} at ${env.BASE_URL}`
+  );
   const code = await runCommand("npx", ["playwright", "test", ...playwrightArgs], {
     env,
     shell: true,

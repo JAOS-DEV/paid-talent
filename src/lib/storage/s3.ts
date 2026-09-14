@@ -402,6 +402,7 @@ export async function assertUploadedProfileImageWithinLimit(
 const ALLOWED_ID_DOCUMENT_TYPES = [
   "image/jpeg",
   "image/png",
+  "image/webp",
   "application/pdf",
 ];
 const MAX_ID_DOCUMENT_SIZE = 10 * 1024 * 1024;

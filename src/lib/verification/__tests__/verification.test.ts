@@ -307,6 +307,31 @@ describe("verification helpers", () => {
       expect(result.errors).toHaveLength(0);
     });
 
+    it("should reject submission when ID key does not match the bound challenge ID", () => {
+      const result = validateVerificationSubmission({
+        idDocumentKey: "new-doc-key",
+        livenessVideoKey: "video-key",
+        challengeCode: "123456",
+        challengeIssuedAt: new Date(),
+        boundIdDocumentKey: "bound-doc-key",
+      });
+      expect(result.isValid).toBe(false);
+      expect(
+        result.errors.some((error) => error.includes("does not match"))
+      ).toBe(true);
+    });
+
+    it("should accept submission when ID key matches the bound challenge ID", () => {
+      const result = validateVerificationSubmission({
+        idDocumentKey: "doc-key",
+        livenessVideoKey: "video-key",
+        challengeCode: "123456",
+        challengeIssuedAt: new Date(),
+        boundIdDocumentKey: "doc-key",
+      });
+      expect(result.isValid).toBe(true);
+    });
+
     it("should collect all errors for completely invalid submission", () => {
       const result = validateVerificationSubmission({
         idDocumentKey: null,

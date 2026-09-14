@@ -1,11 +1,21 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Header, Footer } from "@/components/layout";
 import { Button, Badge } from "@/components/ui";
+import { LiveLivenessRecorder } from "@/components/verification/LiveLivenessRecorder";
 import type { VerificationStatus, DocType } from "@/lib/db/schema";
+import {
+  LIVE_CAMERA_CONSTRAINTS,
+  UNSUPPORTED_LIVE_RECORDING_MESSAGE,
+  classifyGetUserMediaError,
+  isLiveRecordingApiAvailable,
+  messageForLiveRecordingError,
+  stopMediaStream,
+  type LivenessUploadContentType,
+} from "@/lib/verification/liveness-recording";
 
 interface ChallengeCode {
   code: string;
@@ -16,8 +26,9 @@ interface ChallengeCode {
 }
 
 type VerificationStep =
-  | "intro"
-  | "camera"
+  | "id"
+  | "id_uploaded"
+  | "video"
   | "recording"
   | "review"
   | "pending"
@@ -30,121 +41,6 @@ const DOC_TYPE_OPTIONS: { value: DocType; label: string }[] = [
   { value: "drivers_license", label: "Driver's License" },
   { value: "other", label: "Other Government ID" },
 ];
-
-function CameraFrameWithCode({
-  challengeCode,
-}: {
-  challengeCode?: string | null;
-}): React.ReactElement {
-  const displayCode = challengeCode
-    ? challengeCode.slice(0, 4).toUpperCase()
-    : null;
-
-  return (
-    <div className="relative w-full aspect-[3/4] max-w-[280px] mx-auto bg-charcoal-900 rounded-2xl overflow-hidden border-2 border-charcoal-700">
-      {displayCode && (
-        <div className="absolute top-4 left-0 right-0 z-10 flex justify-center">
-          <div className="bg-charcoal-950/95 border border-primary-500 rounded-lg px-5 py-3 shadow-lg">
-            <p className="text-charcoal-400 text-[10px] text-center uppercase tracking-wider mb-1">
-              Say this code
-            </p>
-            <p className="text-3xl font-mono font-bold text-primary-400 tracking-[0.3em] text-center">
-              {displayCode}
-            </p>
-          </div>
-        </div>
-      )}
-
-      <svg
-        viewBox="0 0 200 267"
-        className="absolute inset-0 w-full h-full"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <ellipse
-          cx="100"
-          cy="100"
-          rx="42"
-          ry="52"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeDasharray="6 4"
-          className="text-charcoal-600"
-        />
-        <path
-          d="M58 165 Q58 150 100 150 Q142 150 142 165 L142 210 Q142 230 100 230 Q58 230 58 210 Z"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeDasharray="6 4"
-          className="text-charcoal-600"
-          fill="none"
-        />
-        <g transform="translate(138, 85)">
-          <rect
-            x="0"
-            y="0"
-            width="48"
-            height="65"
-            rx="3"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeDasharray="5 3"
-            className="text-primary-500/70"
-            fill="none"
-          />
-          <rect
-            x="4"
-            y="8"
-            width="16"
-            height="20"
-            rx="2"
-            className="fill-primary-500/20"
-          />
-          <line
-            x1="24"
-            y1="12"
-            x2="42"
-            y2="12"
-            stroke="currentColor"
-            strokeWidth="1"
-            className="text-primary-500/40"
-          />
-          <line
-            x1="24"
-            y1="18"
-            x2="38"
-            y2="18"
-            stroke="currentColor"
-            strokeWidth="1"
-            className="text-primary-500/40"
-          />
-          <line
-            x1="24"
-            y1="24"
-            x2="40"
-            y2="24"
-            stroke="currentColor"
-            strokeWidth="1"
-            className="text-primary-500/40"
-          />
-          <text
-            x="24"
-            y="50"
-            className="text-[8px] fill-primary-400/60"
-          >
-            ID
-          </text>
-        </g>
-      </svg>
-
-      <div className="absolute bottom-3 left-0 right-0 text-center">
-        <p className="text-charcoal-500 text-[11px]">
-          Hold ID beside your face
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function ChecklistItem({
   text,
@@ -222,6 +118,18 @@ function WhyWeAskModal({
   );
 }
 
+function StartAgainButton({ onClick }: { onClick: () => void }): React.ReactElement {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="block w-full text-center text-xs text-charcoal-500 hover:text-charcoal-300 pt-1"
+    >
+      Start again
+    </button>
+  );
+}
+
 export default function WorkerVerificationPage(): React.ReactElement {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -229,7 +137,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState<VerificationStep>("intro");
+  const [currentStep, setCurrentStep] = useState<VerificationStep>("id");
   const [showWhyModal, setShowWhyModal] = useState(false);
 
   const [challengeCode, setChallengeCode] = useState<ChallengeCode | null>(
@@ -240,6 +148,15 @@ export default function WorkerVerificationPage(): React.ReactElement {
   const [livenessVideoKey, setLivenessVideoKey] = useState<string | null>(null);
   const [idUploading, setIdUploading] = useState(false);
   const [videoUploading, setVideoUploading] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [challengeExpired, setChallengeExpired] = useState(false);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+
+  const releaseCamera = useCallback((): void => {
+    stopMediaStream(cameraStreamRef.current);
+    cameraStreamRef.current = null;
+    setCameraStream(null);
+  }, []);
 
   const fetchVerificationStatus = useCallback(async (): Promise<void> => {
     try {
@@ -253,26 +170,14 @@ export default function WorkerVerificationPage(): React.ReactElement {
           setCurrentStep("verified");
         } else if (s === "rejected") {
           setCurrentStep("rejected");
+        } else {
+          setCurrentStep("id");
         }
       }
     } catch (err) {
       console.error("Failed to fetch verification status:", err);
     } finally {
       setLoading(false);
-    }
-  }, []);
-
-  const fetchChallengeCode = useCallback(async (): Promise<void> => {
-    try {
-      const res = await fetch("/api/worker/verification/challenge");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.challenge) {
-          setChallengeCode(data.challenge);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch challenge code:", err);
     }
   }, []);
 
@@ -286,8 +191,6 @@ export default function WorkerVerificationPage(): React.ReactElement {
     async function loadData(): Promise<void> {
       if (cancelled) return;
       await fetchVerificationStatus();
-      if (cancelled) return;
-      await fetchChallengeCode();
     }
 
     loadData();
@@ -295,9 +198,15 @@ export default function WorkerVerificationPage(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [session, fetchVerificationStatus, fetchChallengeCode]);
+  }, [session, fetchVerificationStatus]);
 
-  if (status === "loading" || loading) {
+  useEffect(() => {
+    return () => {
+      stopMediaStream(cameraStreamRef.current);
+    };
+  }, []);
+
+  if (status === "loading" || (session?.user?.role === "worker" && loading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-charcoal-950">
         <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />
@@ -310,25 +219,14 @@ export default function WorkerVerificationPage(): React.ReactElement {
     return <div />;
   }
 
-  async function handleStartVerification(): Promise<void> {
+  function handleStartAgain(): void {
+    releaseCamera();
+    setIdDocumentKey(null);
+    setLivenessVideoKey(null);
+    setChallengeCode(null);
+    setChallengeExpired(false);
     setError(null);
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/worker/verification/challenge", {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setChallengeCode(data.challenge);
-        setCurrentStep("camera");
-      } else {
-        setError(data.error || "Failed to start verification");
-      }
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
+    setCurrentStep("id");
   }
 
   async function handleIdUpload(file: File): Promise<void> {
@@ -345,7 +243,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error);
+        throw new Error(data.error || "Failed to upload ID");
       }
 
       const uploadRes = await fetch(data.uploadUrl, {
@@ -355,10 +253,11 @@ export default function WorkerVerificationPage(): React.ReactElement {
       });
 
       if (!uploadRes.ok) {
-        throw new Error("Failed to upload file");
+        throw new Error("Failed to upload ID photo. Please try again.");
       }
 
       setIdDocumentKey(data.key);
+      setCurrentStep("id_uploaded");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -366,7 +265,82 @@ export default function WorkerVerificationPage(): React.ReactElement {
     }
   }
 
-  async function handleVideoUpload(file: File): Promise<void> {
+  async function handleContinueToVideo(): Promise<void> {
+    if (!idDocumentKey) {
+      setError("Please upload your ID first.");
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/worker/verification/challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idDocumentKey }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setChallengeCode(data.challenge);
+        const expiresAtMs = data.challenge?.expiresAt
+          ? new Date(data.challenge.expiresAt).getTime()
+          : 0;
+        setChallengeExpired(expiresAtMs > 0 && expiresAtMs <= Date.now());
+        setCurrentStep("video");
+      } else {
+        setError(data.error || "Failed to start video verification");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRefreshChallenge(): Promise<void> {
+    await handleContinueToVideo();
+  }
+
+  async function handleOpenCamera(): Promise<void> {
+    setError(null);
+
+    if (
+      challengeCode &&
+      new Date(challengeCode.expiresAt).getTime() <= Date.now()
+    ) {
+      setChallengeExpired(true);
+      setError("Challenge code has expired. Please request a new one.");
+      return;
+    }
+
+    if (!isLiveRecordingApiAvailable()) {
+      setError(UNSUPPORTED_LIVE_RECORDING_MESSAGE);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(
+        LIVE_CAMERA_CONSTRAINTS
+      );
+      cameraStreamRef.current = stream;
+      setCameraStream(stream);
+      setCurrentStep("recording");
+    } catch (err) {
+      setError(
+        messageForLiveRecordingError(classifyGetUserMediaError(err))
+      );
+    }
+  }
+
+  async function handleVideoRecorded(
+    blob: Blob,
+    contentType: LivenessUploadContentType
+  ): Promise<void> {
+    if (!idDocumentKey) {
+      setError("Please upload your ID first.");
+      return;
+    }
+
     setError(null);
     setVideoUploading(true);
     try {
@@ -375,24 +349,26 @@ export default function WorkerVerificationPage(): React.ReactElement {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "liveness_video",
-          contentType: file.type,
+          contentType,
+          idDocumentKey,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error);
+        throw new Error(data.error || "Failed to upload video");
       }
 
       const uploadRes = await fetch(data.uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+        headers: { "Content-Type": contentType },
+        body: blob,
       });
 
       if (!uploadRes.ok) {
-        throw new Error("Failed to upload file");
+        throw new Error("Failed to upload verification video. Please try again.");
       }
 
+      releaseCamera();
       setLivenessVideoKey(data.key);
       setCurrentStep("review");
     } catch (err) {
@@ -423,11 +399,14 @@ export default function WorkerVerificationPage(): React.ReactElement {
       const data = await res.json();
       if (res.ok) {
         setCurrentStep("pending");
+      } else if (data.details) {
+        setError(
+          Array.isArray(data.details)
+            ? data.details.join(". ")
+            : data.error || "Submission failed"
+        );
       } else {
         setError(data.error || "Submission failed");
-        if (data.details) {
-          setError(data.details.join(". "));
-        }
       }
     } catch {
       setError("Network error. Please try again.");
@@ -439,58 +418,81 @@ export default function WorkerVerificationPage(): React.ReactElement {
   function handleIdFileChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const file = e.target.files?.[0];
     if (file) {
-      handleIdUpload(file);
+      void handleIdUpload(file);
     }
   }
 
-  function handleVideoFileChange(e: React.ChangeEvent<HTMLInputElement>): void {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleVideoUpload(file);
-    }
-  }
-
-  function renderIntroStep(): React.ReactNode {
+  function renderIdStep(): React.ReactNode {
     return (
-      <div className="space-y-5">
+      <div className="space-y-5" data-testid="verification-id-step">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-charcoal-100">
-            Verify it&apos;s you
+            Verify your identity
           </h1>
+          <p className="text-primary-400 mt-2 text-sm font-medium">
+            Step 1 of 2
+          </p>
+          <p className="text-charcoal-100 mt-2 font-medium">Upload your ID</p>
           <p className="text-charcoal-400 mt-1.5 text-sm">
-            Quick step to confirm your identity.
+            First, upload a clear photo of your government-issued ID.
           </p>
         </div>
 
-        <CameraFrameWithCode challengeCode={challengeCode?.code} />
+        <select
+          className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          value={docType}
+          onChange={(e) => setDocType(e.target.value as DocType)}
+          aria-label="Document type"
+        >
+          {DOC_TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
 
-        <div className="space-y-2.5 px-2">
-          <ChecklistItem text="Hold ID beside face" />
-          <ChecklistItem text="Keep face and ID in frame" />
-          <ChecklistItem text="Read the code clearly" />
-        </div>
-
-        <div className="space-y-3 pt-2">
-          <select
-            className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            value={docType}
-            onChange={(e) => setDocType(e.target.value as DocType)}
-          >
-            {DOC_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          <Button
-            fullWidth
-            onClick={handleStartVerification}
-            loading={submitting}
-          >
-            Start video
-          </Button>
-        </div>
+        <label className="block">
+          <div className="bg-charcoal-800 border border-charcoal-600 rounded-xl p-4 text-center cursor-pointer hover:border-primary-500/50 transition-colors">
+            {idUploading ? (
+              <div className="flex items-center justify-center gap-2 py-2">
+                <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
+                <span className="text-charcoal-300 text-sm">Uploading ID...</span>
+              </div>
+            ) : (
+              <>
+                <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center mx-auto mb-2">
+                  <svg
+                    className="w-5 h-5 text-primary-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+                <p className="text-charcoal-100 font-medium text-sm">
+                  Upload ID photo
+                </p>
+                <p className="text-charcoal-500 text-xs mt-0.5">
+                  JPG, PNG or WebP
+                </p>
+              </>
+            )}
+          </div>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleIdFileChange}
+            disabled={idUploading}
+            data-testid="verification-id-file-input"
+          />
+        </label>
 
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
@@ -513,102 +515,34 @@ export default function WorkerVerificationPage(): React.ReactElement {
     );
   }
 
-  function renderCameraStep(): React.ReactNode {
-    const displayCode = challengeCode
-      ? challengeCode.code.slice(0, 4).toUpperCase()
-      : "----";
-
+  function renderIdUploadedStep(): React.ReactNode {
     return (
-      <div className="space-y-5">
+      <div className="space-y-5" data-testid="verification-id-uploaded-step">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-charcoal-100">
-            Verify it&apos;s you
+            Verify your identity
           </h1>
-          <p className="text-charcoal-400 mt-1.5 text-sm">
-            Upload your ID, then record a short video.
+          <p className="text-primary-400 mt-2 text-sm font-medium">
+            Step 1 of 2
           </p>
         </div>
 
-        <CameraFrameWithCode challengeCode={challengeCode?.code} />
-
-        <div className="space-y-2.5 px-2">
-          <ChecklistItem text="Hold ID beside face" checked={!!idDocumentKey} />
-          <ChecklistItem text="Keep face and ID in frame" checked={!!idDocumentKey} />
-          <ChecklistItem text="Read the code clearly" checked={!!livenessVideoKey} />
+        <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+          <svg
+            className="w-4 h-4 text-green-400 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          <span className="text-green-300 text-sm">ID uploaded</span>
         </div>
-
-        <div className="space-y-3">
-          {!idDocumentKey ? (
-            <label className="block">
-              <div className="bg-charcoal-800 border border-charcoal-600 rounded-xl p-4 text-center cursor-pointer hover:border-primary-500/50 transition-colors">
-                {idUploading ? (
-                  <div className="flex items-center justify-center gap-2 py-2">
-                    <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
-                    <span className="text-charcoal-300 text-sm">Uploading ID...</span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center mx-auto mb-2">
-                      <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <p className="text-charcoal-100 font-medium text-sm">Upload ID photo</p>
-                    <p className="text-charcoal-500 text-xs mt-0.5">JPG, PNG or WebP</p>
-                  </>
-                )}
-              </div>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleIdFileChange}
-                disabled={idUploading}
-              />
-            </label>
-          ) : !livenessVideoKey ? (
-            <label className="block">
-              <div className="bg-charcoal-800 border border-charcoal-600 rounded-xl p-4 text-center cursor-pointer hover:border-primary-500/50 transition-colors">
-                {videoUploading ? (
-                  <div className="flex items-center justify-center gap-2 py-2">
-                    <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
-                    <span className="text-charcoal-300 text-sm">Uploading video...</span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="w-10 h-10 rounded-full bg-primary-500/20 flex items-center justify-center mx-auto mb-2">
-                      <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <p className="text-charcoal-100 font-medium text-sm">Record video</p>
-                    <p className="text-charcoal-500 text-xs mt-0.5">Say code: <span className="text-primary-400 font-mono">{displayCode}</span></p>
-                  </>
-                )}
-              </div>
-              <input
-                type="file"
-                accept="video/mp4,video/webm,video/quicktime"
-                className="hidden"
-                onChange={handleVideoFileChange}
-                disabled={videoUploading}
-              />
-            </label>
-          ) : (
-            <Button fullWidth onClick={() => setCurrentStep("review")}>
-              Continue
-            </Button>
-          )}
-        </div>
-
-        {idDocumentKey && !livenessVideoKey && (
-          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-lg p-2.5">
-            <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span className="text-green-300 text-xs">ID uploaded — now record your video</span>
-          </div>
-        )}
 
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
@@ -616,13 +550,79 @@ export default function WorkerVerificationPage(): React.ReactElement {
           </div>
         )}
 
-        <Button variant="outline" fullWidth onClick={() => {
-          setIdDocumentKey(null);
-          setLivenessVideoKey(null);
-          setCurrentStep("intro");
-        }}>
-          Start over
+        <Button
+          fullWidth
+          onClick={() => void handleContinueToVideo()}
+          loading={submitting}
+        >
+          Continue to video verification
         </Button>
+        <StartAgainButton onClick={handleStartAgain} />
+      </div>
+    );
+  }
+
+  function renderVideoStep(): React.ReactNode {
+    const displayCode = challengeCode?.displayCode || challengeCode?.code || "";
+    const isExpired = challengeExpired;
+
+    return (
+      <div className="space-y-5" data-testid="verification-video-step">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-charcoal-100">
+            Verify your identity
+          </h1>
+          <p className="text-primary-400 mt-2 text-sm font-medium">
+            Step 2 of 2
+          </p>
+          <p className="text-charcoal-100 mt-2 font-medium">
+            Record a short verification video
+          </p>
+        </div>
+
+        <div className="space-y-2.5 px-2">
+          <ChecklistItem text="Hold your ID beside your face" />
+          <ChecklistItem text="Keep your face and ID clearly visible" />
+          <ChecklistItem text="Read the displayed code clearly" />
+        </div>
+
+        <div className="bg-charcoal-900 border border-primary-500 rounded-xl px-5 py-4 text-center">
+          <p className="text-charcoal-400 text-[10px] uppercase tracking-wider mb-1">
+            Say this code
+          </p>
+          <p
+            className="text-4xl font-mono font-bold text-primary-400 tracking-[0.2em]"
+            data-testid="challenge-code"
+          >
+            {displayCode || "------"}
+          </p>
+        </div>
+
+        {(error || isExpired) && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <p className="text-red-300 text-sm">
+              {isExpired
+                ? "Challenge code has expired. Please request a new one."
+                : error}
+            </p>
+          </div>
+        )}
+
+        {isExpired ? (
+          <Button
+            fullWidth
+            onClick={() => void handleRefreshChallenge()}
+            loading={submitting}
+          >
+            Get a new code
+          </Button>
+        ) : (
+          <Button fullWidth onClick={() => void handleOpenCamera()}>
+            Open camera
+          </Button>
+        )}
+
+        <StartAgainButton onClick={handleStartAgain} />
 
         <div className="text-center pt-3 border-t border-charcoal-800">
           <p className="text-charcoal-500 text-xs">
@@ -635,13 +635,56 @@ export default function WorkerVerificationPage(): React.ReactElement {
             Why we ask
           </button>
         </div>
+      </div>
+    );
+  }
+
+  function renderRecordingStep(): React.ReactNode {
+    if (!cameraStream) {
+      return renderVideoStep();
+    }
+
+    return (
+      <div className="space-y-5" data-testid="verification-recording-step">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-charcoal-100">
+            Verify your identity
+          </h1>
+          <p className="text-primary-400 mt-2 text-sm font-medium">
+            Step 2 of 2
+          </p>
+        </div>
+
+        <LiveLivenessRecorder
+          stream={cameraStream}
+          challengeDisplayCode={
+            challengeCode?.displayCode || challengeCode?.code || ""
+          }
+          uploading={videoUploading}
+          onRecorded={(blob, contentType) => {
+            void handleVideoRecorded(blob, contentType);
+          }}
+          onCancel={() => {
+            releaseCamera();
+            setCurrentStep("video");
+          }}
+          onError={(message) => setError(message)}
+        />
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+            <p className="text-red-300 text-sm">{error}</p>
+          </div>
+        )}
+
+        <StartAgainButton onClick={handleStartAgain} />
       </div>
     );
   }
 
   function renderReviewStep(): React.ReactNode {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="verification-review-step">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-charcoal-100">
             Ready to submit
@@ -704,18 +747,12 @@ export default function WorkerVerificationPage(): React.ReactElement {
         <div className="space-y-3">
           <Button
             fullWidth
-            onClick={handleSubmitVerification}
+            onClick={() => void handleSubmitVerification()}
             loading={submitting}
           >
             Submit verification
           </Button>
-          <Button
-            variant="outline"
-            fullWidth
-            onClick={() => setCurrentStep("camera")}
-          >
-            Back
-          </Button>
+          <StartAgainButton onClick={handleStartAgain} />
         </div>
 
         <div className="text-center pt-2 border-t border-charcoal-800">
@@ -729,7 +766,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
   function renderPendingStep(): React.ReactNode {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="verification-pending-step">
         <div className="text-center">
           <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
             <svg
@@ -786,7 +823,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
   function renderVerifiedStep(): React.ReactNode {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="verification-verified-step">
         <div className="text-center">
           <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
             <svg
@@ -821,7 +858,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
   function renderRejectedStep(): React.ReactNode {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="verification-rejected-step">
         <div className="text-center">
           <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
             <svg
@@ -859,11 +896,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
         </div>
 
         <div className="space-y-3">
-          <Button
-            fullWidth
-            onClick={handleStartVerification}
-            loading={submitting}
-          >
+          <Button fullWidth onClick={handleStartAgain}>
             Try again
           </Button>
           <Button
@@ -880,11 +913,14 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
   function renderCurrentStep(): React.ReactNode {
     switch (currentStep) {
-      case "intro":
-        return renderIntroStep();
-      case "camera":
+      case "id":
+        return renderIdStep();
+      case "id_uploaded":
+        return renderIdUploadedStep();
+      case "video":
+        return renderVideoStep();
       case "recording":
-        return renderCameraStep();
+        return renderRecordingStep();
       case "review":
         return renderReviewStep();
       case "pending":
@@ -894,7 +930,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
       case "rejected":
         return renderRejectedStep();
       default:
-        return renderIntroStep();
+        return renderIdStep();
     }
   }
 
