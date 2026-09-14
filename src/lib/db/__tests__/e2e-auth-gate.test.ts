@@ -1,4 +1,6 @@
 /** @vitest-environment node */
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { isAuthenticatedLocalTestEnv } from "../e2e-auth-gate";
 
@@ -90,5 +92,29 @@ describe("authenticated local E2E gate", () => {
         authDevBypass: "false",
       })
     ).toBe(false);
+  });
+});
+
+describe("isolated local E2E wrapper", () => {
+  it("injects paid_talent_test and does not reuse a foreign Next server", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "scripts/local-db.ts"),
+      "utf8"
+    );
+    expect(source).toContain('localDatabaseUrl("test")');
+    expect(source).toContain("LOCAL_DB_TARGETS.test.database");
+    expect(source).toContain('AUTH_DEV_BYPASS: "true"');
+    expect(source).toContain('PLAYWRIGHT_REUSE_SERVER: "false"');
+    expect(source).not.toContain("neon.tech");
+    expect(source).not.toContain("paid_talent_dev");
+  });
+
+  it("playwright isolated runs wait on BASE_URL instead of a reused :3000 server", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "playwright.config.ts"),
+      "utf8"
+    );
+    expect(source).toContain("PLAYWRIGHT_REUSE_SERVER");
+    expect(source).toContain("baseURL");
   });
 });

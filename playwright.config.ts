@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL = process.env.BASE_URL || "http://localhost:3000";
+const reuseExistingServer =
+  process.env.PLAYWRIGHT_REUSE_SERVER === "false" ? false : !process.env.CI;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -8,7 +12,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: process.env.BASE_URL || "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -29,9 +33,9 @@ export default defineConfig({
   webServer: process.env.SKIP_WEB_SERVER
     ? undefined
     : {
-        command: "npm run dev",
-        url: "http://localhost:3000",
-        reuseExistingServer: !process.env.CI,
+        command: process.env.PLAYWRIGHT_WEB_SERVER_COMMAND || "npm run dev",
+        url: baseURL,
+        reuseExistingServer,
         timeout: 120 * 1000,
       },
 });

@@ -5,13 +5,14 @@ const SEEDED_UNVERIFIED_WORKER = "worker6@example.com";
 const SEEDED_RECRUITER = "recruiter-pro@example.com";
 
 async function signInAs(page: Page, email: string, dest: string): Promise<void> {
+  const origin = process.env.BASE_URL || "http://localhost:3000";
   const request = page.context().request;
   const csrf = await (await request.get("/api/auth/csrf")).json();
   const callback = await request.post("/api/auth/callback/credentials", {
     form: {
       csrfToken: csrf.csrfToken,
       email,
-      callbackUrl: `http://localhost:3000${dest}`,
+      callbackUrl: `${origin}${dest}`,
       json: "true",
     },
     maxRedirects: 0,
@@ -24,7 +25,7 @@ async function signInAs(page: Page, email: string, dest: string): Promise<void> 
   }
 
   await page.goto(dest);
-  await page.waitForURL(/\/(worker|recruiter|auth)/, { timeout: 20000 });
+  await page.waitForURL(/\/(worker|recruiter|auth\/age)/, { timeout: 20000 });
 
   if (page.url().includes("/auth/age")) {
     test.skip(
@@ -32,6 +33,13 @@ async function signInAs(page: Page, email: string, dest: string): Promise<void> 
       "Seeded user hit age gate; re-seed local DB (npm run db:seed)"
     );
   }
+
+  if (!page.url().includes(dest)) {
+    await page.goto(dest);
+  }
+
+  const destPattern = dest.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await expect(page).toHaveURL(new RegExp(destPattern));
 }
 
 test.describe("worker verification (unauthenticated)", () => {
@@ -62,13 +70,10 @@ test.describe("worker verification (authenticated)", () => {
     test.skip(!hasLocalAuthEnv(), LOCAL_AUTH_SKIP_REASON);
 
     await signInAs(page, SEEDED_UNVERIFIED_WORKER, "/worker/verification");
-    if (!page.url().includes("/worker/verification")) {
-      await page.goto("/worker/verification");
-    }
 
     await expect(
       page.getByRole("heading", { name: /verify your identity/i })
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("Step 1 of 2")).toBeVisible();
     await expect(page.getByText("Upload your ID")).toBeVisible();
     await expect(page.getByText("Upload ID photo")).toBeVisible();
