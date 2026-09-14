@@ -1,27 +1,7 @@
-import { config as loadEnv } from "dotenv";
 import { test, expect, type Page } from "@playwright/test";
-
-loadEnv({ path: ".env.local" });
-loadEnv({ path: ".env" });
+import { hasLocalAuthEnv, LOCAL_AUTH_SKIP_REASON } from "./helpers/local-auth";
 
 const SEEDED_RECRUITER_EMAIL = "recruiter-pro@example.com";
-
-function isLocalDatabaseUrl(url: string | undefined): boolean {
-  if (!url) return false;
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return host === "localhost" || host === "127.0.0.1" || host === "::1";
-  } catch {
-    return false;
-  }
-}
-
-function hasLocalAuthEnv(): boolean {
-  return (
-    isLocalDatabaseUrl(process.env.DATABASE_URL) &&
-    process.env.AUTH_DEV_BYPASS === "true"
-  );
-}
 
 async function signInAsRecruiter(page: Page): Promise<void> {
   const request = page.context().request;
@@ -79,7 +59,7 @@ test.describe("recruiter cannot use worker dashboard", () => {
   }) => {
     test.skip(
       !hasLocalAuthEnv(),
-      "Requires localhost DATABASE_URL + AUTH_DEV_BYPASS=true with seeded recruiters"
+      LOCAL_AUTH_SKIP_REASON
     );
 
     await signInAsRecruiter(page);

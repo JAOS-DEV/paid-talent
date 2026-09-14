@@ -1,16 +1,13 @@
-import { config as loadEnv } from "dotenv";
 import { test, expect, type Page } from "@playwright/test";
-
-loadEnv({ path: ".env.local" });
-loadEnv({ path: ".env" });
+import { hasLocalAuthEnv, LOCAL_AUTH_SKIP_REASON } from "./helpers/local-auth";
 
 /**
  * Two-sided hire confirmation E2E
  *
  * Unauthenticated: always runs.
- * Authenticated: runs only when DATABASE_URL host is localhost/127.0.0.1/::1
- * AND AUTH_DEV_BYPASS=true (dev-only credentials against a seeded local DB).
- * Remote hosts (e.g. Neon) never enable this suite.
+ * Authenticated: runs only against local paid_talent_test with
+ * AUTH_DEV_BYPASS=true (use npm run test:e2e:local). paid_talent_dev,
+ * other localhost DBs, and remote hosts never enable this suite.
  *
  * Seeded pair: recruiter-free@example.com ↔ worker4@example.com (interested)
  */
@@ -18,23 +15,6 @@ loadEnv({ path: ".env" });
 const SEEDED_RECRUITER_EMAIL = "recruiter-free@example.com";
 const SEEDED_WORKER_EMAIL = "worker4@example.com";
 const SEEDED_WORKER_NAME = "Araya S.";
-
-function isLocalDatabaseUrl(url: string | undefined): boolean {
-  if (!url) return false;
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return host === "localhost" || host === "127.0.0.1" || host === "::1";
-  } catch {
-    return false;
-  }
-}
-
-function hasLocalAuthEnv(): boolean {
-  return (
-    isLocalDatabaseUrl(process.env.DATABASE_URL) &&
-    process.env.AUTH_DEV_BYPASS === "true"
-  );
-}
 
 async function signInAs(page: Page, email: string, dest: string): Promise<void> {
   const request = page.context().request;
@@ -91,7 +71,7 @@ test.describe("two-sided hire confirmation authenticated flow", () => {
   test.beforeEach(({}, testInfo) => {
     test.skip(
       !hasLocalAuthEnv(),
-      "Requires localhost DATABASE_URL + AUTH_DEV_BYPASS=true with seeded accounts"
+      LOCAL_AUTH_SKIP_REASON
     );
     test.skip(
       testInfo.project.name !== "chromium",

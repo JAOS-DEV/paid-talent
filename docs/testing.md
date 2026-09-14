@@ -132,37 +132,39 @@ BASE_URL=https://staging.example.com SKIP_WEB_SERVER=true npm run test:e2e
 
 ## Database for Testing
 
-### Local Development
+Unit tests mock the database by default (see `vitest.setup.ts`). They do not need Docker or PostgreSQL.
 
-Unit tests mock the database by default (see `vitest.setup.ts`). No real database is needed.
+Authenticated Playwright tests require the isolated local test database `paid_talent_test`. Generic `npm run test:e2e` does **not** inject that URL; if `.env.local` points at `paid_talent_dev`, authenticated suites skip instead of mutating persistent local data.
 
-For e2e tests that require data:
+Canonical command:
 
-1. Ensure you have a test database configured:
+```bash
+npm run test:e2e:local
+```
 
-   ```bash
-   # .env.test (create this file)
-   DATABASE_URL=postgres://localhost:5432/paid_talent_test
-   ```
+Optional Playwright filters (cross-platform via npm):
 
-2. Run migrations:
+```bash
+npm run test:e2e:local -- e2e/hire-confirmation.spec.ts --project=chromium
+```
 
-   ```bash
-   npm run db:migrate
-   ```
+That workflow:
 
-3. Seed the database (when available):
+- starts Docker `paid-talent-test-pg` on `127.0.0.1:55441`
+- resets, migrates, and seeds `paid_talent_test` only
+- injects `DATABASE_URL` for `paid_talent_test` into the Playwright process
+- sets `AUTH_DEV_BYPASS=true` (development/test only; impossible in production)
+- leaves generic `npm run test:e2e` available for unauthenticated tests and staging `BASE_URL` runs
 
-   ```bash
-   # Coming soon: npm run db:seed
-   ```
+Remote Neon URLs and `paid_talent_dev` never enable authenticated E2E.
+
+See [docs/local-database.md](local-database.md) for ports, volumes, and safety guards.
 
 ### Important Notes
 
-- **Never run seed against production** - Seed scripts are for local/test only
-- The `db:seed` script will be added in a separate PR
-- E2E tests currently rely on the UI flow, not seeded data
-- For tests requiring existing data, use fixtures or the seed when available
+- Never seed or reset Neon/staging/production from these helpers
+- `npm run db:migrate` is the explicit operator path for production migrations
+- Do not force Docker for unit tests
 
 ## CI Integration
 
