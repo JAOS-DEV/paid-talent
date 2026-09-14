@@ -21,7 +21,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const result = await requestStartConfirmation(validation.data.interestId);
 
     if (!result.success) {
-      const status = result.error === "Unauthorized" ? 401 : 400;
+      const status =
+        result.error === "Unauthorized"
+          ? 401
+          : result.error === "Account restricted"
+            ? 403
+            : 400;
       return NextResponse.json(result, { status });
     }
 

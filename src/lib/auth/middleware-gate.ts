@@ -15,6 +15,7 @@ export const AUTH_PUBLIC_ROUTES = [
   "/auth/age-gate",
   "/auth/verify-request",
   "/auth/error",
+  "/auth/account-restricted",
   "/api/auth",
 ] as const;
 

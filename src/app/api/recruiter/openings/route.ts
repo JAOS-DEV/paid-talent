@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db, recruiterProfiles, recruiterOpenings } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import {
+  deniedActiveUserResponse,
+  requireActiveRecruiter,
+} from "@/lib/auth/require-active-user";
 
 /**
  * Authenticated recruiter openings list for client UI (interest selector, etc.).
@@ -9,15 +12,15 @@ import { eq } from "drizzle-orm";
  */
 export async function GET(): Promise<NextResponse> {
   try {
-    const session = await auth();
-    if (!session?.user?.id || session.user.role !== "recruiter") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const actor = await requireActiveRecruiter();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
     const [profile] = await db
       .select({ id: recruiterProfiles.id })
       .from(recruiterProfiles)
-      .where(eq(recruiterProfiles.userId, session.user.id))
+      .where(eq(recruiterProfiles.userId, actor.user.userId))
       .limit(1);
 
     if (!profile) {

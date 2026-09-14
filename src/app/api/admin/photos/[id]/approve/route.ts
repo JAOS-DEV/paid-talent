@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { isAdminEmail } from "@/lib/admin";
 import { approvePhoto } from "@/lib/moderation";
+import { recordAdminAuditEvent } from "@/lib/admin/audit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -40,6 +41,15 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    await recordAdminAuditEvent({
+      action: "photo_approved",
+      actorAdminEmail: adminCheck.email ?? session.user.email ?? "",
+      actorUserId: session.user.id,
+      targetType: "photo",
+      targetId: id,
+      reason: "approved",
+    });
 
     return NextResponse.json({
       success: true,

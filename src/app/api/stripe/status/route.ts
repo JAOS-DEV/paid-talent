@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { getSubscriptionStatus } from "@/lib/stripe";
+import {
+  deniedActiveUserResponse,
+  requireActiveAppUser,
+} from "@/lib/auth/require-active-user";
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const actor = await requireActiveAppUser();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
-    const status = await getSubscriptionStatus(session.user.id);
+    const status = await getSubscriptionStatus(actor.user.userId);
 
     return NextResponse.json(status);
   } catch (error) {

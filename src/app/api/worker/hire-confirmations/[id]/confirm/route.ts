@@ -14,7 +14,12 @@ export async function POST(
     const result = await confirmHireConfirmationRequest(id);
 
     if (!result.success) {
-      const status = result.error === "Unauthorized" ? 401 : 400;
+      const status =
+        result.error === "Unauthorized"
+          ? 401
+          : result.error === "Account restricted"
+            ? 403
+            : 400;
       return NextResponse.json(result, { status });
     }
 

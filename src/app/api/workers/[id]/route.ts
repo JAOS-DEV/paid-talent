@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
 import {
   db,
   workerProfiles,
   profileInterests,
-  subscriptions,
   hireOutcomes,
+  users,
 } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { getLatestConfirmationRequestForInterest } from "@/lib/hire-outcomes/queries";
@@ -14,11 +13,15 @@ import type { HireConfirmationRequestedStatus, HireConfirmationRequestStatus } f
 import { isProfileTopTalent, recordProfileView } from "@/lib/ranking";
 import {
   canViewContactDetails,
-  type SubscriptionInfo,
 } from "@/lib/helpers/contact-visibility";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 import { getApprovedPhotosForWorker } from "@/lib/moderation";
 import type { HireOutcomeStatus } from "@/lib/db/schema";
+import { getEffectiveEntitlement } from "@/lib/entitlements";
+import {
+  deniedActiveUserResponse,
+  requireActiveRecruiter,
+} from "@/lib/auth/require-active-user";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -75,53 +78,45 @@ export async function GET(
   { params }: RouteParams
 ): Promise<NextResponse> {
   try {
-    const session = await auth();
+    const actor = await requireActiveRecruiter();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
+    }
+
     const { id } = await params;
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.role !== "recruiter") {
-      return NextResponse.json(
-        { error: "Only recruiters can view worker profiles" },
-        { status: 403 }
-      );
-    }
-
     const [profile] = await db
-      .select()
+      .select({
+        profile: workerProfiles,
+        accountStatus: users.accountStatus,
+      })
       .from(workerProfiles)
+      .innerJoin(users, eq(workerProfiles.userId, users.id))
       .where(
         and(eq(workerProfiles.id, id), eq(workerProfiles.isPublished, true))
       )
       .limit(1);
 
-    if (!profile) {
+    if (!profile || profile.accountStatus !== "active") {
       return NextResponse.json(
         { error: "Worker profile not found" },
         { status: 404 }
       );
     }
 
-    await recordProfileView(profile.id, session.user.id);
+    const workerProfile = profile.profile;
 
-    const isTopTalent = await isProfileTopTalent(profile.id);
-    const isOwnProfile = profile.userId === session.user.id;
+    await recordProfileView(workerProfile.id, actor.user.userId);
 
-    const [subscription] = await db
-      .select({
-        status: subscriptions.status,
-        plan: subscriptions.plan,
-      })
-      .from(subscriptions)
-      .where(eq(subscriptions.userId, session.user.id))
-      .limit(1);
+    const isTopTalent = await isProfileTopTalent(workerProfile.id);
+    const isOwnProfile = workerProfile.userId === actor.user.userId;
+    const entitlement = await getEffectiveEntitlement(actor.user.userId);
 
     const contactVisible = canViewContactDetails({
       isOwnProfile,
       isTopTalent,
-      subscription: subscription as SubscriptionInfo | null ?? null,
+      subscription: entitlement.paidSubscription,
+      hasPremiumAccess: entitlement.hasPremiumAccess,
     });
 
     const [interestWithOutcome] = await db
@@ -135,8 +130,8 @@ export async function GET(
       .leftJoin(hireOutcomes, eq(profileInterests.id, hireOutcomes.interestId))
       .where(
         and(
-          eq(profileInterests.recruiterUserId, session.user.id),
-          eq(profileInterests.workerProfileId, profile.id)
+          eq(profileInterests.recruiterUserId, actor.user.userId),
+          eq(profileInterests.workerProfileId, workerProfile.id)
         )
       )
       .limit(1);
@@ -147,7 +142,7 @@ export async function GET(
         )
       : null;
 
-    const approvedPhotos = await getApprovedPhotosForWorker(profile.id);
+    const approvedPhotos = await getApprovedPhotosForWorker(workerProfile.id);
     const photos: WorkerPhoto[] = approvedPhotos.flatMap((photo) => {
       if (!photo.photoUrl) {
         return [];
@@ -163,30 +158,30 @@ export async function GET(
     });
 
     const result: WorkerProfileDetail = {
-      id: profile.id,
-      userId: profile.userId,
-      displayName: profile.displayName,
-      photoUrl: profile.photoUrl,
+      id: workerProfile.id,
+      userId: workerProfile.userId,
+      displayName: workerProfile.displayName,
+      photoUrl: workerProfile.photoUrl,
       photos,
-      location: profile.location,
-      area: profile.area,
-      bio: profile.bio,
-      description: profile.description,
-      jobRoles: (profile.jobRoles as string[]) ?? [],
-      experience: profile.experience,
-      experienceYears: profile.experienceYears,
-      languages: (profile.languages as string[]) ?? [],
-      availability: profile.availability,
-      expectedPayMin: profile.expectedPayMin,
-      expectedPayMax: profile.expectedPayMax,
-      payCurrency: profile.payCurrency,
-      isVerified: profile.isVerified,
+      location: workerProfile.location,
+      area: workerProfile.area,
+      bio: workerProfile.bio,
+      description: workerProfile.description,
+      jobRoles: (workerProfile.jobRoles as string[]) ?? [],
+      experience: workerProfile.experience,
+      experienceYears: workerProfile.experienceYears,
+      languages: (workerProfile.languages as string[]) ?? [],
+      availability: workerProfile.availability,
+      expectedPayMin: workerProfile.expectedPayMin,
+      expectedPayMax: workerProfile.expectedPayMax,
+      payCurrency: workerProfile.payCurrency,
+      isVerified: workerProfile.isVerified,
       isTopTalent,
       contact: {
         isLocked: !contactVisible,
-        lineId: contactVisible ? profile.lineId : null,
-        whatsappNumber: contactVisible ? profile.whatsappNumber : null,
-        phoneNumber: contactVisible ? profile.phoneNumber : null,
+        lineId: contactVisible ? workerProfile.lineId : null,
+        whatsappNumber: contactVisible ? workerProfile.whatsappNumber : null,
+        phoneNumber: contactVisible ? workerProfile.phoneNumber : null,
       },
       hasExpressedInterest: !!interestWithOutcome,
       ...(interestWithOutcome && {

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
 import {
   db,
   profileInterests,
@@ -15,20 +14,17 @@ import {
   sanitizeMessage,
 } from "@/lib/helpers/interest-validation";
 import { resolveOpeningAttachment } from "@/lib/interests/opening-attachment";
+import {
+  deniedActiveUserResponse,
+  requireActiveAppUser,
+  requireActiveRecruiter,
+} from "@/lib/auth/require-active-user";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.role !== "recruiter") {
-      return NextResponse.json(
-        { error: "Only recruiters can express interest" },
-        { status: 403 }
-      );
+    const actor = await requireActiveRecruiter();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
     const body = await request.json();
@@ -59,7 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const [recruiterProfile] = await db
       .select({ id: recruiterProfiles.id })
       .from(recruiterProfiles)
-      .where(eq(recruiterProfiles.userId, session.user.id))
+      .where(eq(recruiterProfiles.userId, actor.user.userId))
       .limit(1);
 
     if (!recruiterProfile) {
@@ -108,7 +104,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .from(profileInterests)
       .where(
         and(
-          eq(profileInterests.recruiterUserId, session.user.id),
+          eq(profileInterests.recruiterUserId, actor.user.userId),
           eq(profileInterests.workerProfileId, workerProfileId)
         )
       )
@@ -124,7 +120,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const [newInterest] = await db
       .insert(profileInterests)
       .values({
-        recruiterUserId: session.user.id,
+        recruiterUserId: actor.user.userId,
         workerProfileId,
         openingId: resolvedOpeningId,
         message: sanitizeMessage(message),
@@ -133,7 +129,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .returning();
 
     console.log(
-      `[Interest] Recruiter ${session.user.id} expressed interest in profile ${workerProfileId}`
+      `[Interest] Recruiter ${actor.user.userId} expressed interest in profile ${workerProfileId}`
     );
 
     return NextResponse.json({
@@ -157,13 +153,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 export async function GET(_request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const actor = await requireActiveAppUser({
+      role: ["worker", "recruiter"],
+    });
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
-    if (session.user.role === "recruiter") {
+    if (actor.user.role === "recruiter") {
       const interests = await db
         .select({
           id: profileInterests.id,
@@ -179,41 +176,37 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
           workerProfiles,
           eq(profileInterests.workerProfileId, workerProfiles.id)
         )
-        .where(eq(profileInterests.recruiterUserId, session.user.id))
+        .where(eq(profileInterests.recruiterUserId, actor.user.userId))
         .orderBy(profileInterests.createdAt);
 
       return NextResponse.json({ interests });
     }
 
-    if (session.user.role === "worker") {
-      const [profile] = await db
-        .select()
-        .from(workerProfiles)
-        .where(eq(workerProfiles.userId, session.user.id))
-        .limit(1);
+    const [profile] = await db
+      .select()
+      .from(workerProfiles)
+      .where(eq(workerProfiles.userId, actor.user.userId))
+      .limit(1);
 
-      if (!profile) {
-        return NextResponse.json({ interests: [] });
-      }
-
-      const interests = await db
-        .select({
-          id: profileInterests.id,
-          recruiterName: users.name,
-          message: profileInterests.message,
-          openingId: profileInterests.openingId,
-          notifiedAt: profileInterests.notifiedAt,
-          createdAt: profileInterests.createdAt,
-        })
-        .from(profileInterests)
-        .innerJoin(users, eq(profileInterests.recruiterUserId, users.id))
-        .where(eq(profileInterests.workerProfileId, profile.id))
-        .orderBy(profileInterests.createdAt);
-
-      return NextResponse.json({ interests });
+    if (!profile) {
+      return NextResponse.json({ interests: [] });
     }
 
-    return NextResponse.json({ interests: [] });
+    const interests = await db
+      .select({
+        id: profileInterests.id,
+        recruiterName: users.name,
+        message: profileInterests.message,
+        openingId: profileInterests.openingId,
+        notifiedAt: profileInterests.notifiedAt,
+        createdAt: profileInterests.createdAt,
+      })
+      .from(profileInterests)
+      .innerJoin(users, eq(profileInterests.recruiterUserId, users.id))
+      .where(eq(profileInterests.workerProfileId, profile.id))
+      .orderBy(profileInterests.createdAt);
+
+    return NextResponse.json({ interests });
   } catch (error) {
     console.error("[Interest] Error fetching interests:", error);
     return NextResponse.json(

@@ -1,9 +1,15 @@
 import type { UserRole } from "@/types/auth";
+import {
+  buildAccountRestrictedPath,
+  resolveAccountRestriction,
+  type AccountStatus,
+} from "@/lib/auth/account-restriction";
 
 export interface ExistingAuthUser {
   id: string;
   role: UserRole;
   ageVerified: boolean;
+  accountStatus?: AccountStatus | null;
 }
 
 /**
@@ -48,8 +54,20 @@ export function resolveProviderSignInDecision(input: {
   existingUser: ExistingAuthUser | null;
   signupIntentRole: string | undefined;
   email: string;
+  hasActiveBan?: boolean;
 }): SignInDecision {
-  const { existingUser, signupIntentRole, email } = input;
+  const { existingUser, signupIntentRole, email, hasActiveBan = false } = input;
+
+  const restriction = resolveAccountRestriction({
+    hasActiveBan,
+    accountStatus: existingUser?.accountStatus,
+  });
+  if (restriction) {
+    return {
+      kind: "abort_redirect",
+      url: buildAccountRestrictedPath(restriction),
+    };
+  }
 
   if (!existingUser) {
     if (isValidSignupIntentRole(signupIntentRole)) {
@@ -71,6 +89,9 @@ export function resolveProviderSignInDecision(input: {
       id: existingUser.id,
       role: existingUser.role,
       ageVerified: existingUser.ageVerified,
+      ...(existingUser.accountStatus
+        ? { accountStatus: existingUser.accountStatus }
+        : {}),
     },
   };
 }

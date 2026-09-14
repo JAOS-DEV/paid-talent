@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { db, subscriptions } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { getEffectiveEntitlement } from "@/lib/entitlements";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
@@ -245,13 +246,8 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 }
 
 export async function hasTopTalentAccess(userId: string): Promise<boolean> {
-  const [sub] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, userId))
-    .limit(1);
-
-  return sub?.plan === "top_talent_unlock" && sub?.status === "active";
+  const entitlement = await getEffectiveEntitlement(userId);
+  return entitlement.hasPremiumAccess;
 }
 
 export async function getSubscriptionStatus(userId: string): Promise<{
@@ -259,19 +255,24 @@ export async function getSubscriptionStatus(userId: string): Promise<{
   plan: string;
   status: string;
   canAccessTopTalent: boolean;
+  billingAccessMode: "enforced" | "open_access";
+  entitlementSources: string[];
+  paidAccess: boolean;
+  adminGrantAccess: boolean;
 } | null> {
-  const [sub] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, userId))
-    .limit(1);
+  const entitlement = await getEffectiveEntitlement(userId);
+  const sub = entitlement.paidSubscription;
 
   if (!sub) {
     return {
       hasSubscription: false,
       plan: "free",
       status: "none",
-      canAccessTopTalent: false,
+      canAccessTopTalent: entitlement.hasPremiumAccess,
+      billingAccessMode: entitlement.billingAccessMode,
+      entitlementSources: entitlement.sources,
+      paidAccess: false,
+      adminGrantAccess: entitlement.adminGrantAccess,
     };
   }
 
@@ -279,7 +280,10 @@ export async function getSubscriptionStatus(userId: string): Promise<{
     hasSubscription: true,
     plan: sub.plan,
     status: sub.status,
-    canAccessTopTalent:
-      sub.plan === "top_talent_unlock" && sub.status === "active",
+    canAccessTopTalent: entitlement.hasPremiumAccess,
+    billingAccessMode: entitlement.billingAccessMode,
+    entitlementSources: entitlement.sources,
+    paidAccess: entitlement.paidAccess,
+    adminGrantAccess: entitlement.adminGrantAccess,
   };
 }

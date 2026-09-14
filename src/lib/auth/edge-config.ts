@@ -1,6 +1,7 @@
 import { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 import { applyJwtCallback, toPublicSessionUser } from "@/lib/auth/jwt-session";
+import { resolveSessionIsAdmin } from "@/lib/admin/allowlist";
 
 /**
  * Edge-safe NextAuth config for middleware.
@@ -55,6 +56,11 @@ export const sessionCallback: NonNullable<
   if (typeof publicUser.image === "string") {
     session.user.image = publicUser.image;
   }
+  session.user.isAdmin = resolveSessionIsAdmin({
+    email: publicUser.email,
+    signupPending: publicUser.signupPending,
+    userId: publicUser.id,
+  });
   return session;
 };
 

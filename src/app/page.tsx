@@ -3,8 +3,17 @@ import Link from "next/link";
 import { Button, Card, CardContent, TopTalentBadge } from "@/components/ui";
 import { Header, Footer } from "@/components/layout";
 import { AdSense } from "@/components/ads";
+import { getBillingAccessMode } from "@/lib/platform-settings";
 
-export default function HomePage(): React.ReactElement {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage(): Promise<React.ReactElement> {
+  let openAccess = false;
+  try {
+    openAccess = (await getBillingAccessMode()) === "open_access";
+  } catch {
+    openAccess = false;
+  }
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -114,17 +123,18 @@ export default function HomePage(): React.ReactElement {
               <TopTalentBadge />
             </div>
             <h2 className="text-2xl md:text-3xl font-bold text-center text-charcoal-100 mb-4">
-              Unlock Top Talent
+              {openAccess ? "Meet Top Talent" : "Unlock Top Talent"}
             </h2>
             <p className="text-center text-charcoal-400 mb-8 max-w-xl mx-auto">
-              Get access to full contact details for our highest-ranked workers.
-              View LINE, WhatsApp, and phone numbers to connect directly.
+              {openAccess
+                ? "Top Talent badges and ranking stay visible so recruiters can see the most in-demand workers. Premium contact access is currently open without a subscription."
+                : "Get access to full contact details for our highest-ranked workers. View LINE, WhatsApp, and phone numbers to connect directly."}
             </p>
 
             <div className="flex justify-center">
               <Link href="/auth/age-gate?role=recruiter">
                 <Button variant="gold" size="lg">
-                  Subscribe to Top Talent
+                  {openAccess ? "Start Recruiting" : "Subscribe to Top Talent"}
                 </Button>
               </Link>
             </div>

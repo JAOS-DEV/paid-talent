@@ -39,7 +39,8 @@ export function canAccessTopTalentContact(
 
 export function determineContactVisibility(
   isTopTalent: boolean,
-  subscription: SubscriptionInfo | null
+  subscription: SubscriptionInfo | null,
+  hasPremiumAccess?: boolean
 ): ContactVisibilityResult {
   if (!isTopTalent) {
     return {
@@ -48,7 +49,7 @@ export function determineContactVisibility(
     };
   }
 
-  if (canAccessTopTalentContact(subscription)) {
+  if (hasPremiumAccess === true || canAccessTopTalentContact(subscription)) {
     return {
       canViewContact: true,
       reason: "has_subscription",
@@ -65,6 +66,7 @@ export interface ContactVisibilityParams {
   isOwnProfile: boolean;
   isTopTalent: boolean;
   subscription: SubscriptionInfo | null;
+  hasPremiumAccess?: boolean;
 }
 
 /**
@@ -83,7 +85,11 @@ export function determineContactVisibilityWithOwnership(
     };
   }
 
-  return determineContactVisibility(isTopTalent, subscription);
+  return determineContactVisibility(
+    isTopTalent,
+    subscription,
+    params.hasPremiumAccess
+  );
 }
 
 /**

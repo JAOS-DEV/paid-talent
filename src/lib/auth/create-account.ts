@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { recruiterProfiles, users, workerProfiles } from "@/lib/db/schema";
 import type { UserRole } from "@/types/auth";
+import { findActiveBannedIdentity } from "@/lib/auth/banned-identities";
+import { normalizeVerifiedEmail } from "@/lib/auth/identity";
 
 export interface CreatedAuthUser {
   id: string;
@@ -22,11 +24,20 @@ export async function createUserWithRole(input: {
   now?: Date;
 }): Promise<CreatedAuthUser> {
   const now = input.now ?? new Date();
+  const email = normalizeVerifiedEmail(input.email);
+  if (!email) {
+    throw new Error("A verified email is required to create an account");
+  }
+
+  const activeBan = await findActiveBannedIdentity(email);
+  if (activeBan) {
+    throw new Error("This verified identity is banned from Paid Talent");
+  }
 
   const [newUser] = await db
     .insert(users)
     .values({
-      email: input.email,
+      email,
       name: input.name ?? null,
       image: input.image ?? null,
       role: input.role,

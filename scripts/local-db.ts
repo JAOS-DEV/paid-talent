@@ -372,6 +372,9 @@ export async function runLocalE2E(playwrightArgs: string[] = []): Promise<void> 
     ...process.env,
     DATABASE_URL: localDatabaseUrl("test"),
     AUTH_DEV_BYPASS: "true",
+    ADMIN_EMAILS: [process.env.ADMIN_EMAILS, "admin@example.com"]
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .join(","),
     NODE_ENV: "development",
     PLAYWRIGHT_REUSE_SERVER: "false",
     PORT: e2ePort,

@@ -1,10 +1,13 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { respondToConfirmation } from "@/lib/hire-outcomes/service";
 import { getPendingConfirmationRequestsForWorker } from "@/lib/hire-outcomes/queries";
+import {
+  actionAuthError,
+  requireActiveWorker,
+} from "@/lib/auth/require-active-user";
 
 const requestIdSchema = z.object({
   requestId: z.string().uuid(),
@@ -16,17 +19,20 @@ interface ActionResult {
   confirmedStatus?: string;
 }
 
-async function getAuthenticatedWorker(): Promise<{ userId: string } | null> {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "worker") {
-    return null;
+async function getAuthenticatedWorker(): Promise<
+  | { ok: true; userId: string }
+  | { ok: false; error: string }
+> {
+  const result = await requireActiveWorker();
+  if (!result.ok) {
+    return actionAuthError(result);
   }
-  return { userId: session.user.id };
+  return { ok: true, userId: result.user.userId };
 }
 
 export async function getPendingHireConfirmations() {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
+  if (!worker.ok) {
     return [];
   }
   return getPendingConfirmationRequestsForWorker(worker.userId);
@@ -37,8 +43,8 @@ async function respond(
   action: "confirm" | "reject"
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
-    return { success: false, error: "Unauthorized" };
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
   }
 
   const validation = requestIdSchema.safeParse({ requestId });
