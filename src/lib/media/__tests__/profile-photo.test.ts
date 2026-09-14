@@ -87,9 +87,9 @@ describe("safe error mapping", () => {
     ).toBe(PROFILE_PHOTO_ERRORS.uploadFailed);
     expect(
       mapUploadNetworkError(
-        new TypeError("Failed to fetch"),
-        PROFILE_PHOTO_ERRORS.serviceUnavailable
+        new TypeError("Can only call Window.fetch on instances of Window."),
+        PROFILE_PHOTO_ERRORS.uploadFailed
       )
-    ).toBe(PROFILE_PHOTO_ERRORS.serviceUnavailable);
+    ).toBe(PROFILE_PHOTO_ERRORS.uploadFailed);
   });
 });

@@ -33,7 +33,7 @@ export function PhotoStep({
     setUploading(true);
 
     try {
-      const result = await uploadProfilePhoto(file, { fetch });
+      const result = await uploadProfilePhoto(file);
       setPhotoUrl(result.publicUrl);
       await updateProfilePhoto({
         photoKey: result.key,

@@ -12,8 +12,27 @@ export interface ProfilePhotoUploadResult {
 }
 
 export interface ProfilePhotoUploadDeps {
-  fetch: typeof fetch;
+  fetch?: typeof fetch;
   prepareImage?: (file: File) => Promise<File>;
+}
+
+/**
+ * Safari throws "Can only call Window.fetch on instances of Window" when
+ * `window.fetch` is extracted (`{ fetch }`) and invoked as a free function.
+ * Always call it with a Window/`globalThis` receiver.
+ */
+export function callProfilePhotoFetch(
+  fetchImpl: typeof fetch | undefined,
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> {
+  if (fetchImpl) {
+    return Reflect.apply(fetchImpl, globalThis, [
+      input,
+      init,
+    ]) as Promise<Response>;
+  }
+  return globalThis.fetch(input, init);
 }
 
 interface PresignResponse {
@@ -37,7 +56,7 @@ export class ProfilePhotoUploadError extends Error {
 
 export async function uploadProfilePhoto(
   file: File,
-  deps: ProfilePhotoUploadDeps
+  deps: ProfilePhotoUploadDeps = {}
 ): Promise<ProfilePhotoUploadResult> {
   const inspected = inspectProfilePhotoFile(file);
   if (!inspected.ok) {
@@ -62,7 +81,7 @@ export async function uploadProfilePhoto(
 
   let presignedRes: Response;
   try {
-    presignedRes = await deps.fetch("/api/media/upload", {
+    presignedRes = await callProfilePhotoFetch(deps.fetch, "/api/media/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -109,7 +128,7 @@ export async function uploadProfilePhoto(
 
   let uploadRes: Response;
   try {
-    uploadRes = await deps.fetch(uploadUrl, {
+    uploadRes = await callProfilePhotoFetch(deps.fetch, uploadUrl, {
       method: "PUT",
       body: prepared,
       headers: {
@@ -132,7 +151,7 @@ export async function uploadProfilePhoto(
 
   let confirmRes: Response;
   try {
-    confirmRes = await deps.fetch("/api/media/upload", {
+    confirmRes = await callProfilePhotoFetch(deps.fetch, "/api/media/upload", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key, publicUrl }),

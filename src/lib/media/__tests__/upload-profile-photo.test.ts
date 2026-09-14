@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { PROFILE_PHOTO_ERRORS } from "../profile-photo";
-import { uploadProfilePhoto } from "../upload-profile-photo";
+import {
+  callProfilePhotoFetch,
+  uploadProfilePhoto,
+} from "../upload-profile-photo";
 
 function jpegFile(size = 1024, name = "photo.jpg", type = "image/jpeg"): File {
   return new File([new Uint8Array(size)], name, { type });
@@ -157,5 +160,58 @@ describe("uploadProfilePhoto", () => {
         prepareImage: identityPrepare,
       })
     ).rejects.toThrow("You already have a photo under review.");
+  });
+
+  it("REGRESSION: Safari unbound Window.fetch is invoked with a Window this", async () => {
+    const file = jpegFile();
+
+    function safariFetch(
+      this: unknown,
+      input: RequestInfo | URL,
+      init?: RequestInit
+    ): Promise<Response> {
+      if (this !== globalThis) {
+        throw new TypeError(
+          "Can only call Window.fetch on instances of Window."
+        );
+      }
+
+      const url = String(input);
+      if (url === "/api/media/upload" && init?.method === "POST") {
+        return Promise.resolve(
+          jsonResponse({
+            uploadUrl: "https://storage.example/upload",
+            key: "profiles/u1/photo.jpeg",
+            publicUrl: "https://cdn.example/photo.jpeg",
+          })
+        );
+      }
+      if (url === "https://storage.example/upload") {
+        return Promise.resolve(okResponse());
+      }
+      if (url === "/api/media/upload" && init?.method === "PUT") {
+        return Promise.resolve(jsonResponse({ success: true }));
+      }
+      throw new Error(`Unexpected fetch ${init?.method} ${url}`);
+    }
+
+    const unbound = safariFetch as typeof fetch;
+    expect(() => {
+      void unbound("/api/media/upload", { method: "POST" });
+    }).toThrow("Can only call Window.fetch on instances of Window.");
+
+    await expect(
+      callProfilePhotoFetch(unbound, "/api/media/upload", { method: "POST" })
+    ).resolves.toBeInstanceOf(Response);
+
+    await expect(
+      uploadProfilePhoto(file, {
+        fetch: unbound,
+        prepareImage: identityPrepare,
+      })
+    ).resolves.toEqual({
+      key: "profiles/u1/photo.jpeg",
+      publicUrl: "https://cdn.example/photo.jpeg",
+    });
   });
 });
