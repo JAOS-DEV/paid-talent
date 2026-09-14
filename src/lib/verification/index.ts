@@ -185,6 +185,7 @@ export interface VerificationSubmissionData {
   livenessVideoKey: string | null;
   challengeCode: string | null;
   challengeIssuedAt: Date | null;
+  boundIdDocumentKey?: string | null;
 }
 
 export interface VerificationSubmissionValidation {
@@ -213,6 +214,16 @@ export function validateVerificationSubmission(
     errors.push("Challenge code was not properly issued");
   } else if (isChallengeCodeExpired(data.challengeIssuedAt)) {
     errors.push("Challenge code has expired. Please request a new one.");
+  }
+
+  if (
+    data.boundIdDocumentKey &&
+    data.idDocumentKey &&
+    data.boundIdDocumentKey !== data.idDocumentKey
+  ) {
+    errors.push(
+      "ID document does not match the document used to start video verification"
+    );
   }
 
   return {

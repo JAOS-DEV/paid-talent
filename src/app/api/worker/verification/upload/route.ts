@@ -10,10 +10,13 @@ import {
   ALLOWED_ID_DOCUMENT_TYPES,
   ALLOWED_LIVENESS_VIDEO_TYPES,
 } from "@/lib/storage/s3";
+import { canUploadLivenessVideo } from "@/lib/verification/challenge-lifecycle";
+import { assertOwnedPrivateVerificationKey } from "@/lib/storage/keys";
 
 const uploadRequestSchema = z.object({
   type: z.enum(["id_document", "liveness_video"]),
   contentType: z.string(),
+  idDocumentKey: z.string().min(1).optional(),
 });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -33,6 +36,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         id: workerProfiles.id,
         challengeCode: workerProfiles.challengeCode,
         challengeIssuedAt: workerProfiles.challengeIssuedAt,
+        idDocumentKey: workerProfiles.idDocumentKey,
       })
       .from(workerProfiles)
       .where(eq(workerProfiles.userId, session.user.id))
@@ -58,7 +62,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { type, contentType } = parsed.data;
+    const { type, contentType, idDocumentKey } = parsed.data;
 
     if (type === "id_document") {
       if (!ALLOWED_ID_DOCUMENT_TYPES.includes(contentType)) {
@@ -85,11 +89,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (type === "liveness_video") {
-      if (!profile.challengeCode || !profile.challengeIssuedAt) {
+      if (idDocumentKey) {
+        try {
+          assertOwnedPrivateVerificationKey(
+            session.user.id,
+            idDocumentKey,
+            "id"
+          );
+        } catch {
+          return NextResponse.json(
+            { error: "Invalid verification upload" },
+            { status: 400 }
+          );
+        }
+      }
+
+      const livenessGuard = canUploadLivenessVideo({
+        challengeCode: profile.challengeCode,
+        challengeIssuedAt: profile.challengeIssuedAt,
+        boundIdDocumentKey: profile.idDocumentKey,
+        requestedIdDocumentKey: idDocumentKey,
+      });
+
+      if (!livenessGuard.allowed) {
         return NextResponse.json(
           {
-            error:
-              "Must generate a challenge code before uploading liveness video",
+            error: livenessGuard.errors[0] || "Cannot upload liveness video",
+            details: livenessGuard.errors,
           },
           { status: 400 }
         );
@@ -122,7 +148,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     if (error instanceof PrivateStorageConfigError) {
       return NextResponse.json(
-        { error: "Verification upload is temporarily unavailable. Please try again later." },
+        {
+          error:
+            "Verification upload is temporarily unavailable. Please try again later.",
+        },
         { status: 503 }
       );
     }

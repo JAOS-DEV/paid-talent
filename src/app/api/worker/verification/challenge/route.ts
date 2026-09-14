@@ -1,14 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import {
   generateChallengeCode,
   formatChallengeCodeForDisplay,
   CHALLENGE_CODE_EXPIRY_MINUTES,
 } from "@/lib/verification";
+import { canIssueChallengeCode } from "@/lib/verification/challenge-lifecycle";
+import { assertOwnedPrivateVerificationKey } from "@/lib/storage/keys";
 
-export async function POST(): Promise<NextResponse> {
+const issueChallengeSchema = z.object({
+  idDocumentKey: z.string().min(1, "ID document key is required"),
+});
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await auth();
 
@@ -18,6 +25,39 @@ export async function POST(): Promise<NextResponse> {
 
     if (session.user.role !== "worker") {
       return NextResponse.json({ error: "Not a worker" }, { status: 403 });
+    }
+
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "ID document must be uploaded before video verification" },
+        { status: 400 }
+      );
+    }
+
+    const parsed = issueChallengeSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "ID document must be uploaded before video verification",
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { idDocumentKey } = parsed.data;
+
+    try {
+      assertOwnedPrivateVerificationKey(session.user.id, idDocumentKey, "id");
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid verification upload" },
+        { status: 400 }
+      );
     }
 
     const [profile] = await db
@@ -36,14 +76,12 @@ export async function POST(): Promise<NextResponse> {
       );
     }
 
-    if (
-      profile.verificationStatus !== "unverified" &&
-      profile.verificationStatus !== "rejected"
-    ) {
+    const issueGuard = canIssueChallengeCode(profile.verificationStatus);
+    if (!issueGuard.allowed) {
       return NextResponse.json(
         {
           error: "Cannot generate challenge code",
-          reason: `Profile is in ${profile.verificationStatus} status`,
+          reason: issueGuard.reason,
         },
         { status: 400 }
       );
@@ -57,12 +95,15 @@ export async function POST(): Promise<NextResponse> {
       .set({
         challengeCode,
         challengeIssuedAt: now,
+        idDocumentKey,
         updatedAt: now,
       })
       .where(eq(workerProfiles.userId, session.user.id));
 
     const expiresAt = new Date(now);
-    expiresAt.setMinutes(expiresAt.getMinutes() + CHALLENGE_CODE_EXPIRY_MINUTES);
+    expiresAt.setMinutes(
+      expiresAt.getMinutes() + CHALLENGE_CODE_EXPIRY_MINUTES
+    );
 
     return NextResponse.json({
       success: true,
@@ -73,7 +114,7 @@ export async function POST(): Promise<NextResponse> {
         expiresAt: expiresAt.toISOString(),
         expiresInMinutes: CHALLENGE_CODE_EXPIRY_MINUTES,
         instructions:
-          "Record a video holding your ID document next to your face. Clearly speak today's date and the challenge code shown above.",
+          "Hold your ID beside your face and clearly speak the challenge code shown on screen.",
       },
     });
   } catch (error) {
@@ -123,7 +164,9 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const expiresAt = new Date(profile.challengeIssuedAt);
-    expiresAt.setMinutes(expiresAt.getMinutes() + CHALLENGE_CODE_EXPIRY_MINUTES);
+    expiresAt.setMinutes(
+      expiresAt.getMinutes() + CHALLENGE_CODE_EXPIRY_MINUTES
+    );
     const isExpired = new Date() > expiresAt;
 
     return NextResponse.json({
@@ -135,7 +178,7 @@ export async function GET(): Promise<NextResponse> {
         expiresAt: expiresAt.toISOString(),
         isExpired,
         instructions:
-          "Record a video holding your ID document next to your face. Clearly speak today's date and the challenge code shown above.",
+          "Hold your ID beside your face and clearly speak the challenge code shown on screen.",
       },
     });
   } catch (error) {
