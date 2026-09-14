@@ -479,10 +479,13 @@ If iOS Safari converts a Library photo to JPEG automatically, that JPEG is accep
 
 ### Bucket CORS (required outside this repo)
 
-Browser PUT to the presigned URL is a cross-origin request. If the bucket does
-not allow the Paid Talent origin, Safari surfaces `TypeError: Load failed`.
+Local/dev storage is **Cloudflare R2**, public bucket `paid-talent-media`
+(`S3_REGION=auto`, path-style). This repository cannot change bucket CORS.
 
-Configure the public media bucket with:
+A signed PUT from a non-browser client can succeed while Safari still shows
+`TypeError: Load failed` if R2 does not return CORS headers on OPTIONS/PUT.
+
+Configure **R2 → paid-talent-media → Settings → CORS policy** with:
 
 ```json
 [
@@ -499,13 +502,14 @@ Configure the public media bucket with:
 ]
 ```
 
-Also add the real custom domain (if production is not only `*.vercel.app`) and
-preview origins you use for QA, for example `https://*.vercel.app` **only if**
-your storage provider supports wildcard origins. Do **not** enable
-`AllowedOrigins: *` together with cookie credentials.
+Do **not** use `AllowedOrigins: "*"`. R2 needs exact origins. Required for production
+uploads: `https://paid-talent.vercel.app`. Add `http://localhost:3000` only if you
+want local browser uploads. Do not add changing Vercel preview URLs unless you
+intentionally test uploads from those hosts (R2 does not treat `*.vercel.app`
+as a valid origin wildcard).
 
-The object-store IAM user used by the app also needs `s3:HeadObject` (or
-equivalent) on the public media bucket so confirm can enforce the size limit.
+The R2 API token also needs `s3:HeadObject` (or equivalent) on this bucket so
+confirm can enforce the 10MB limit.
 
 ---
 
