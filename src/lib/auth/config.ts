@@ -7,8 +7,14 @@ import { db } from "@/lib/db";
 import { users, workerProfiles, recruiterProfiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
-import { isOver18 } from "@/lib/helpers/age-verification";
+import { meetsMinimumAge } from "@/lib/helpers/age-verification";
 import { resolveProviderSignInDecision } from "@/lib/auth/sign-in-decision";
+import {
+  SIGNUP_INTENT_COOKIE,
+  consumeSignupIntentCookie,
+  parseSignupIntentRole,
+  shouldConsumeSignupIntent,
+} from "@/lib/auth/signup-intent";
 import {
   authPages,
   jwtCallback,
@@ -141,12 +147,29 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     async signIn({ user, account }) {
       const cookieStore = await cookies();
-      const signupIntentRole = cookieStore.get("signup_intent_role")?.value as
-        | UserRole
-        | undefined;
+      const signupIntentRole = parseSignupIntentRole(
+        cookieStore.get(SIGNUP_INTENT_COOKIE)?.value
+      );
+      const isProduction = process.env.NODE_ENV === "production";
+
+      const consumeIntentSafely = (): void => {
+        try {
+          consumeSignupIntentCookie(
+            {
+              set(name, value, options): void {
+                cookieStore.set(name, value, options);
+              },
+            },
+            isProduction
+          );
+        } catch (error) {
+          console.error("[AUTH] Failed to consume signup intent cookie", error);
+        }
+      };
 
       const provider = account?.provider;
       if (provider !== "google" && provider !== "email") {
+        consumeIntentSafely();
         return true;
       }
 
@@ -177,6 +200,9 @@ export const authConfig: NextAuthConfig = {
         (user as { role: UserRole }).role = decision.user.role;
         (user as { ageVerified: boolean }).ageVerified =
           decision.user.ageVerified;
+        if (shouldConsumeSignupIntent(decision.kind)) {
+          consumeIntentSafely();
+        }
         // Complete sign-in; middleware redirects if ageVerified=false
         return true;
       }
@@ -216,6 +242,10 @@ export const authConfig: NextAuthConfig = {
       (user as { role: UserRole }).role = role;
       (user as { ageVerified: boolean }).ageVerified = false;
 
+      if (shouldConsumeSignupIntent(decision.kind)) {
+        consumeIntentSafely();
+      }
+
       // Complete sign-in; middleware redirects to age-verification
       return true;
     },
@@ -228,30 +258,4 @@ export const authConfig: NextAuthConfig = {
   trustHost: true,
 };
 
-export async function createUserWithRole(
-  email: string,
-  role: UserRole,
-  dateOfBirth: Date | null,
-  name?: string
-): Promise<typeof users.$inferSelect> {
-  const now = new Date();
-  const ageVerified = dateOfBirth ? isOver18(dateOfBirth) : false;
-
-  const [newUser] = await db
-    .insert(users)
-    .values({
-      email,
-      role,
-      name: name ?? null,
-      dateOfBirth: dateOfBirth?.toISOString().split("T")[0] ?? null,
-      ageVerified,
-      ageVerifiedAt: ageVerified ? now : null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning();
-
-  return newUser;
-}
-
-export { isOver18 };
+export { meetsMinimumAge };

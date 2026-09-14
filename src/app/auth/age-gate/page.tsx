@@ -3,27 +3,53 @@
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card, CardContent } from "@/components/ui";
+import { persistSignupIntentRole } from "@/lib/auth/signup-intent-action";
+import { isValidSignupIntentRole } from "@/lib/auth/sign-in-decision";
 import type { UserRole } from "@/types/auth";
 
 function AgeGateForm(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const role = searchParams.get("role") as UserRole | null;
+  const roleParam = searchParams.get("role");
+  const role = isValidSignupIntentRole(roleParam ?? undefined)
+    ? (roleParam as UserRole)
+    : null;
 
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleContinue = (): void => {
+  const handleConfirmedChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ): void => {
+    setConfirmed(event.target.checked);
+    if (event.target.checked) setError(null);
+  };
+
+  const handleContinue = async (): Promise<void> => {
     if (!confirmed) {
       setError("Confirm you're 20+ to continue.");
       return;
     }
 
-    setError(null);
-    const params = new URLSearchParams();
-    if (role) params.set("role", role);
-    params.set("ageConfirmed", "true");
+    if (!role) {
+      router.push("/auth/role-select");
+      return;
+    }
 
+    setError(null);
+    setIsLoading(true);
+
+    const result = await persistSignupIntentRole(role);
+    if (!result.ok) {
+      setError(result.error);
+      setIsLoading(false);
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.set("role", result.role);
+    params.set("ageConfirmed", "true");
     router.push(`/auth/signin?${params.toString()}`);
   };
 
@@ -37,10 +63,7 @@ function AgeGateForm(): React.ReactElement {
                 type="checkbox"
                 id="age-confirm"
                 checked={confirmed}
-                onChange={(e) => {
-                  setConfirmed(e.target.checked);
-                  if (e.target.checked) setError(null);
-                }}
+                onChange={handleConfirmedChange}
                 className="mt-1 w-5 h-5 min-w-[20px] rounded border-charcoal-600 bg-charcoal-800 text-primary-600 focus:ring-primary-500 focus:ring-offset-charcoal-900"
               />
               <label
@@ -65,6 +88,8 @@ function AgeGateForm(): React.ReactElement {
             fullWidth
             size="lg"
             onClick={handleContinue}
+            loading={isLoading}
+            disabled={isLoading}
           >
             Continue
           </Button>

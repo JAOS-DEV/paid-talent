@@ -18,32 +18,19 @@ interface AuthConfig {
   devBypassEnabled: boolean;
 }
 
-function setSignupIntentCookie(role: string): void {
-  const expires = new Date(Date.now() + 10 * 60 * 1000).toUTCString();
-  document.cookie = `signup_intent_role=${role}; path=/; expires=${expires}; SameSite=Lax`;
-}
-
 function SignInForm(): React.ReactElement {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
-  const role = searchParams.get("role");
-  const dob = searchParams.get("dob");
-  const ageConfirmed = searchParams.get("ageConfirmed") === "true";
   const errorParam = searchParams.get("error");
 
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(errorParam);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [authConfig, setAuthConfig] = useState<AuthConfig>({ 
-    emailEnabled: false, 
-    devBypassEnabled: false 
+  const [authConfig, setAuthConfig] = useState<AuthConfig>({
+    emailEnabled: false,
+    devBypassEnabled: false,
   });
-
-  const isLegacySignupMode = Boolean(role && dob);
-  const isSignupIntentMode = Boolean(role && ageConfirmed && !dob);
-  const isSignupMode = isLegacySignupMode;
 
   useEffect(() => {
     fetch("/api/auth/config")
@@ -55,60 +42,16 @@ function SignInForm(): React.ReactElement {
   const handleGoogleSignIn = async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    setFormError(null);
 
-    if (isSignupIntentMode && role) {
-      setSignupIntentCookie(role);
-    }
-
-    const finalCallbackUrl =
-      isLegacySignupMode && role && dob
-        ? `/api/auth/register?role=${role}&dob=${dob}&callbackUrl=${encodeURIComponent(callbackUrl)}`
-        : callbackUrl;
-
-    await signIn("google", { callbackUrl: finalCallbackUrl });
+    await signIn("google", { callbackUrl });
   };
 
   const handleEmailSignIn = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setError(null);
-    setFormError(null);
     setIsLoading(true);
 
-    if (isSignupIntentMode && role) {
-      setSignupIntentCookie(role);
-    }
-
-    // In signup mode, register the user first via POST API
-    if (isSignupMode) {
-      try {
-        const response = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, role, dob }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          setIsLoading(false);
-          setFormError(data.error || "Registration failed. Please try again.");
-          return;
-        }
-      } catch {
-        setIsLoading(false);
-        setFormError("Registration failed. Please try again.");
-        return;
-      }
-    }
-
-    const finalCallbackUrl = isSignupMode
-      ? role === "worker"
-        ? "/worker/onboarding"
-        : "/recruiter/dashboard"
-      : callbackUrl;
-
     try {
-      // If dev bypass is enabled, use credentials provider for immediate sign-in
       if (authConfig.devBypassEnabled) {
         const result = await signIn("credentials", {
           email,
@@ -116,46 +59,35 @@ function SignInForm(): React.ReactElement {
         });
 
         if (result?.error) {
-          if (isSignupMode) {
-            setFormError("Account created but sign-in failed. Please try signing in again.");
-          } else {
-            setError(result.error);
-          }
+          setError(result.error);
           setIsLoading(false);
           return;
         }
 
         if (result?.ok) {
-          router.push(finalCallbackUrl);
+          router.push(callbackUrl);
           router.refresh();
         }
         return;
       }
 
-      // If email provider is configured, use magic link flow
       if (authConfig.emailEnabled) {
         const result = await signIn("email", {
           email,
-          callbackUrl: finalCallbackUrl,
+          callbackUrl,
           redirect: false,
         });
 
         if (result?.error) {
-          if (isSignupMode) {
-            setFormError("Account created but could not send sign-in email. Please try signing in again.");
-          } else {
-            setError(result.error);
-          }
+          setError(result.error);
           setIsLoading(false);
           return;
         }
 
-        // Redirect to verify-request page to tell user to check their email
         router.push("/auth/verify-request");
         return;
       }
 
-      // Neither provider is available - show error
       setError("EmailNotConfigured");
       setIsLoading(false);
     } catch {
@@ -164,15 +96,13 @@ function SignInForm(): React.ReactElement {
     }
   };
 
-  const displayError = formError 
-    ? formError 
-    : error 
-      ? (errorMessages[error] || errorMessages.Default) 
-      : null;
+  const displayError = error
+    ? errorMessages[error] || errorMessages.Default
+    : null;
 
-  const emailButtonText = authConfig.devBypassEnabled 
-    ? (isSignupMode ? "Create Account (Dev)" : "Continue with Email (Dev)")
-    : (isSignupMode ? "Create Account & Send Link" : "Send Sign-in Link");
+  const emailButtonText = authConfig.devBypassEnabled
+    ? "Continue with Email (Dev)"
+    : "Send Sign-in Link";
 
   const emailHelperText = authConfig.devBypassEnabled
     ? null
@@ -269,11 +199,6 @@ function SignInForm(): React.ReactElement {
 }
 
 function SignInPageContent(): React.ReactElement {
-  const searchParams = useSearchParams();
-  const role = searchParams.get("role");
-  const dob = searchParams.get("dob");
-  const isSignupMode = Boolean(role && dob);
-
   return (
     <div className="w-full max-w-md">
       <div className="text-center mb-8">
@@ -282,12 +207,10 @@ function SignInPageContent(): React.ReactElement {
           <span className="text-2xl font-bold text-gold-500">Talent</span>
         </div>
         <h1 className="text-xl font-semibold text-charcoal-100 mb-2">
-          {isSignupMode ? "Create your account" : "Sign in to your account"}
+          Sign in to your account
         </h1>
         <p className="text-charcoal-400 text-sm">
-          {isSignupMode
-            ? `Creating ${role} account`
-            : "Welcome back! Sign in to continue."}
+          Welcome back! Sign in to continue.
         </p>
       </div>
 
@@ -302,17 +225,15 @@ function SignInPageContent(): React.ReactElement {
         <SignInForm />
       </Suspense>
 
-      {!isSignupMode && (
-        <p className="text-center text-charcoal-500 text-sm mt-6">
-          Don&apos;t have an account?{" "}
-          <a
-            href="/auth/role-select"
-            className="text-primary-400 hover:text-primary-300"
-          >
-            Get started
-          </a>
-        </p>
-      )}
+      <p className="text-center text-charcoal-500 text-sm mt-6">
+        Don&apos;t have an account?{" "}
+        <a
+          href="/auth/role-select"
+          className="text-primary-400 hover:text-primary-300"
+        >
+          Get started
+        </a>
+      </p>
     </div>
   );
 }

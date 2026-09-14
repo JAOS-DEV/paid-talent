@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   calculateAge,
-  isOver18,
+  meetsMinimumAge,
   isAgeValid,
-  getDateOfBirth18YearsAgo,
+  getMinimumAgeDateOfBirth,
   parseDateOfBirth,
   formatDateOfBirth,
   MIN_AGE_REQUIREMENT,
@@ -60,41 +60,41 @@ describe("age-verification helpers", () => {
     });
   });
 
-  describe("isOver18 (checks MIN_AGE_REQUIREMENT which is 20)", () => {
+  describe("meetsMinimumAge (MIN_AGE_REQUIREMENT is 20)", () => {
     it("should return true for someone exactly 20 years old", () => {
       const reference = new Date("2024-06-15");
       const dob = new Date("2004-06-15");
-      expect(isOver18(dob, reference)).toBe(true);
+      expect(meetsMinimumAge(dob, reference)).toBe(true);
     });
 
     it("should return true for someone over 20", () => {
       const reference = new Date("2024-06-15");
       const dob = new Date("1990-01-01");
-      expect(isOver18(dob, reference)).toBe(true);
+      expect(meetsMinimumAge(dob, reference)).toBe(true);
     });
 
     it("should return false for someone under 20", () => {
       const reference = new Date("2024-06-15");
       const dob = new Date("2006-01-01");
-      expect(isOver18(dob, reference)).toBe(false);
+      expect(meetsMinimumAge(dob, reference)).toBe(false);
     });
 
     it("should return false for someone one day before 20th birthday", () => {
       const reference = new Date("2024-06-14");
       const dob = new Date("2004-06-15");
-      expect(isOver18(dob, reference)).toBe(false);
+      expect(meetsMinimumAge(dob, reference)).toBe(false);
     });
 
     it("should return true for someone one day after 20th birthday", () => {
       const reference = new Date("2024-06-16");
       const dob = new Date("2004-06-15");
-      expect(isOver18(dob, reference)).toBe(true);
+      expect(meetsMinimumAge(dob, reference)).toBe(true);
     });
 
     it("should handle very old dates", () => {
       const reference = new Date("2024-06-15");
       const dob = new Date("1924-06-15");
-      expect(isOver18(dob, reference)).toBe(true);
+      expect(meetsMinimumAge(dob, reference)).toBe(true);
     });
   });
 
@@ -130,10 +130,10 @@ describe("age-verification helpers", () => {
     });
   });
 
-  describe("getDateOfBirth18YearsAgo (returns MIN_AGE_REQUIREMENT years ago)", () => {
+  describe("getMinimumAgeDateOfBirth (returns MIN_AGE_REQUIREMENT years ago)", () => {
     it("should return date 20 years before reference", () => {
       const reference = new Date("2024-06-15");
-      const result = getDateOfBirth18YearsAgo(reference);
+      const result = getMinimumAgeDateOfBirth(reference);
       expect(result.getFullYear()).toBe(2004);
       expect(result.getMonth()).toBe(5); // June is month 5
       expect(result.getDate()).toBe(15);
@@ -141,7 +141,7 @@ describe("age-verification helpers", () => {
 
     it("should handle leap year (Feb 29 stays Feb 29 in 2004 leap year)", () => {
       const reference = new Date("2024-02-29");
-      const result = getDateOfBirth18YearsAgo(reference);
+      const result = getMinimumAgeDateOfBirth(reference);
       expect(result.getFullYear()).toBe(2004);
       expect(result.getMonth()).toBe(1); // Feb in 2004 (leap year)
       expect(result.getDate()).toBe(29);

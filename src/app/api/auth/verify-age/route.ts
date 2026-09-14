@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { db, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { isOver18 } from "@/lib/helpers/age-verification";
+import { meetsMinimumAge } from "@/lib/helpers/age-verification";
 import { getPostAgeVerificationRedirect } from "@/lib/auth/sign-in-decision";
 import { z } from "zod";
 
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { dateOfBirth } = validation.data;
     const dob = new Date(dateOfBirth);
 
-    if (!isOver18(dob)) {
+    if (!meetsMinimumAge(dob)) {
       return NextResponse.json(
         { error: "Paid Talent is for adults 20+. You can't create an account under 20." },
         { status: 403 }

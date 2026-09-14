@@ -1,179 +1,117 @@
 import { describe, it, expect } from "vitest";
-import { z } from "zod";
+import * as fs from "fs";
+import * as path from "path";
+import { resolveProviderSignInDecision } from "@/lib/auth/sign-in-decision";
 
-const registerSchema = z.object({
-  email: z.string().email(),
-  role: z.enum(["worker", "recruiter"]),
-  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+const SRC_ROOT = path.join(process.cwd(), "src");
+const REGISTER_ROUTE = path.join(
+  SRC_ROOT,
+  "app/api/auth/register/route.ts"
+);
+
+function collectTsFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (
+        entry.name === "node_modules" ||
+        entry.name === ".next" ||
+        entry.name === "__tests__"
+      ) {
+        continue;
+      }
+      files.push(...collectTsFiles(full));
+    } else if (/\.(ts|tsx)$/.test(entry.name)) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+describe("legacy /api/auth/register is removed", () => {
+  it("does not ship an unauthenticated register route", () => {
+    expect(fs.existsSync(REGISTER_ROUTE)).toBe(false);
+  });
+
+  it("no active frontend or API code references /api/auth/register", () => {
+    const files = collectTsFiles(path.join(SRC_ROOT, "app")).concat(
+      collectTsFiles(path.join(SRC_ROOT, "components")),
+      collectTsFiles(path.join(SRC_ROOT, "lib"))
+    );
+    const offenders = files.filter((file) => {
+      const source = fs.readFileSync(file, "utf8");
+      return source.includes("/api/auth/register");
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it("signin has no legacy role+dob account creation path", () => {
+    const signin = fs.readFileSync(
+      path.join(SRC_ROOT, "app/auth/signin/page.tsx"),
+      "utf8"
+    );
+    expect(signin).not.toContain("isLegacySignupMode");
+    expect(signin).not.toContain("isSignupMode");
+    expect(signin).not.toContain("/api/auth/register");
+    expect(signin).not.toMatch(/searchParams\.get\(["']dob["']\)/);
+    expect(signin).not.toMatch(/callbackUrl.*dob=/);
+  });
+
+  it("signup pages do not put DOB in query parameters", () => {
+    const files = [
+      "app/auth/signin/page.tsx",
+      "app/auth/age-gate/page.tsx",
+      "app/auth/role-select/page.tsx",
+      "app/page.tsx",
+    ];
+    for (const relative of files) {
+      const source = fs.readFileSync(path.join(SRC_ROOT, relative), "utf8");
+      expect(source).not.toMatch(/params\.set\(["']dob["']/);
+      expect(source).not.toMatch(/[?&]dob=/);
+    }
+  });
 });
 
-export function validateRegisterInput(input: unknown): {
-  success: boolean;
-  data?: z.infer<typeof registerSchema>;
-  error?: string;
-} {
-  const result = registerSchema.safeParse(input);
-  if (result.success) {
-    return { success: true, data: result.data };
-  }
-  return { success: false, error: result.error.issues[0]?.message };
-}
-
-export function validateAge(
-  dob: string,
-  referenceDate: Date = new Date()
-): { valid: boolean; age: number } {
-  const dateOfBirth = new Date(dob + "T00:00:00");
-  let age = referenceDate.getFullYear() - dateOfBirth.getFullYear();
-  const monthDiff = referenceDate.getMonth() - dateOfBirth.getMonth();
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && referenceDate.getDate() < dateOfBirth.getDate())
-  ) {
-    age--;
-  }
-  return { valid: age >= 20, age };
-}
-
-export function getSignupRedirectUrl(role: "worker" | "recruiter"): string {
-  return role === "worker" ? "/worker/onboarding" : "/recruiter/dashboard";
-}
-
-describe("Auth Register Validation", () => {
-  describe("validateRegisterInput", () => {
-    it("should accept valid worker registration", () => {
-      const result = validateRegisterInput({
-        email: "test@example.com",
-        role: "worker",
-        dob: "1990-01-15",
-      });
-      expect(result.success).toBe(true);
-      expect(result.data?.email).toBe("test@example.com");
-      expect(result.data?.role).toBe("worker");
+describe("canonical signup after register-route removal", () => {
+  it("new Google signup still creates from validated signup intent only", () => {
+    const withIntent = resolveProviderSignInDecision({
+      existingUser: null,
+      signupIntentRole: "worker",
+      email: "new@example.com",
+    });
+    expect(withIntent).toEqual({
+      kind: "create_and_complete",
+      role: "worker",
     });
 
-    it("should accept valid recruiter registration", () => {
-      const result = validateRegisterInput({
-        email: "recruiter@company.com",
+    const withoutIntent = resolveProviderSignInDecision({
+      existingUser: null,
+      signupIntentRole: undefined,
+      email: "unknown@example.com",
+    });
+    expect(withoutIntent.kind).toBe("abort_redirect");
+  });
+
+  it("existing users still complete sign-in without the register route", () => {
+    const decision = resolveProviderSignInDecision({
+      existingUser: {
+        id: "existing",
         role: "recruiter",
-        dob: "1985-06-20",
-      });
-      expect(result.success).toBe(true);
-      expect(result.data?.role).toBe("recruiter");
+        ageVerified: true,
+      },
+      signupIntentRole: "worker",
+      email: "recruiter@example.com",
     });
-
-    it("should reject invalid email", () => {
-      const result = validateRegisterInput({
-        email: "not-an-email",
-        role: "worker",
-        dob: "1990-01-15",
-      });
-      expect(result.success).toBe(false);
+    expect(decision).toEqual({
+      kind: "complete_existing",
+      user: {
+        id: "existing",
+        role: "recruiter",
+        ageVerified: true,
+      },
     });
-
-    it("should reject invalid role", () => {
-      const result = validateRegisterInput({
-        email: "test@example.com",
-        role: "admin",
-        dob: "1990-01-15",
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject invalid date format", () => {
-      const result = validateRegisterInput({
-        email: "test@example.com",
-        role: "worker",
-        dob: "01/15/1990",
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("should reject missing fields", () => {
-      const result = validateRegisterInput({
-        email: "test@example.com",
-      });
-      expect(result.success).toBe(false);
-    });
-  });
-
-  describe("validateAge", () => {
-    it("should validate user is 20 or older", () => {
-      const today = new Date();
-      const dob = new Date(
-        today.getFullYear() - 25,
-        today.getMonth(),
-        today.getDate()
-      );
-      const dobStr = dob.toISOString().split("T")[0];
-      const result = validateAge(dobStr);
-      expect(result.valid).toBe(true);
-      expect(result.age).toBe(25);
-    });
-
-    it("should validate exactly 20 years old", () => {
-      const today = new Date();
-      const dob = new Date(
-        today.getFullYear() - 20,
-        today.getMonth(),
-        today.getDate()
-      );
-      const dobStr = dob.toISOString().split("T")[0];
-      const result = validateAge(dobStr);
-      expect(result.valid).toBe(true);
-      expect(result.age).toBe(20);
-    });
-
-    it("should reject user under 20", () => {
-      const today = new Date();
-      const dob = new Date(
-        today.getFullYear() - 18,
-        today.getMonth(),
-        today.getDate()
-      );
-      const dobStr = dob.toISOString().split("T")[0];
-      const result = validateAge(dobStr);
-      expect(result.valid).toBe(false);
-      expect(result.age).toBe(18);
-    });
-
-    it("should reject user one day before 20th birthday", () => {
-      const reference = new Date(2024, 5, 15); // June 15, 2024
-      const result = validateAge("2004-06-16", reference);
-      expect(result.valid).toBe(false);
-      expect(result.age).toBe(19);
-    });
-  });
-
-  describe("getSignupRedirectUrl", () => {
-    it("should return worker onboarding URL for worker role", () => {
-      expect(getSignupRedirectUrl("worker")).toBe("/worker/onboarding");
-    });
-
-    it("should return recruiter dashboard URL for recruiter role", () => {
-      expect(getSignupRedirectUrl("recruiter")).toBe("/recruiter/dashboard");
-    });
-  });
-});
-
-describe("Role Intent Preservation", () => {
-  it("should preserve worker role through signup flow", () => {
-    const initialRole = "worker";
-    const params = new URLSearchParams();
-    params.set("role", initialRole);
-    params.set("dob", "1990-01-15");
-    
-    const role = params.get("role");
-    expect(role).toBe("worker");
-  });
-
-  it("should preserve recruiter role through signup flow", () => {
-    const initialRole = "recruiter";
-    const params = new URLSearchParams();
-    params.set("role", initialRole);
-    params.set("dob", "1990-01-15");
-    
-    const role = params.get("role");
-    expect(role).toBe("recruiter");
   });
 });

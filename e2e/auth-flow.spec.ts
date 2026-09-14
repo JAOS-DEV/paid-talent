@@ -326,9 +326,24 @@ test.describe("Auth Redirect Loop Regression (anonymous + signup intent)", () =>
     await expect(page).toHaveURL(/role=worker/);
     await expect(page).toHaveURL(/ageConfirmed=true/);
 
-    // Prevent leaving the app for real Google OAuth
+    await expect
+      .poll(async () => {
+        const cookies = await page.context().cookies();
+        return cookies.find((c) => c.name === "signup_intent_role");
+      })
+      .toMatchObject({
+        name: "signup_intent_role",
+        value: "worker",
+        httpOnly: true,
+      });
+
+    let googleStarts = 0;
     await page.route("**/api/auth/**", async (route) => {
-      if (route.request().url().includes("signin/google") || route.request().url().includes("callback/google")) {
+      if (
+        route.request().url().includes("signin/google") ||
+        route.request().url().includes("callback/google")
+      ) {
+        googleStarts += 1;
         await route.abort();
         return;
       }
@@ -338,12 +353,8 @@ test.describe("Auth Redirect Loop Regression (anonymous + signup intent)", () =>
 
     await page.getByRole("button", { name: /google/i }).click();
 
-    await expect
-      .poll(async () => {
-        const cookies = await page.context().cookies();
-        return cookies.find((c) => c.name === "signup_intent_role")?.value;
-      })
-      .toBe("worker");
+    await expect.poll(() => googleStarts).toBe(1);
+    expect(googleStarts).toBe(1);
   });
 
   test("recruiter signup path preserves role through age-gate into signin URL", async ({
@@ -368,6 +379,9 @@ test.describe("Auth Redirect Loop Regression (anonymous + signup intent)", () =>
  * and signIn completing (not aborting to age-verification) are covered by unit tests:
  * - src/lib/auth/__tests__/sign-in-decision.test.ts
  * - src/lib/auth/__tests__/middleware-gate.test.ts
+ * - src/app/auth/age-verification/__tests__/page.test.tsx
  *
  * Real Google OAuth end-to-end cannot be automated without live credentials.
+ * Routing/session lifecycle for a single authentication is covered above plus
+ * e2e/signup-cta-interest.spec.ts.
  */

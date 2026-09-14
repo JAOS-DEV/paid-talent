@@ -166,6 +166,34 @@ describe("resolveMiddlewareGate", () => {
       });
     });
 
+    it("REGRESSION: after first successful OAuth, ageVerified=false goes to DOB page not signin", () => {
+      const result = resolveMiddlewareGate({
+        pathname: "/",
+        hasSession: true,
+        ageVerified: false,
+        isApiRoute: false,
+        isAuthApiRoute: false,
+      });
+
+      expect(result).toEqual({
+        action: "redirect",
+        destination: AGE_VERIFICATION_PATH,
+      });
+      expect(JSON.stringify(result)).not.toContain("/auth/signin");
+    });
+
+    it("REGRESSION: authenticated DOB page does not bounce back to signin", () => {
+      expect(
+        resolveMiddlewareGate({
+          pathname: AGE_VERIFICATION_PATH,
+          hasSession: true,
+          ageVerified: false,
+          isApiRoute: false,
+          isAuthApiRoute: false,
+        })
+      ).toEqual({ action: "allow" });
+    });
+
     it("redirects / and age-gate to age-verification (no loop among public pages)", () => {
       for (const pathname of ["/", "/auth/age-gate", "/auth/role-select"]) {
         expect(
