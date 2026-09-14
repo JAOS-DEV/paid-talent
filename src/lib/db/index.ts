@@ -34,4 +34,7 @@ export const db = new Proxy({} as PostgresJsDatabase<typeof schema>, {
   },
 });
 
+export type AppDatabase = PostgresJsDatabase<typeof schema>;
+export type DbClient = Pick<AppDatabase, "select" | "insert" | "update" | "delete">;
+
 export * from "./schema";

@@ -1,6 +1,5 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { db, profileInterests, hireOutcomes } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -8,6 +7,10 @@ import { z } from "zod";
 import { getEffectiveStatus } from "@/lib/hire-outcomes";
 import { requestConfirmation } from "@/lib/hire-outcomes/service";
 import { getLatestConfirmationRequestForInterest } from "@/lib/hire-outcomes/queries";
+import {
+  actionAuthError,
+  requireActiveRecruiter,
+} from "@/lib/auth/require-active-user";
 
 const requestConfirmationSchema = z.object({
   interestId: z.string().uuid(),
@@ -20,12 +23,15 @@ interface ActionResult {
   requestId?: string;
 }
 
-async function getAuthenticatedRecruiter(): Promise<{ userId: string } | null> {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "recruiter") {
-    return null;
+async function getAuthenticatedRecruiter(): Promise<
+  | { ok: true; userId: string }
+  | { ok: false; error: string }
+> {
+  const result = await requireActiveRecruiter();
+  if (!result.ok) {
+    return actionAuthError(result);
   }
-  return { userId: session.user.id };
+  return { ok: true, userId: result.user.userId };
 }
 
 async function requestOutcomeConfirmation(
@@ -33,8 +39,8 @@ async function requestOutcomeConfirmation(
   requestedStatus: "hired" | "started"
 ): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
-    return { success: false, error: "Unauthorized" };
+  if (!recruiter.ok) {
+    return { success: false, error: recruiter.error };
   }
 
   const validation = requestConfirmationSchema.safeParse({ interestId });
@@ -77,7 +83,7 @@ export async function requestStartConfirmation(
 
 export async function getInterestWithOutcome(interestId: string) {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
+  if (!recruiter.ok) {
     return null;
   }
 

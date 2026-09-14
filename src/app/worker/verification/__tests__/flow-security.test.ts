@@ -74,9 +74,8 @@ describe("worker verification flow security (source)", () => {
 
   it("keeps worker-only authorization on verification APIs", () => {
     for (const source of [challengeSource, uploadSource, submitSource]) {
-      expect(source).toContain('session.user.role !== "worker"');
-      expect(source).toContain("Unauthorized");
-      expect(source).toContain("Not a worker");
+      expect(source).toContain("requireActiveWorker");
+      expect(source).toContain("deniedActiveUserResponse");
     }
   });
 

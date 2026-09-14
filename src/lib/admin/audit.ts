@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { db, type DbClient } from "@/lib/db";
 import {
   adminAuditEvents,
   type AdminAuditAction,
@@ -8,9 +8,11 @@ import {
 export async function recordAdminAuditEvent(
   input: Omit<NewAdminAuditEvent, "id" | "createdAt"> & {
     createdAt?: Date;
+    db?: DbClient;
   }
 ): Promise<void> {
-  await db.insert(adminAuditEvents).values({
+  const client = input.db ?? db;
+  await client.insert(adminAuditEvents).values({
     action: input.action,
     actorAdminEmail: input.actorAdminEmail,
     actorUserId: input.actorUserId ?? null,

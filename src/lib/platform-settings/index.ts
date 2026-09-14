@@ -1,5 +1,5 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { and, eq } from "drizzle-orm";
+import { db, type DbClient } from "@/lib/db";
 import {
   PLATFORM_SETTINGS_ID,
   platformSettings,
@@ -9,8 +9,11 @@ import {
   DEFAULT_BILLING_ACCESS_MODE,
   isBillingAccessMode,
 } from "./mode";
+import { recordAdminAuditEvent } from "@/lib/admin/audit";
 
 const CACHE_TTL_MS = 5_000;
+const STALE_MODE_ERROR =
+  "Paywall mode changed since this page loaded. Refresh and try again.";
 
 interface BillingModeCache {
   mode: BillingAccessMode;
@@ -23,8 +26,8 @@ export function invalidateBillingAccessModeCache(): void {
   billingModeCache = null;
 }
 
-async function ensurePlatformSettingsRow(): Promise<void> {
-  await db
+async function ensurePlatformSettingsRow(client: DbClient = db): Promise<void> {
+  await client
     .insert(platformSettings)
     .values({
       id: PLATFORM_SETTINGS_ID,
@@ -99,52 +102,73 @@ export async function updateBillingAccessMode(input: {
   previousMode: BillingAccessMode;
   reason: string;
   adminEmail: string;
+  adminUserId?: string | null;
   now?: Date;
 }): Promise<
   | { ok: true; mode: BillingAccessMode }
   | { ok: false; status: number; error: string }
 > {
   const now = input.now ?? new Date();
-  await ensurePlatformSettingsRow();
-  const current = await getPlatformBillingSettings();
 
-  if (current.mode !== input.previousMode) {
+  const result = await db.transaction(async (tx) => {
+    const client = tx as DbClient;
+    await ensurePlatformSettingsRow(client);
+
+    const [updated] = await client
+      .update(platformSettings)
+      .set({
+        billingAccessMode: input.nextMode,
+        billingAccessModeReason: input.reason,
+        billingAccessModeUpdatedAt: now,
+        billingAccessModeUpdatedBy: input.adminEmail,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(platformSettings.id, PLATFORM_SETTINGS_ID),
+          eq(platformSettings.billingAccessMode, input.previousMode)
+        )
+      )
+      .returning({
+        billingAccessMode: platformSettings.billingAccessMode,
+      });
+
+    if (!updated) {
+      return {
+        ok: false as const,
+        status: 409,
+        error: STALE_MODE_ERROR,
+      };
+    }
+
+    if (input.previousMode !== updated.billingAccessMode) {
+      await recordAdminAuditEvent({
+        action: "subscription_paywall_mode_changed",
+        actorAdminEmail: input.adminEmail,
+        actorUserId: input.adminUserId ?? null,
+        targetType: "platform_setting",
+        targetId: "billing_access_mode",
+        reason: input.reason,
+        metadata: {
+          before: input.previousMode,
+          after: updated.billingAccessMode,
+        },
+        createdAt: now,
+        db: client,
+      });
+    }
+
     return {
-      ok: false,
-      status: 409,
-      error: "Paywall mode changed since this page loaded. Refresh and try again.",
+      ok: true as const,
+      mode: updated.billingAccessMode,
     };
-  }
+  });
 
-  if (current.mode === input.nextMode) {
+  if (result.ok) {
     invalidateBillingAccessModeCache();
-    return { ok: true, mode: current.mode };
   }
 
-  const [updated] = await db
-    .update(platformSettings)
-    .set({
-      billingAccessMode: input.nextMode,
-      billingAccessModeReason: input.reason,
-      billingAccessModeUpdatedAt: now,
-      billingAccessModeUpdatedBy: input.adminEmail,
-      updatedAt: now,
-    })
-    .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
-    .returning({
-      billingAccessMode: platformSettings.billingAccessMode,
-    });
-
-  if (!updated || updated.billingAccessMode !== input.nextMode) {
-    return {
-      ok: false,
-      status: 409,
-      error: "Paywall mode changed since this page loaded. Refresh and try again.",
-    };
-  }
-
-  invalidateBillingAccessModeCache();
-  return { ok: true, mode: updated.billingAccessMode };
+  return result;
 }
 
 export {

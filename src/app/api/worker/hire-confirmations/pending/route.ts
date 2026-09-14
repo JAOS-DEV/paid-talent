@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { getPendingConfirmationRequestsForWorker } from "@/lib/hire-outcomes/queries";
+import {
+  deniedActiveUserResponse,
+  requireActiveWorker,
+} from "@/lib/auth/require-active-user";
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.role !== "worker") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    const actor = await requireActiveWorker();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
     const requests = await getPendingConfirmationRequestsForWorker(
-      session.user.id
+      actor.user.userId
     );
 
     return NextResponse.json({ requests });

@@ -1,5 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { db, type DbClient } from "@/lib/db";
 import { adminEntitlements, type AdminEntitlement } from "@/lib/db/schema";
 import {
   isAdminGrantActive,
@@ -14,13 +14,15 @@ export async function upsertAdminEntitlement(input: {
   reason: string;
   adminEmail: string;
   now?: Date;
+  db?: DbClient;
 }): Promise<{
   grant: AdminEntitlement;
   action: "grant" | "extend" | "lifetime";
   previousGrant: AdminEntitlement | null;
 }> {
   const now = input.now ?? new Date();
-  const [current] = await db
+  const client = input.db ?? db;
+  const [current] = await client
     .select()
     .from(adminEntitlements)
     .where(
@@ -39,7 +41,7 @@ export async function upsertAdminEntitlement(input: {
   });
 
   if (current && isAdminGrantActive(toAdminGrantSnapshot(current), now)) {
-    const [updated] = await db
+    const [updated] = await client
       .update(adminEntitlements)
       .set({
         startsAt: window.startsAt,
@@ -59,7 +61,7 @@ export async function upsertAdminEntitlement(input: {
   }
 
   if (current) {
-    await db
+    await client
       .update(adminEntitlements)
       .set({
         revokedAt: now,
@@ -69,7 +71,7 @@ export async function upsertAdminEntitlement(input: {
       .where(eq(adminEntitlements.id, current.id));
   }
 
-  const [created] = await db
+  const [created] = await client
     .insert(adminEntitlements)
     .values({
       userId: input.userId,
@@ -95,9 +97,11 @@ export async function revokeAdminEntitlement(input: {
   adminEmail: string;
   reason: string;
   now?: Date;
+  db?: DbClient;
 }): Promise<AdminEntitlement | null> {
   const now = input.now ?? new Date();
-  const [current] = await db
+  const client = input.db ?? db;
+  const [current] = await client
     .select()
     .from(adminEntitlements)
     .where(
@@ -113,7 +117,7 @@ export async function revokeAdminEntitlement(input: {
     return null;
   }
 
-  const [updated] = await db
+  const [updated] = await client
     .update(adminEntitlements)
     .set({
       revokedAt: now,

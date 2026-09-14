@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
 import { createPortalSession } from "@/lib/stripe";
+import {
+  deniedActiveUserResponse,
+  requireActiveRecruiter,
+} from "@/lib/auth/require-active-user";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const actor = await requireActiveRecruiter();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
     const origin = request.headers.get("origin") || "http://localhost:3000";
     const returnUrl = `${origin}/recruiter/dashboard`;
 
-    const { url } = await createPortalSession(session.user.id, returnUrl);
+    const { url } = await createPortalSession(actor.user.userId, returnUrl);
 
     return NextResponse.json({ url });
   } catch (error) {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminApi } from "@/lib/admin/api-guard";
 import { recordAdminAuditEvent } from "@/lib/admin/audit";
-import { db, users } from "@/lib/db";
+import { db, users, type DbClient } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import {
   revokeAdminEntitlement,
@@ -71,10 +71,33 @@ export async function POST(
     }
 
     if (parsed.data.action === "revoke") {
-      const revoked = await revokeAdminEntitlement({
-        userId: target.id,
-        adminEmail: guard.actor.email,
-        reason: parsed.data.reason,
+      const revoked = await db.transaction(async (tx) => {
+        const client = tx as DbClient;
+        const result = await revokeAdminEntitlement({
+          userId: target.id,
+          adminEmail: guard.actor.email,
+          reason: parsed.data.reason,
+          db: client,
+        });
+        if (!result) {
+          return null;
+        }
+        await recordAdminAuditEvent({
+          action: "admin_premium_revoked",
+          actorAdminEmail: guard.actor.email,
+          actorUserId: guard.actor.userId,
+          targetUserId: target.id,
+          targetIdentity: target.email,
+          targetType: "admin_entitlement",
+          targetId: result.id,
+          reason: parsed.data.reason,
+          metadata: {
+            isLifetime: result.isLifetime,
+            expiresAt: result.expiresAt,
+          },
+          db: client,
+        });
+        return result;
       });
       if (!revoked) {
         return NextResponse.json(
@@ -82,21 +105,14 @@ export async function POST(
           { status: 400 }
         );
       }
-      await recordAdminAuditEvent({
-        action: "admin_premium_revoked",
-        actorAdminEmail: guard.actor.email,
-        actorUserId: guard.actor.userId,
-        targetUserId: target.id,
-        targetIdentity: target.email,
-        targetType: "admin_entitlement",
-        targetId: revoked.id,
-        reason: parsed.data.reason,
-        metadata: {
-          isLifetime: revoked.isLifetime,
-          expiresAt: revoked.expiresAt,
-        },
-      });
       return NextResponse.json({ success: true, revoked: true });
+    }
+
+    if (parsed.data.action !== "grant") {
+      return NextResponse.json(
+        { error: "Invalid entitlement request." },
+        { status: 400 }
+      );
     }
 
     if (parsed.data.grantKind === "days" && !parsed.data.days) {
@@ -106,37 +122,48 @@ export async function POST(
       );
     }
 
-    const result = await upsertAdminEntitlement({
-      userId: target.id,
-      requested:
-        parsed.data.grantKind === "lifetime"
-          ? { kind: "lifetime" }
-          : { kind: "days", days: parsed.data.days ?? 0 },
-      reason: parsed.data.reason,
-      adminEmail: guard.actor.email,
-    });
+    const grantKind = parsed.data.grantKind;
+    const grantDays = parsed.data.days;
+    const grantReason = parsed.data.reason;
 
-    await recordAdminAuditEvent({
-      action: grantAuditAction(result.action),
-      actorAdminEmail: guard.actor.email,
-      actorUserId: guard.actor.userId,
-      targetUserId: target.id,
-      targetIdentity: target.email,
-      targetType: "admin_entitlement",
-      targetId: result.grant.id,
-      reason: parsed.data.reason,
-      metadata: {
-        before: result.previousGrant
-          ? {
-              isLifetime: result.previousGrant.isLifetime,
-              expiresAt: result.previousGrant.expiresAt,
-            }
-          : null,
-        after: {
-          isLifetime: result.grant.isLifetime,
-          expiresAt: result.grant.expiresAt,
+    const result = await db.transaction(async (tx) => {
+      const client = tx as DbClient;
+      const grantResult = await upsertAdminEntitlement({
+        userId: target.id,
+        requested:
+          grantKind === "lifetime"
+            ? { kind: "lifetime" }
+            : { kind: "days", days: grantDays ?? 0 },
+        reason: grantReason,
+        adminEmail: guard.actor.email,
+        db: client,
+      });
+
+      await recordAdminAuditEvent({
+        action: grantAuditAction(grantResult.action),
+        actorAdminEmail: guard.actor.email,
+        actorUserId: guard.actor.userId,
+        targetUserId: target.id,
+        targetIdentity: target.email,
+        targetType: "admin_entitlement",
+        targetId: grantResult.grant.id,
+        reason: grantReason,
+        metadata: {
+          before: grantResult.previousGrant
+            ? {
+                isLifetime: grantResult.previousGrant.isLifetime,
+                expiresAt: grantResult.previousGrant.expiresAt,
+              }
+            : null,
+          after: {
+            isLifetime: grantResult.grant.isLifetime,
+            expiresAt: grantResult.grant.expiresAt,
+          },
         },
-      },
+        db: client,
+      });
+
+      return grantResult;
     });
 
     return NextResponse.json({

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
 import {
   generatePresignedProfilePhotoStagingUrl,
   assertUploadedStagedProfileImageWithinLimit,
@@ -17,6 +16,10 @@ import { PROFILE_PHOTO_ERRORS, PROFILE_PHOTO_MAX_BYTES } from "@/lib/media/profi
 import { publicMediaUploadRequestSchema } from "@/lib/media/public-upload-request";
 import { PrivateStorageConfigError } from "@/lib/storage/config";
 import { assertOwnedPhotoStagingKey } from "@/lib/storage/keys";
+import {
+  deniedActiveUserResponse,
+  requireActiveWorker,
+} from "@/lib/auth/require-active-user";
 
 function logMediaEvent(event: {
   stage: string;
@@ -48,21 +51,16 @@ function privateStorageConfigResponse(stage: "presign" | "confirm"): NextRespons
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const actor = await requireActiveWorker();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
-    if (!session.user.ageVerified) {
+    if (!actor.user.ageVerified) {
       return NextResponse.json(
         { error: "Age verification required" },
         { status: 403 }
       );
-    }
-
-    if (session.user.role !== "worker") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -98,7 +96,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const [profile] = await db
       .select({ id: workerProfiles.id })
       .from(workerProfiles)
-      .where(eq(workerProfiles.userId, session.user.id))
+      .where(eq(workerProfiles.userId, actor.user.userId))
       .limit(1);
 
     if (profile) {
@@ -119,7 +117,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const { uploadUrl, key } = await generatePresignedProfilePhotoStagingUrl(
-      session.user.id,
+      actor.user.userId,
       contentType,
       contentLength
     );
@@ -159,14 +157,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.role !== "worker") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const actor = await requireActiveWorker();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
     const body = await request.json();
@@ -177,7 +170,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
 
     try {
-      assertOwnedPhotoStagingKey(session.user.id, key);
+      assertOwnedPhotoStagingKey(actor.user.userId, key);
     } catch {
       logMediaEvent({ stage: "confirm", status: 400 });
       return NextResponse.json(
@@ -212,7 +205,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     const [profile] = await db
       .select({ id: workerProfiles.id })
       .from(workerProfiles)
-      .where(eq(workerProfiles.userId, session.user.id))
+      .where(eq(workerProfiles.userId, actor.user.userId))
       .limit(1);
 
     if (!profile) {
@@ -223,7 +216,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
 
     const uploadResult = await submitPhotoForModeration(
-      session.user.id,
+      actor.user.userId,
       profile.id,
       key
     );
@@ -246,7 +239,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       type: "image",
       resourceId: key,
       resourceType: "profile_photo",
-      userId: session.user.id,
+      userId: actor.user.userId,
       result: {
         approved: uploadResult.status === "approved",
         flagged: uploadResult.status !== "approved",

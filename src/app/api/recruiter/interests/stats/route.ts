@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { getRecruiterOutcomeStats } from "@/lib/hire-outcomes/queries";
+import {
+  deniedActiveUserResponse,
+  requireActiveRecruiter,
+} from "@/lib/auth/require-active-user";
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id || session.user.role !== "recruiter") {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const actor = await requireActiveRecruiter();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
-    const stats = await getRecruiterOutcomeStats(session.user.id);
+    const stats = await getRecruiterOutcomeStats(actor.user.userId);
 
     return NextResponse.json({ stats });
   } catch {

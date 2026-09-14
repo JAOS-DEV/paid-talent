@@ -19,6 +19,11 @@ describe("admin JWT session limitation", () => {
       "utf8"
     );
     expect(moderation).toContain("unpublishRestrictedContent");
-    expect(moderation).toContain("Already-issued JWT sessions are not immediately revoked");
+    expect(moderation).toContain(
+      "The already-issued JWT itself is not forcibly invalidated at Edge"
+    );
+    expect(moderation).toContain(
+      "DB-backed Node/server actions and APIs deny suspended/banned accounts"
+    );
   });
 });

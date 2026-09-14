@@ -1,24 +1,22 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import {
+  deniedActiveUserResponse,
+  requireActiveWorker,
+} from "@/lib/auth/require-active-user";
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.role !== "worker") {
-      return NextResponse.json({ error: "Not a worker" }, { status: 403 });
+    const actor = await requireActiveWorker();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
     const [profile] = await db
       .select()
       .from(workerProfiles)
-      .where(eq(workerProfiles.userId, session.user.id))
+      .where(eq(workerProfiles.userId, actor.user.userId))
       .limit(1);
 
     return NextResponse.json({ profile: profile || null });

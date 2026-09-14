@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdminApi } from "@/lib/admin/api-guard";
-import { recordAdminAuditEvent } from "@/lib/admin/audit";
 import { updateBillingAccessMode } from "@/lib/platform-settings";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 import { revalidatePath } from "next/cache";
@@ -32,24 +31,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       previousMode: parsed.data.previousMode,
       reason: parsed.data.reason,
       adminEmail: guard.actor.email,
+      adminUserId: guard.actor.userId,
     });
 
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
-
-    await recordAdminAuditEvent({
-      action: "subscription_paywall_mode_changed",
-      actorAdminEmail: guard.actor.email,
-      actorUserId: guard.actor.userId,
-      targetType: "platform_setting",
-      targetId: "billing_access_mode",
-      reason: parsed.data.reason,
-      metadata: {
-        before: parsed.data.previousMode,
-        after: result.mode,
-      },
-    });
 
     revalidatePath("/");
     revalidatePath("/admin");

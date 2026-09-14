@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -12,6 +11,10 @@ import {
 } from "@/lib/storage/s3";
 import { canUploadLivenessVideo } from "@/lib/verification/challenge-lifecycle";
 import { assertOwnedPrivateVerificationKey } from "@/lib/storage/keys";
+import {
+  deniedActiveUserResponse,
+  requireActiveWorker,
+} from "@/lib/auth/require-active-user";
 
 const uploadRequestSchema = z.object({
   type: z.enum(["id_document", "liveness_video"]),
@@ -21,14 +24,9 @@ const uploadRequestSchema = z.object({
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.role !== "worker") {
-      return NextResponse.json({ error: "Not a worker" }, { status: 403 });
+    const actor = await requireActiveWorker();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
     const [profile] = await db
@@ -39,7 +37,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         idDocumentKey: workerProfiles.idDocumentKey,
       })
       .from(workerProfiles)
-      .where(eq(workerProfiles.userId, session.user.id))
+      .where(eq(workerProfiles.userId, actor.user.userId))
       .limit(1);
 
     if (!profile) {
@@ -75,7 +73,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       const { uploadUrl, key } = await generatePresignedIdUploadUrl(
-        session.user.id,
+        actor.user.userId,
         contentType
       );
 
@@ -92,7 +90,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (idDocumentKey) {
         try {
           assertOwnedPrivateVerificationKey(
-            session.user.id,
+            actor.user.userId,
             idDocumentKey,
             "id"
           );
@@ -131,7 +129,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       const { uploadUrl, key } = await generatePresignedLivenessVideoUploadUrl(
-        session.user.id,
+        actor.user.userId,
         contentType
       );
 

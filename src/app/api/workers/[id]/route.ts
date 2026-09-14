@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
 import {
   db,
   workerProfiles,
@@ -19,7 +18,10 @@ import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 import { getApprovedPhotosForWorker } from "@/lib/moderation";
 import type { HireOutcomeStatus } from "@/lib/db/schema";
 import { getEffectiveEntitlement } from "@/lib/entitlements";
-import { getUserAccountAccess } from "@/lib/auth/account-access";
+import {
+  deniedActiveUserResponse,
+  requireActiveRecruiter,
+} from "@/lib/auth/require-active-user";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -76,27 +78,12 @@ export async function GET(
   { params }: RouteParams
 ): Promise<NextResponse> {
   try {
-    const session = await auth();
+    const actor = await requireActiveRecruiter();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
+    }
+
     const { id } = await params;
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.role !== "recruiter") {
-      return NextResponse.json(
-        { error: "Only recruiters can view worker profiles" },
-        { status: 403 }
-      );
-    }
-
-    const viewerAccess = await getUserAccountAccess(session.user.id);
-    if (!viewerAccess.allowed) {
-      return NextResponse.json(
-        { error: "Account restricted", reason: viewerAccess.reason },
-        { status: 403 }
-      );
-    }
 
     const [profile] = await db
       .select({
@@ -119,11 +106,11 @@ export async function GET(
 
     const workerProfile = profile.profile;
 
-    await recordProfileView(workerProfile.id, session.user.id);
+    await recordProfileView(workerProfile.id, actor.user.userId);
 
     const isTopTalent = await isProfileTopTalent(workerProfile.id);
-    const isOwnProfile = workerProfile.userId === session.user.id;
-    const entitlement = await getEffectiveEntitlement(session.user.id);
+    const isOwnProfile = workerProfile.userId === actor.user.userId;
+    const entitlement = await getEffectiveEntitlement(actor.user.userId);
 
     const contactVisible = canViewContactDetails({
       isOwnProfile,
@@ -143,7 +130,7 @@ export async function GET(
       .leftJoin(hireOutcomes, eq(profileInterests.id, hireOutcomes.interestId))
       .where(
         and(
-          eq(profileInterests.recruiterUserId, session.user.id),
+          eq(profileInterests.recruiterUserId, actor.user.userId),
           eq(profileInterests.workerProfileId, workerProfile.id)
         )
       )

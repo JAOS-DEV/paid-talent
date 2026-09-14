@@ -13,6 +13,7 @@ const actorEmail = `ops-actor-${suffix}@example.com`;
 const targetEmail = `ops-target-${suffix}@example.com`;
 const recruiterEmail = `ops-recruiter-${suffix}@example.com`;
 const bannedSignupEmail = `ops-banned-${suffix}@example.com`;
+const rollbackEmail = `ops-rollback-${suffix}@example.com`;
 
 function isLocalTestDatabase(url: string | undefined): boolean {
   const parsed = parseDatabaseUrl(url);
@@ -26,6 +27,7 @@ function isLocalTestDatabase(url: string | undefined): boolean {
 describe.skipIf(!shouldRun)("admin operations against local test Postgres", () => {
   let createUserWithRole: typeof import("../../auth/create-account").createUserWithRole;
   let moderateAccount: typeof import("../account-moderation").moderateAccount;
+  let moderateAccountWithClient: typeof import("../account-moderation").moderateAccountWithClient;
   let searchAdminUsers: typeof import("../users").searchAdminUsers;
   let getAdminOverviewMetrics: typeof import("../overview-metrics").getAdminOverviewMetrics;
   let upsertAdminEntitlement: typeof import("../../entitlements/grants").upsertAdminEntitlement;
@@ -34,9 +36,13 @@ describe.skipIf(!shouldRun)("admin operations against local test Postgres", () =
   let updateBillingAccessMode: typeof import("../../platform-settings").updateBillingAccessMode;
   let getBillingAccessMode: typeof import("../../platform-settings").getBillingAccessMode;
   let invalidateBillingAccessModeCache: typeof import("../../platform-settings").invalidateBillingAccessModeCache;
+  let getUserAccountAccess: typeof import("../../auth/account-access").getUserAccountAccess;
+  let findActiveBannedIdentity: typeof import("../../auth/banned-identities").findActiveBannedIdentity;
   let db: typeof import("../../db").db;
   let subscriptions: typeof import("../../db").subscriptions;
   let adminAuditEvents: typeof import("../../db").adminAuditEvents;
+  let users: typeof import("../../db").users;
+  let workerProfiles: typeof import("../../db").workerProfiles;
 
   let actorId = "";
   let targetId = "";
@@ -50,7 +56,9 @@ describe.skipIf(!shouldRun)("admin operations against local test Postgres", () =
     vi.resetModules();
     vi.doUnmock("@/lib/db");
     ({ createUserWithRole } = await import("../../auth/create-account"));
-    ({ moderateAccount } = await import("../account-moderation"));
+    ({ moderateAccount, moderateAccountWithClient } = await import(
+      "../account-moderation"
+    ));
     ({ searchAdminUsers } = await import("../users"));
     ({ getAdminOverviewMetrics } = await import("../overview-metrics"));
     ({ upsertAdminEntitlement, revokeAdminEntitlement } = await import(
@@ -62,7 +70,11 @@ describe.skipIf(!shouldRun)("admin operations against local test Postgres", () =
       getBillingAccessMode,
       invalidateBillingAccessModeCache,
     } = await import("../../platform-settings"));
-    ({ db, subscriptions, adminAuditEvents } = await import("../../db"));
+    ({ db, subscriptions, adminAuditEvents, users, workerProfiles } = await import(
+      "../../db"
+    ));
+    ({ getUserAccountAccess } = await import("../../auth/account-access"));
+    ({ findActiveBannedIdentity } = await import("../../auth/banned-identities"));
 
     const actor = await createUserWithRole({
       email: actorEmail,
@@ -96,7 +108,7 @@ describe.skipIf(!shouldRun)("admin operations against local test Postgres", () =
     try {
       await client`
         DELETE FROM users
-        WHERE email IN (${actorEmail}, ${targetEmail}, ${recruiterEmail}, ${bannedSignupEmail})
+        WHERE email IN (${actorEmail}, ${targetEmail}, ${recruiterEmail}, ${bannedSignupEmail}, ${rollbackEmail})
       `;
       await client`
         UPDATE platform_settings
@@ -163,6 +175,10 @@ describe.skipIf(!shouldRun)("admin operations against local test Postgres", () =
       actorEmail: actorEmail,
     });
     expect(suspended).toEqual({ ok: true, accountStatus: "suspended" });
+    await expect(getUserAccountAccess(targetId)).resolves.toMatchObject({
+      allowed: false,
+      reason: "suspended",
+    });
 
     const reactivated = await moderateAccount({
       action: "reactivate",
@@ -181,6 +197,10 @@ describe.skipIf(!shouldRun)("admin operations against local test Postgres", () =
       actorEmail: actorEmail,
     });
     expect(banned).toEqual({ ok: true, accountStatus: "banned" });
+    await expect(getUserAccountAccess(targetId)).resolves.toMatchObject({
+      allowed: false,
+      reason: "banned",
+    });
 
     await expect(
       createUserWithRole({
@@ -208,6 +228,10 @@ describe.skipIf(!shouldRun)("admin operations against local test Postgres", () =
       actorEmail: actorEmail,
     });
     expect(lifted).toEqual({ ok: true, accountStatus: "active" });
+    await expect(getUserAccountAccess(targetId)).resolves.toMatchObject({
+      allowed: true,
+      reason: null,
+    });
 
     const events = await db
       .select({ action: adminAuditEvents.action })
@@ -348,7 +372,11 @@ describe.skipIf(!shouldRun)("admin operations against local test Postgres", () =
       reason: "stale confirmation",
       adminEmail: actorEmail,
     });
-    expect(stale.ok).toBe(false);
+    expect(stale).toEqual({
+      ok: false,
+      status: 409,
+      error: "Paywall mode changed since this page loaded. Refresh and try again.",
+    });
 
     const closed = await updateBillingAccessMode({
       nextMode: "enforced",
@@ -359,5 +387,48 @@ describe.skipIf(!shouldRun)("admin operations against local test Postgres", () =
     expect(closed).toEqual({ ok: true, mode: "enforced" });
     invalidateBillingAccessModeCache();
     expect(await getBillingAccessMode()).toBe("enforced");
+  });
+
+  it("rolls back ban state when the moderation transaction aborts", async () => {
+    const rollbackUser = await createUserWithRole({
+      email: rollbackEmail,
+      name: "Rollback Worker",
+      role: "worker",
+      ageVerified: true,
+    });
+
+    await db
+      .update(workerProfiles)
+      .set({ isPublished: true, updatedAt: new Date() })
+      .where(eq(workerProfiles.userId, rollbackUser.id));
+
+    await expect(
+      db.transaction(async (tx) => {
+        const banned = await moderateAccountWithClient(tx as typeof db, {
+          action: "ban",
+          targetUserId: rollbackUser.id,
+          reason: "transaction rollback probe",
+          actorUserId: actorId,
+          actorEmail: actorEmail,
+        });
+        expect(banned).toEqual({ ok: true, accountStatus: "banned" });
+        throw new Error("forced rollback");
+      })
+    ).rejects.toThrow("forced rollback");
+
+    const [user] = await db
+      .select({ accountStatus: users.accountStatus })
+      .from(users)
+      .where(eq(users.id, rollbackUser.id));
+    expect(user?.accountStatus).toBe("active");
+    expect(await findActiveBannedIdentity(rollbackEmail)).toBeNull();
+
+    const [profile] = await db
+      .select({ isPublished: workerProfiles.isPublished })
+      .from(workerProfiles)
+      .where(eq(workerProfiles.userId, rollbackUser.id));
+    expect(profile?.isPublished).toBe(true);
+
+    await db.delete(users).where(eq(users.id, rollbackUser.id));
   });
 });

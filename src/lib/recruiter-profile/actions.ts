@@ -1,6 +1,5 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { db, recruiterProfiles, recruiterOpenings } from "@/lib/db";
 import type { RecruiterOpening } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -12,6 +11,10 @@ import {
   updateOpeningSchema,
   updateProfileSchema,
 } from "./opening-validation";
+import {
+  actionAuthError,
+  requireActiveRecruiter,
+} from "@/lib/auth/require-active-user";
 
 export interface ActionResult {
   success: boolean;
@@ -24,34 +27,34 @@ export interface ActionResultWithData<T> {
   error?: string;
 }
 
-async function getAuthenticatedRecruiter(): Promise<{
-  userId: string;
-  recruiterProfileId: string;
-} | null> {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "recruiter") {
-    return null;
+async function getAuthenticatedRecruiter(): Promise<
+  | { ok: true; userId: string; recruiterProfileId: string }
+  | { ok: false; error: string }
+> {
+  const result = await requireActiveRecruiter();
+  if (!result.ok) {
+    return actionAuthError(result);
   }
 
   const [profile] = await db
     .select({ id: recruiterProfiles.id })
     .from(recruiterProfiles)
-    .where(eq(recruiterProfiles.userId, session.user.id))
+    .where(eq(recruiterProfiles.userId, result.user.userId))
     .limit(1);
 
   if (!profile) {
-    return null;
+    return { ok: false, error: "Unauthorized" };
   }
 
-  return { userId: session.user.id, recruiterProfileId: profile.id };
+  return { ok: true, userId: result.user.userId, recruiterProfileId: profile.id };
 }
 
 export async function updateRecruiterProfile(
   data: unknown
 ): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
-    return { success: false, error: "Unauthorized" };
+  if (!recruiter.ok) {
+    return { success: false, error: recruiter.error };
   }
 
   const validation = updateProfileSchema.safeParse(data);
@@ -93,7 +96,7 @@ export async function updateRecruiterProfile(
 
 export async function getRecruiterProfile() {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
+  if (!recruiter.ok) {
     return null;
   }
 
@@ -110,8 +113,8 @@ export async function createOpening(
   data: unknown
 ): Promise<ActionResultWithData<RecruiterOpening>> {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
-    return { success: false, error: "Unauthorized" };
+  if (!recruiter.ok) {
+    return { success: false, error: recruiter.error };
   }
 
   const validation = createOpeningSchema.safeParse(data);
@@ -144,8 +147,8 @@ export async function createOpening(
 
 export async function updateOpening(data: unknown): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
-    return { success: false, error: "Unauthorized" };
+  if (!recruiter.ok) {
+    return { success: false, error: recruiter.error };
   }
 
   const validation = updateOpeningSchema.safeParse(data);
@@ -197,8 +200,8 @@ export async function updateOpening(data: unknown): Promise<ActionResult> {
 
 export async function deleteOpening(openingId: string): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
-    return { success: false, error: "Unauthorized" };
+  if (!recruiter.ok) {
+    return { success: false, error: recruiter.error };
   }
 
   const [existingOpening] = await db
@@ -233,8 +236,8 @@ export async function deleteOpening(openingId: string): Promise<ActionResult> {
 
 export async function publishOpening(openingId: string): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
-    return { success: false, error: "Unauthorized" };
+  if (!recruiter.ok) {
+    return { success: false, error: recruiter.error };
   }
 
   const [existingOpening] = await db
@@ -275,8 +278,8 @@ export async function unpublishOpening(
   openingId: string
 ): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
-    return { success: false, error: "Unauthorized" };
+  if (!recruiter.ok) {
+    return { success: false, error: recruiter.error };
   }
 
   const [existingOpening] = await db
@@ -315,7 +318,7 @@ export async function unpublishOpening(
 
 export async function getRecruiterOpenings(): Promise<RecruiterOpening[]> {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
+  if (!recruiter.ok) {
     return [];
   }
 
@@ -330,7 +333,7 @@ export async function getOpening(
   openingId: string
 ): Promise<RecruiterOpening | null> {
   const recruiter = await getAuthenticatedRecruiter();
-  if (!recruiter) {
+  if (!recruiter.ok) {
     return null;
   }
 

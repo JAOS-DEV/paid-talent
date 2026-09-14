@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { db, type DbClient } from "@/lib/db";
 import {
   recruiterOpenings,
   recruiterProfiles,
@@ -17,13 +17,12 @@ import {
 import type { AdminAuditAction } from "@/lib/db/schema";
 
 /**
- * Already-issued JWT sessions are not immediately revoked.
- * Paid Talent keeps Edge middleware DB-free, so a suspended/banned user who
- * already holds a valid JWT may continue until that token expires.
- * This module blocks future authentication and immediately unpublishes
- * public worker/recruiter content. Server/API routes also check account
- * status. Immediate session revocation would require a dedicated
- * token-version or denylist architecture.
+ * The already-issued JWT itself is not forcibly invalidated at Edge, but
+ * DB-backed Node/server actions and APIs deny suspended/banned accounts
+ * immediately. Paid Talent keeps Edge middleware DB-free. This module
+ * unpublishes public worker/recruiter content and records account status.
+ * Immediate Edge session revocation would require a dedicated token-version
+ * or denylist architecture.
  */
 
 const MIN_REASON_LENGTH = 3;
@@ -82,35 +81,41 @@ function auditActionFor(action: AccountModerationAction): AdminAuditAction {
   return "ban_lifted";
 }
 
-async function unpublishRestrictedContent(userId: string): Promise<void> {
-  const now = new Date();
-  await db
+async function unpublishRestrictedContent(
+  client: DbClient,
+  userId: string,
+  now: Date
+): Promise<void> {
+  await client
     .update(workerProfiles)
     .set({ isPublished: false, updatedAt: now })
     .where(eq(workerProfiles.userId, userId));
 
-  const [recruiterProfile] = await db
+  const [recruiterProfile] = await client
     .select({ id: recruiterProfiles.id })
     .from(recruiterProfiles)
     .where(eq(recruiterProfiles.userId, userId))
     .limit(1);
 
   if (recruiterProfile) {
-    await db
+    await client
       .update(recruiterOpenings)
       .set({ isPublished: false, updatedAt: now })
       .where(eq(recruiterOpenings.recruiterProfileId, recruiterProfile.id));
   }
 }
 
-export async function moderateAccount(input: {
-  action: AccountModerationAction;
-  targetUserId: string;
-  reason: string;
-  actorUserId: string;
-  actorEmail: string;
-  now?: Date;
-}): Promise<
+export async function moderateAccountWithClient(
+  client: DbClient,
+  input: {
+    action: AccountModerationAction;
+    targetUserId: string;
+    reason: string;
+    actorUserId: string;
+    actorEmail: string;
+    now?: Date;
+  }
+): Promise<
   | { ok: true; accountStatus: AccountStatus }
   | { ok: false; status: number; error: string }
 > {
@@ -136,7 +141,7 @@ export async function moderateAccount(input: {
     };
   }
 
-  const [target] = await db
+  const [target] = await client
     .select({
       id: users.id,
       email: users.email,
@@ -177,12 +182,13 @@ export async function moderateAccount(input: {
       reason: reason!,
       adminEmail: input.actorEmail,
       now,
+      db: client,
     });
-    await unpublishRestrictedContent(target.id);
+    await unpublishRestrictedContent(client, target.id, now);
   }
 
   if (input.action === "suspend") {
-    await unpublishRestrictedContent(target.id);
+    await unpublishRestrictedContent(client, target.id, now);
   }
 
   if (input.action === "lift_ban" && normalizedEmail) {
@@ -190,10 +196,11 @@ export async function moderateAccount(input: {
       email: normalizedEmail,
       adminEmail: input.actorEmail,
       now,
+      db: client,
     });
   }
 
-  await db
+  await client
     .update(users)
     .set({
       accountStatus: nextStatus,
@@ -218,9 +225,26 @@ export async function moderateAccount(input: {
       after: nextStatus,
     },
     createdAt: now,
+    db: client,
   });
 
   return { ok: true, accountStatus: nextStatus };
+}
+
+export async function moderateAccount(input: {
+  action: AccountModerationAction;
+  targetUserId: string;
+  reason: string;
+  actorUserId: string;
+  actorEmail: string;
+  now?: Date;
+}): Promise<
+  | { ok: true; accountStatus: AccountStatus }
+  | { ok: false; status: number; error: string }
+> {
+  return db.transaction(async (tx) =>
+    moderateAccountWithClient(tx as DbClient, input)
+  );
 }
 
 export async function hasActiveDurableBan(

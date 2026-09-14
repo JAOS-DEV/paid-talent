@@ -1,6 +1,5 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -9,6 +8,10 @@ import { validateProfileText } from "@/lib/helpers/text-filter";
 import { PROFILE_PHOTO_ERRORS } from "@/lib/media/profile-photo";
 import { isPersistablePublicMediaUrl } from "@/lib/media/public-url";
 import { assertOwnedPublicProfilePhotoKey } from "@/lib/storage/keys";
+import {
+  actionAuthError,
+  requireActiveWorker,
+} from "@/lib/auth/require-active-user";
 
 const photoSchema = z.object({
   photoKey: z.string().min(1),
@@ -61,20 +64,23 @@ interface ActionResult {
   error?: string;
 }
 
-async function getAuthenticatedWorker(): Promise<{ userId: string } | null> {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "worker") {
-    return null;
+async function getAuthenticatedWorker(): Promise<
+  | { ok: true; userId: string }
+  | { ok: false; error: string }
+> {
+  const result = await requireActiveWorker();
+  if (!result.ok) {
+    return actionAuthError(result);
   }
-  return { userId: session.user.id };
+  return { ok: true, userId: result.user.userId };
 }
 
 export async function updateProfilePhoto(
   data: z.infer<typeof photoSchema>
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
-    return { success: false, error: "Unauthorized" };
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
   }
 
   const validation = photoSchema.safeParse(data);
@@ -107,8 +113,8 @@ export async function updateProfileName(
   data: z.infer<typeof nameSchema>
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
-    return { success: false, error: "Unauthorized" };
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
   }
 
   const validation = nameSchema.safeParse(data);
@@ -139,8 +145,8 @@ export async function updateProfileRoles(
   data: z.infer<typeof rolesSchema>
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
-    return { success: false, error: "Unauthorized" };
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
   }
 
   const validation = rolesSchema.safeParse(data);
@@ -166,8 +172,8 @@ export async function updateProfileExperience(
   data: z.infer<typeof experienceSchema>
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
-    return { success: false, error: "Unauthorized" };
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
   }
 
   const validation = experienceSchema.safeParse(data);
@@ -201,8 +207,8 @@ export async function updateProfileLanguages(
   data: z.infer<typeof languagesSchema>
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
-    return { success: false, error: "Unauthorized" };
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
   }
 
   const validation = languagesSchema.safeParse(data);
@@ -228,8 +234,8 @@ export async function updateProfileBio(
   data: z.infer<typeof bioSchema>
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
-    return { success: false, error: "Unauthorized" };
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
   }
 
   const validation = bioSchema.safeParse(data);
@@ -260,8 +266,8 @@ export async function updateProfileLocation(
   data: z.infer<typeof locationSchema>
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
-    return { success: false, error: "Unauthorized" };
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
   }
 
   const validation = locationSchema.safeParse(data);
@@ -304,8 +310,8 @@ export async function updateProfileContact(
   data: z.infer<typeof contactSchema>
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
-    return { success: false, error: "Unauthorized" };
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
   }
 
   const validation = contactSchema.safeParse(data);
@@ -331,8 +337,8 @@ export async function updateProfileContact(
 
 export async function publishProfile(): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
-    return { success: false, error: "Unauthorized" };
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
   }
 
   await db
@@ -351,7 +357,7 @@ export async function publishProfile(): Promise<ActionResult> {
 
 export async function getWorkerProfile() {
   const worker = await getAuthenticatedWorker();
-  if (!worker) {
+  if (!worker.ok) {
     return null;
   }
 

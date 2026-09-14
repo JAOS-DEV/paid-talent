@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db, workerProfiles, verificationEvents } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -15,6 +14,10 @@ import {
 } from "@/lib/storage/s3";
 import { PrivateStorageConfigError } from "@/lib/storage/config";
 import { assertOwnedPrivateVerificationKey } from "@/lib/storage/keys";
+import {
+  deniedActiveUserResponse,
+  requireActiveWorker,
+} from "@/lib/auth/require-active-user";
 
 const submitVerificationSchema = z.object({
   idDocumentKey: z.string().min(1, "ID document key is required"),
@@ -24,14 +27,9 @@ const submitVerificationSchema = z.object({
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.role !== "worker") {
-      return NextResponse.json({ error: "Not a worker" }, { status: 403 });
+    const actor = await requireActiveWorker();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
     const [profile] = await db
@@ -43,7 +41,7 @@ export async function GET(): Promise<NextResponse> {
         challengeIssuedAt: workerProfiles.challengeIssuedAt,
       })
       .from(workerProfiles)
-      .where(eq(workerProfiles.userId, session.user.id))
+      .where(eq(workerProfiles.userId, actor.user.userId))
       .limit(1);
 
     if (!profile) {
@@ -68,14 +66,9 @@ export async function GET(): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.role !== "worker") {
-      return NextResponse.json({ error: "Not a worker" }, { status: 403 });
+    const actor = await requireActiveWorker();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
     const body = await request.json();
@@ -95,12 +88,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     try {
       assertOwnedPrivateVerificationKey(
-        session.user.id,
+        actor.user.userId,
         idDocumentKey,
         "id"
       );
       assertOwnedPrivateVerificationKey(
-        session.user.id,
+        actor.user.userId,
         livenessVideoKey,
         "liveness"
       );
@@ -114,7 +107,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const [existingProfile] = await db
       .select()
       .from(workerProfiles)
-      .where(eq(workerProfiles.userId, session.user.id))
+      .where(eq(workerProfiles.userId, actor.user.userId))
       .limit(1);
 
     if (!existingProfile) {
@@ -163,7 +156,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     try {
       const docBuffer = await getOwnedIdDocumentBuffer(
-        session.user.id,
+        actor.user.userId,
         idDocumentKey
       );
       idDocumentSha256 = computeFileSha256(docBuffer);
@@ -189,7 +182,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     try {
       const videoBuffer = await getOwnedLivenessVideoBuffer(
-        session.user.id,
+        actor.user.userId,
         livenessVideoKey
       );
       livenessVideoSha256 = computeFileSha256(videoBuffer);
@@ -216,10 +209,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const now = new Date();
 
     await db.insert(verificationEvents).values({
-      userId: session.user.id,
+      userId: actor.user.userId,
       workerProfileId: existingProfile.id,
       decision: "pending_submitted",
-      actorUserId: session.user.id,
+      actorUserId: actor.user.userId,
       actorType: "worker",
       method: "system",
       docType,
@@ -240,7 +233,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         idDocumentSubmittedAt: now,
         updatedAt: now,
       })
-      .where(eq(workerProfiles.userId, session.user.id))
+      .where(eq(workerProfiles.userId, actor.user.userId))
       .returning();
 
     return NextResponse.json({

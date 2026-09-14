@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
 import { db, workerProfiles, users } from "@/lib/db";
 import { eq, and, ilike, sql, type SQL } from "drizzle-orm";
 import { isProfileTopTalent } from "@/lib/ranking";
@@ -10,7 +9,10 @@ import {
   buildFilterCriteria,
 } from "@/lib/helpers/search-filters";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
-import { getUserAccountAccess } from "@/lib/auth/account-access";
+import {
+  deniedActiveUserResponse,
+  requireActiveRecruiter,
+} from "@/lib/auth/require-active-user";
 
 export interface SearchWorkerResult {
   id: string;
@@ -30,25 +32,9 @@ export interface SearchWorkerResult {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (session.user.role !== "recruiter") {
-      return NextResponse.json(
-        { error: "Only recruiters can search workers" },
-        { status: 403 }
-      );
-    }
-
-    const viewerAccess = await getUserAccountAccess(session.user.id);
-    if (!viewerAccess.allowed) {
-      return NextResponse.json(
-        { error: "Account restricted", reason: viewerAccess.reason },
-        { status: 403 }
-      );
+    const actor = await requireActiveRecruiter();
+    if (!actor.ok) {
+      return deniedActiveUserResponse(actor);
     }
 
     const { searchParams } = new URL(request.url);
