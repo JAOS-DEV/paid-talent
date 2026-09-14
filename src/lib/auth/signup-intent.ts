@@ -36,3 +36,44 @@ export function parseSignupIntentRole(
   }
   return value;
 }
+
+export function getClearedSignupIntentCookieOptions(
+  isProduction: boolean
+): SignupIntentCookieOptions {
+  return {
+    ...getSignupIntentCookieOptions(isProduction),
+    maxAge: 0,
+  };
+}
+
+export interface SignupIntentCookieWriter {
+  set(
+    name: string,
+    value: string,
+    options: SignupIntentCookieOptions
+  ): void;
+}
+
+/**
+ * Expire the signup-intent cookie with the same Path/HttpOnly/SameSite/Secure
+ * attributes used when it was minted, so the browser actually clears it.
+ */
+export function consumeSignupIntentCookie(
+  cookieStore: SignupIntentCookieWriter,
+  isProduction: boolean
+): void {
+  cookieStore.set(
+    SIGNUP_INTENT_COOKIE,
+    "",
+    getClearedSignupIntentCookieOptions(isProduction)
+  );
+}
+
+export function shouldConsumeSignupIntent(
+  decisionKind: "complete_existing" | "create_and_complete" | "abort_redirect"
+): boolean {
+  return (
+    decisionKind === "create_and_complete" ||
+    decisionKind === "complete_existing"
+  );
+}

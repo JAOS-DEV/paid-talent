@@ -85,6 +85,52 @@ test.describe("Canonical signup entry points", () => {
   });
 });
 
+test.describe("Signup intent cannot be minted from signin query params", () => {
+  async function signupIntentValue(page: Page): Promise<string | undefined> {
+    const cookies = await page.context().cookies();
+    return cookies.find((c) => c.name === "signup_intent_role")?.value;
+  }
+
+  async function clickGoogleWithoutLeaving(page: Page): Promise<void> {
+    await page.route("**/api/auth/**", async (route) => {
+      const url = route.request().url();
+      if (url.includes("signin/google") || url.includes("callback/google")) {
+        await route.abort();
+        return;
+      }
+      await route.continue();
+    });
+    await page.route("**/accounts.google.com/**", (route) => route.abort());
+    await page.getByRole("button", { name: /google/i }).click();
+  }
+
+  test("direct worker signin URL does not mint signup_intent_role", async ({
+    page,
+  }) => {
+    await page.goto("/auth/signin?role=worker&ageConfirmed=true");
+    await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+
+    await expect.poll(async () => signupIntentValue(page)).toBeUndefined();
+
+    await clickGoogleWithoutLeaving(page);
+
+    await expect.poll(async () => signupIntentValue(page)).toBeUndefined();
+  });
+
+  test("direct recruiter signin URL does not mint signup_intent_role", async ({
+    page,
+  }) => {
+    await page.goto("/auth/signin?role=recruiter&ageConfirmed=true");
+    await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+
+    await expect.poll(async () => signupIntentValue(page)).toBeUndefined();
+
+    await clickGoogleWithoutLeaving(page);
+
+    await expect.poll(async () => signupIntentValue(page)).toBeUndefined();
+  });
+});
+
 test.describe("Signup intent survives into signin", () => {
   test("role-select -> age-gate preserves role", async ({ page }) => {
     await page.goto("/auth/role-select");

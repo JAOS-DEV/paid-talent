@@ -14,7 +14,9 @@ export type PersistSignupIntentResult =
 
 /**
  * Persist the chosen signup role before Google/email authentication.
- * Called when the pre-auth 20+ gate is completed so the intent survives OAuth.
+ * This is the ONLY place that may mint a new signup_intent_role cookie.
+ * Completing the pre-auth 20+ gate is the proof that intent is valid.
+ * Sign-in query params must never call this.
  */
 export async function persistSignupIntentRole(
   role: string

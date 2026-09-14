@@ -118,7 +118,29 @@ describe("public signup entry points", () => {
   it("signin page no longer writes signup_intent_role via document.cookie", () => {
     const signin = readSrc("app/auth/signin/page.tsx");
     expect(signin).not.toMatch(/document\.cookie/);
-    expect(signin).toContain("persistSignupIntentRole");
+    expect(signin).not.toContain("persistSignupIntentRole");
+    expect(signin).not.toContain("ensureSignupIntentCookie");
+  });
+
+  it("signin does not mint signup intent from role/ageConfirmed query params", () => {
+    const signin = readSrc("app/auth/signin/page.tsx");
+    expect(signin).not.toContain("persistSignupIntentRole");
+    expect(signin).not.toContain("signup-intent-action");
+    expect(signin).not.toMatch(/ageConfirmed/);
+  });
+
+  it("only the age-gate server action mints signup_intent_role", () => {
+    const action = readSrc("lib/auth/signup-intent-action.ts");
+    const ageGate = readSrc("app/auth/age-gate/page.tsx");
+    const signin = readSrc("app/auth/signin/page.tsx");
+    const config = readSrc("lib/auth/config.ts");
+
+    expect(action).toContain("persistSignupIntentRole");
+    expect(ageGate).toContain("persistSignupIntentRole");
+    expect(signin).not.toContain("persistSignupIntentRole");
+    expect(config).not.toContain("persistSignupIntentRole");
+    expect(config).toContain("consumeSignupIntentCookie");
+    expect(config).toContain("shouldConsumeSignupIntent");
   });
 });
 
@@ -238,6 +260,57 @@ describe("canonical signup lifecycle (single authentication)", () => {
     const reference = new Date("2026-09-14");
     expect(meetsMinimumAge(new Date("2000-01-01"), reference)).toBe(true);
     expect(meetsMinimumAge(new Date("2010-01-01"), reference)).toBe(false);
+  });
+
+  it("a brand-new Google account without a valid intent cannot be created", () => {
+    const decision = resolveProviderSignInDecision({
+      existingUser: null,
+      signupIntentRole: undefined,
+      email: "unknown@example.com",
+    });
+    expect(decision.kind).toBe("abort_redirect");
+    if (decision.kind === "abort_redirect") {
+      expect(decision.url).toContain("/auth/role-select");
+    }
+  });
+
+  it("stale worker intent cannot create a second unknown Google account once consumed", () => {
+    const first = resolveProviderSignInDecision({
+      existingUser: null,
+      signupIntentRole: "worker",
+      email: "first@example.com",
+    });
+    expect(first.kind).toBe("create_and_complete");
+
+    const afterConsume = resolveProviderSignInDecision({
+      existingUser: null,
+      signupIntentRole: undefined,
+      email: "second@example.com",
+    });
+    expect(afterConsume.kind).toBe("abort_redirect");
+    if (afterConsume.kind === "abort_redirect") {
+      expect(afterConsume.url).toContain("/auth/role-select");
+    }
+  });
+
+  it("existing-user auth ignores a stale signup intent", () => {
+    const decision = resolveProviderSignInDecision({
+      existingUser: {
+        id: "existing-worker",
+        role: "worker",
+        ageVerified: true,
+      },
+      signupIntentRole: "recruiter",
+      email: "worker1@example.com",
+    });
+    expect(decision).toEqual({
+      kind: "complete_existing",
+      user: {
+        id: "existing-worker",
+        role: "worker",
+        ageVerified: true,
+      },
+    });
   });
 });
 

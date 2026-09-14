@@ -4,8 +4,6 @@ import React, { useState, Suspense, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button, Card, CardContent, Input } from "@/components/ui";
-import { persistSignupIntentRole } from "@/lib/auth/signup-intent-action";
-import { isValidSignupIntentRole } from "@/lib/auth/sign-in-decision";
 
 const errorMessages: Record<string, string> = {
   CredentialsSignin: "No account found with that email. Please check your email or sign up.",
@@ -20,21 +18,12 @@ interface AuthConfig {
   devBypassEnabled: boolean;
 }
 
-async function ensureSignupIntentCookie(role: string | null): Promise<boolean> {
-  if (!isValidSignupIntentRole(role ?? undefined) || !role) {
-    return false;
-  }
-  const result = await persistSignupIntentRole(role);
-  return result.ok;
-}
-
 function SignInForm(): React.ReactElement {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const role = searchParams.get("role");
   const dob = searchParams.get("dob");
-  const ageConfirmed = searchParams.get("ageConfirmed") === "true";
   const errorParam = searchParams.get("error");
 
   const [email, setEmail] = useState("");
@@ -47,9 +36,6 @@ function SignInForm(): React.ReactElement {
   });
 
   const isLegacySignupMode = Boolean(role && dob);
-  const isSignupIntentMode = Boolean(
-    isValidSignupIntentRole(role ?? undefined) && ageConfirmed && !dob
-  );
   const isSignupMode = isLegacySignupMode;
 
   useEffect(() => {
@@ -59,19 +45,10 @@ function SignInForm(): React.ReactElement {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!isSignupIntentMode || !role) return;
-    void persistSignupIntentRole(role);
-  }, [isSignupIntentMode, role]);
-
   const handleGoogleSignIn = async (): Promise<void> => {
     setIsLoading(true);
     setError(null);
     setFormError(null);
-
-    if (isSignupIntentMode) {
-      await ensureSignupIntentCookie(role);
-    }
 
     const finalCallbackUrl =
       isLegacySignupMode && role && dob
@@ -86,10 +63,6 @@ function SignInForm(): React.ReactElement {
     setError(null);
     setFormError(null);
     setIsLoading(true);
-
-    if (isSignupIntentMode) {
-      await ensureSignupIntentCookie(role);
-    }
 
     // In signup mode, register the user first via POST API
     if (isSignupMode) {
