@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   getProfileCompleteness,
+  getNextStepId,
+  getPreviousStepId,
   ONBOARDING_STEPS,
   INCOMPLETE_PROFILE_REDIRECT_THRESHOLD,
 } from "../index";
@@ -301,6 +303,16 @@ describe("profile completeness", () => {
         expect(result.completedSteps).toContain("name");
       });
 
+      it("keeps Google-prepopulated displayName complete without skipping photo", () => {
+        const result = getProfileCompleteness(
+          createMockProfile({
+            displayName: "Ada from Google",
+          })
+        );
+        expect(result.completedSteps).toEqual(["name"]);
+        expect(result.nextStep).toBe("photo");
+      });
+
       it("should NOT mark name step complete with empty displayName", () => {
         const profile = createMockProfile({
           displayName: "",
@@ -435,6 +447,26 @@ describe("profile completeness", () => {
         const result = getProfileCompleteness(profile);
         expect(result.completedSteps).not.toContain("photo");
       });
+    });
+  });
+
+  describe("onboarding step navigation", () => {
+    it("advances sequentially and does not skip pre-completed later fields", () => {
+      expect(getNextStepId("photo")).toBe("name");
+      expect(getNextStepId("name")).toBe("roles");
+      expect(getNextStepId("roles")).toBe("experience");
+      expect(getNextStepId("experience")).toBe("languages");
+      expect(getNextStepId("languages")).toBe("bio");
+      expect(getNextStepId("bio")).toBe("location");
+      expect(getNextStepId("location")).toBe("contact");
+      expect(getNextStepId("contact")).toBeNull();
+    });
+
+    it("moves backward sequentially from later steps", () => {
+      expect(getPreviousStepId("photo")).toBeNull();
+      expect(getPreviousStepId("name")).toBe("photo");
+      expect(getPreviousStepId("roles")).toBe("name");
+      expect(getPreviousStepId("contact")).toBe("location");
     });
   });
 });
