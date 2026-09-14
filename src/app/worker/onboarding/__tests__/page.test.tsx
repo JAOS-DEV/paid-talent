@@ -1,10 +1,11 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import type { WorkerProfile } from "@/lib/db/schema";
 
 const replace = vi.fn();
 const push = vi.fn();
+const router = { replace, push };
 const useSession = vi.fn();
 
 vi.mock("next-auth/react", () => ({
@@ -12,7 +13,7 @@ vi.mock("next-auth/react", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace, push }),
+  useRouter: () => router,
 }));
 
 vi.mock("@/components/layout", () => ({
@@ -26,8 +27,38 @@ vi.mock("@/components/onboarding", () => ({
   }: {
     currentStepId: string;
   }): React.ReactElement => <div>stepper:{currentStepId}</div>,
-  PhotoStep: (): React.ReactElement => <div>PhotoStep</div>,
-  NameStep: (): React.ReactElement => <div>NameStep</div>,
+  PhotoStep: ({
+    onComplete,
+  }: {
+    onComplete: () => void;
+  }): React.ReactElement => (
+    <div>
+      PhotoStep
+      <button
+        type="button"
+        onClick={() => {
+          void onComplete();
+        }}
+      >
+        complete-photo
+      </button>
+    </div>
+  ),
+  NameStep: ({
+    initialName,
+    onBack,
+  }: {
+    initialName: string;
+    onBack: () => void;
+  }): React.ReactElement => (
+    <div>
+      NameStep
+      <span>initial-name:{initialName}</span>
+      <button type="button" onClick={onBack}>
+        back-name
+      </button>
+    </div>
+  ),
   RolesStep: (): React.ReactElement => <div>RolesStep</div>,
   ExperienceStep: (): React.ReactElement => <div>ExperienceStep</div>,
   LanguagesStep: (): React.ReactElement => <div>LanguagesStep</div>,
@@ -165,5 +196,62 @@ describe("WorkerOnboardingPage", () => {
     await waitFor(() => {
       expect(replace).toHaveBeenCalledWith("/worker/dashboard");
     });
+  });
+
+  it("starts on photo even when Google already populated the display name", async () => {
+    mockWorkerSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          profile: createMockProfile({
+            displayName: "Ada from Google",
+          }),
+        }),
+      })
+    );
+
+    render(<WorkerOnboardingPage />);
+
+    expect(await screen.findByText("PhotoStep")).toBeInTheDocument();
+    expect(screen.getByText("stepper:photo")).toBeInTheDocument();
+    expect(screen.queryByText("NameStep")).not.toBeInTheDocument();
+  });
+
+  it("advances photo to name, keeps Google name, and navigates back", async () => {
+    mockWorkerSession();
+    const profile = createMockProfile({
+      displayName: "Ada from Google",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ profile }),
+      })
+    );
+
+    render(<WorkerOnboardingPage />);
+
+    expect(await screen.findByText("PhotoStep")).toBeInTheDocument();
+    expect(screen.getByText("stepper:photo")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^complete-photo$/ }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("stepper:name")).toBeInTheDocument();
+    });
+    expect(screen.getByText("NameStep")).toBeInTheDocument();
+    expect(screen.getByText("initial-name:Ada from Google")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^back-name$/ }));
+
+    await waitFor(() => {
+      expect(screen.getByText("stepper:photo")).toBeInTheDocument();
+    });
+    expect(screen.getByText("PhotoStep")).toBeInTheDocument();
   });
 });

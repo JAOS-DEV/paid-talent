@@ -33,7 +33,6 @@ export default function WorkerOnboardingPage(): React.ReactElement {
   const router = useRouter();
   const [profile, setProfile] = useState<WorkerProfile | null>(null);
   const [currentStep, setCurrentStep] = useState<string>("photo");
-  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,7 +44,6 @@ export default function WorkerOnboardingPage(): React.ReactElement {
           setProfile(data.profile);
 
           const completeness = getProfileCompleteness(data.profile);
-          setCompletedSteps(completeness.completedSteps);
 
           const loadAction = resolveOnboardingAfterProfileLoad(completeness);
           if (loadAction.action === "redirect-to-dashboard") {
@@ -78,8 +76,6 @@ export default function WorkerOnboardingPage(): React.ReactElement {
     if (res.ok) {
       const data = await res.json();
       setProfile(data.profile);
-      const completeness = getProfileCompleteness(data.profile);
-      setCompletedSteps(completeness.completedSteps);
     }
 
     const nextStep = getNextStepId(currentStep);
@@ -208,10 +204,7 @@ export default function WorkerOnboardingPage(): React.ReactElement {
 
           <Card padding="lg">
             <CardContent>
-              <OnboardingStepper
-                currentStepId={currentStep}
-                completedSteps={completedSteps}
-              />
+              <OnboardingStepper currentStepId={currentStep} />
 
               <div className="mt-6">{renderCurrentStep()}</div>
             </CardContent>
