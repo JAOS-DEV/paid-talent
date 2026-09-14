@@ -28,7 +28,7 @@ export async function GET(): Promise<NextResponse> {
 
     const { photos, count } = await listPendingPhotosForAdmin({
       adminEmail: adminCheck.email,
-      includeSignedMedia: true,
+      includeSignedMedia: false,
     });
 
     return NextResponse.json({

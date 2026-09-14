@@ -135,11 +135,14 @@ describe.skipIf(!shouldRun)("admin operations against local test Postgres", () =
     expect(byId.page).toBe(1);
   });
 
-  it("reads overview metrics from the database", async () => {
+    it("reads overview metrics from the database", async () => {
     const metrics = await getAdminOverviewMetrics();
     expect(metrics.totalUsers).toBeGreaterThanOrEqual(3);
     expect(metrics.workers).toBeGreaterThanOrEqual(1);
     expect(metrics.recruiters).toBeGreaterThanOrEqual(2);
+    expect(metrics.publishedWorkers).toBeGreaterThanOrEqual(0);
+    expect(metrics.topTalentCount).toBeGreaterThanOrEqual(0);
+    expect(metrics.topTalentCount).toBeLessThanOrEqual(metrics.publishedWorkers);
     expect(["enforced", "open_access"]).toContain(metrics.billingAccessMode);
   });
 

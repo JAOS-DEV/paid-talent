@@ -220,6 +220,21 @@ export function calculateCompositeScore(
   };
 }
 
+export function isCompositeTopTalentScore(
+  totalScore: number,
+  criteria?: V11RankingCriteria
+): boolean {
+  const merged = mergeV11Criteria(criteria);
+  const maxPossibleScore =
+    merged.weights.profileCompleteness +
+    merged.weights.uniqueViews +
+    merged.weights.interestRate +
+    merged.weights.recency;
+  const minimumTopTalentScore =
+    maxPossibleScore * (1 - merged.topTalentThreshold);
+  return totalScore >= minimumTopTalentScore;
+}
+
 export function mergeCriteria(
   criteria?: RankingCriteria
 ): Required<RankingCriteria> {

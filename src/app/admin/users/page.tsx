@@ -58,6 +58,7 @@ export default async function AdminUsersPage({
                     <td className="px-4 py-3">
                       <Link
                         href={`/admin/users/${user.id}`}
+                        prefetch={false}
                         className="text-primary-300 hover:text-primary-200"
                       >
                         {user.email}
@@ -97,6 +98,7 @@ export default async function AdminUsersPage({
         <div className="flex gap-2">
           {result.page > 1 && (
             <Link
+              prefetch={false}
               className="px-3 py-2 rounded-lg bg-charcoal-800"
               href={`/admin/users?q=${encodeURIComponent(query)}&page=${result.page - 1}`}
             >
@@ -105,6 +107,7 @@ export default async function AdminUsersPage({
           )}
           {result.page < totalPages && (
             <Link
+              prefetch={false}
               className="px-3 py-2 rounded-lg bg-charcoal-800"
               href={`/admin/users?q=${encodeURIComponent(query)}&page=${result.page + 1}`}
             >

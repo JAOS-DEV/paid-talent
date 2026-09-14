@@ -70,8 +70,40 @@ function VerificationCard({
   );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [idDocumentUrl, setIdDocumentUrl] = useState<string | null>(
+    worker.idDocumentUrl
+  );
+  const [livenessVideoUrl, setLivenessVideoUrl] = useState<string | null>(
+    worker.livenessVideoUrl
+  );
 
   const missing = missingMaterials(worker);
+
+  const loadMedia = useCallback(async (): Promise<void> => {
+    if (idDocumentUrl || livenessVideoUrl) {
+      setReviewOpen(true);
+      return;
+    }
+    setMediaLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/workers/${worker.id}/media`);
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || "Failed to load verification media");
+        return;
+      }
+      setIdDocumentUrl(data.idDocumentUrl ?? null);
+      setLivenessVideoUrl(data.livenessVideoUrl ?? null);
+      setReviewOpen(true);
+    } catch {
+      setError("Failed to load verification media");
+    } finally {
+      setMediaLoading(false);
+    }
+  }, [idDocumentUrl, livenessVideoUrl, worker.id]);
 
   const submit = useCallback(
     async (action: "approve" | "reject") => {
@@ -155,18 +187,32 @@ function VerificationCard({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
+          {!reviewOpen ? (
+            <div className="lg:col-span-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void loadMedia()}
+                loading={mediaLoading}
+                disabled={mediaLoading}
+              >
+                Review documents
+              </Button>
+            </div>
+          ) : (
+            <>
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-charcoal-300">ID document</h3>
-            {worker.idDocumentUrl ? (
+            {idDocumentUrl ? (
               <div className="space-y-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={worker.idDocumentUrl}
+                  src={idDocumentUrl}
                   alt="ID document"
                   className="max-h-72 w-full object-contain rounded-lg border border-charcoal-700 bg-charcoal-900"
                 />
                 <a
-                  href={worker.idDocumentUrl}
+                  href={idDocumentUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block text-sm text-primary-400 hover:underline"
@@ -174,6 +220,8 @@ function VerificationCard({
                   Open ID document
                 </a>
               </div>
+            ) : worker.hasIdDocument ? (
+              <p className="text-sm text-charcoal-400">ID preview unavailable.</p>
             ) : (
               <p className="text-sm text-red-400">ID document missing</p>
             )}
@@ -183,9 +231,9 @@ function VerificationCard({
             <h3 className="text-sm font-medium text-charcoal-300">
               Liveness video
             </h3>
-            {worker.livenessVideoUrl ? (
+            {livenessVideoUrl ? (
               <video
-                src={worker.livenessVideoUrl}
+                src={livenessVideoUrl}
                 controls
                 playsInline
                 preload="metadata"
@@ -193,10 +241,16 @@ function VerificationCard({
               >
                 Your browser does not support video playback.
               </video>
+            ) : worker.hasLivenessVideo ? (
+              <p className="text-sm text-charcoal-400">
+                Liveness preview unavailable.
+              </p>
             ) : (
               <p className="text-sm text-red-400">Liveness video missing</p>
             )}
           </div>
+            </>
+          )}
         </div>
 
         {!worker.canApprove && (

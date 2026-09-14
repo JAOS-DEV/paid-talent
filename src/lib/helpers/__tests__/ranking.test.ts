@@ -16,6 +16,7 @@ import {
   mergeV11Criteria,
   DEFAULT_V11_CRITERIA,
   DEFAULT_SCORING_WEIGHTS,
+  isCompositeTopTalentScore,
 } from "../ranking";
 
 describe("ranking helpers", () => {
@@ -573,6 +574,13 @@ describe("ranking helpers", () => {
 
           expect(result.completenessScore).toBe(50);
           expect(result.recencyScore).toBe(10);
+        });
+      });
+
+      describe("isCompositeTopTalentScore", () => {
+        it("treats a near-max score as Top Talent at the default 10% threshold", () => {
+          expect(isCompositeTopTalentScore(90)).toBe(true);
+          expect(isCompositeTopTalentScore(89.9)).toBe(false);
         });
       });
     });

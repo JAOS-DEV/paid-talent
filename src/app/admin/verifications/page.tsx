@@ -23,7 +23,7 @@ export default async function AdminVerificationsPage(): Promise<React.ReactEleme
   const { email } = await requireAdminPage("/admin/verifications");
   const { workers } = await listPendingWorkersForAdmin({
     adminEmail: email,
-    includeSignedMedia: true,
+    includeSignedMedia: false,
   });
 
   return (
@@ -34,7 +34,7 @@ export default async function AdminVerificationsPage(): Promise<React.ReactEleme
         </h1>
         <p className="text-charcoal-400 mt-1">
           Compare the challenge code to the liveness video and ID document.
-          Signed media URLs expire — refresh if playback fails.
+          Open a review to load short-lived signed media.
         </p>
       </div>
       <VerificationQueue initialWorkers={serializeWorkers(workers)} />

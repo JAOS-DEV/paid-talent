@@ -5,7 +5,10 @@ import {
   getSignedLivenessVideoUrl,
   getSignedPhotoStagingUrlForAdmin,
 } from "@/lib/storage/s3";
-import { PrivateStorageConfigError } from "@/lib/storage/config";
+import {
+  PRIVATE_SIGNED_GET_MAX_SECONDS,
+  PrivateStorageConfigError,
+} from "@/lib/storage/config";
 import { formatChallengeCodeForDisplay } from "@/lib/verification";
 
 export interface PendingPhotoItem {
@@ -209,4 +212,102 @@ export async function listPendingPhotosForAdmin(options?: {
   );
 
   return { photos, count: photos.length };
+}
+
+async function signedUrlOrNull(
+  createUrl: () => Promise<string>
+): Promise<string | null> {
+  try {
+    return await createUrl();
+  } catch (error) {
+    if (!(error instanceof PrivateStorageConfigError)) {
+      console.warn("[Admin Pending] Could not generate signed media URL");
+    }
+    return null;
+  }
+}
+
+export async function getPendingWorkerMediaForAdmin(input: {
+  workerProfileId: string;
+  adminEmail: string;
+}): Promise<{
+  idDocumentUrl: string | null;
+  livenessVideoUrl: string | null;
+  expiresIn: number;
+} | null> {
+  const [worker] = await db
+    .select({
+      idDocumentKey: workerProfiles.idDocumentKey,
+      livenessVideoKey: workerProfiles.livenessVideoKey,
+    })
+    .from(workerProfiles)
+    .where(eq(workerProfiles.id, input.workerProfileId))
+    .limit(1);
+
+  if (!worker) {
+    return null;
+  }
+
+  const idDocumentKey = worker.idDocumentKey;
+  const livenessVideoKey = worker.livenessVideoKey;
+
+  const [idDocumentUrl, livenessVideoUrl] = await Promise.all([
+    idDocumentKey
+      ? signedUrlOrNull(() =>
+          getSignedIdDocumentUrl(
+            input.adminEmail,
+            idDocumentKey,
+            PRIVATE_SIGNED_GET_MAX_SECONDS
+          )
+        )
+      : Promise.resolve(null),
+    livenessVideoKey
+      ? signedUrlOrNull(() =>
+          getSignedLivenessVideoUrl(
+            input.adminEmail,
+            livenessVideoKey,
+            PRIVATE_SIGNED_GET_MAX_SECONDS
+          )
+        )
+      : Promise.resolve(null),
+  ]);
+
+  return {
+    idDocumentUrl,
+    livenessVideoUrl,
+    expiresIn: PRIVATE_SIGNED_GET_MAX_SECONDS,
+  };
+}
+
+export async function getPendingPhotoMediaForAdmin(input: {
+  photoId: string;
+  adminEmail: string;
+}): Promise<{ photoUrl: string | null; expiresIn: number } | null> {
+  const [photo] = await db
+    .select({
+      stagingKey: profilePhotos.stagingKey,
+    })
+    .from(profilePhotos)
+    .where(eq(profilePhotos.id, input.photoId))
+    .limit(1);
+
+  if (!photo) {
+    return null;
+  }
+
+  const stagingKey = photo.stagingKey;
+  const photoUrl = stagingKey
+    ? await signedUrlOrNull(() =>
+        getSignedPhotoStagingUrlForAdmin(
+          input.adminEmail,
+          stagingKey,
+          PRIVATE_SIGNED_GET_MAX_SECONDS
+        )
+      )
+    : null;
+
+  return {
+    photoUrl,
+    expiresIn: PRIVATE_SIGNED_GET_MAX_SECONDS,
+  };
 }

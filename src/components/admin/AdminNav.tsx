@@ -21,31 +21,62 @@ const navItems: AdminNavItem[] = [
   { href: "/admin/settings", label: "Settings" },
 ];
 
+function isActivePath(pathname: string, item: AdminNavItem): boolean {
+  if (item.exact) {
+    return pathname === item.href;
+  }
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
 export function AdminNav(): React.ReactElement {
   const pathname = usePathname();
 
   return (
-    <header className="border-b border-charcoal-800 bg-charcoal-950">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-charcoal-500 mb-1">
-            Internal
-          </p>
-          <Link href="/admin" className="text-lg font-semibold text-charcoal-100">
-            Admin Dashboard
-          </Link>
+    <header className="border-b border-charcoal-800 bg-charcoal-950 overflow-x-hidden">
+      <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4 min-w-0">
+        <div className="flex items-start justify-between gap-3 min-w-0">
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-wide text-charcoal-500 mb-1">
+              Internal
+            </p>
+            <Link
+              href="/admin"
+              prefetch={false}
+              className="text-lg font-semibold text-charcoal-100"
+            >
+              Admin
+            </Link>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href="/"
+              className="px-3 py-1.5 rounded-lg text-sm text-charcoal-400 hover:bg-charcoal-800 whitespace-nowrap"
+            >
+              Back to app
+            </Link>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => signOut({ callbackUrl: "/" })}
+            >
+              Sign out
+            </Button>
+          </div>
         </div>
 
-        <nav className="flex flex-wrap items-center gap-2" aria-label="Admin">
+        <nav
+          className="flex flex-wrap items-center gap-2 min-w-0"
+          aria-label="Admin"
+        >
           {navItems.map((item) => {
-            const active = item.exact
-              ? pathname === item.href
-              : pathname === item.href || pathname.startsWith(item.href + "/");
+            const active = isActivePath(pathname, item);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                prefetch={false}
+                className={`px-3 py-1.5 rounded-lg text-sm transition-colors whitespace-nowrap ${
                   active
                     ? "bg-primary-600/20 text-primary-300"
                     : "text-charcoal-300 hover:bg-charcoal-800"
@@ -55,20 +86,6 @@ export function AdminNav(): React.ReactElement {
               </Link>
             );
           })}
-          <Link
-            href="/"
-            className="px-3 py-1.5 rounded-lg text-sm text-charcoal-400 hover:bg-charcoal-800"
-          >
-            Back to app
-          </Link>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => signOut({ callbackUrl: "/" })}
-          >
-            Sign out
-          </Button>
         </nav>
       </div>
     </header>

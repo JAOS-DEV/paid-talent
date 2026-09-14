@@ -1,4 +1,4 @@
-import { and, count, eq, gt, gte, inArray, isNull, or } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   adminEntitlements,
@@ -9,7 +9,7 @@ import {
   workerProfiles,
 } from "@/lib/db/schema";
 import { getPlatformBillingSettings } from "@/lib/platform-settings";
-import { isProfileTopTalent } from "@/lib/ranking";
+import { countPublishedTopTalent } from "@/lib/ranking/published-top-talent";
 
 export interface AdminOverviewMetrics {
   totalUsers: number;
@@ -29,15 +29,8 @@ export interface AdminOverviewMetrics {
   topTalentCount: number;
 }
 
-async function countWhere(
-  table: typeof users | typeof workerProfiles | typeof recruiterOpenings | typeof profilePhotos | typeof subscriptions | typeof adminEntitlements,
-  where?: ReturnType<typeof eq> | ReturnType<typeof and> | ReturnType<typeof gte>
-): Promise<number> {
-  const query = where
-    ? db.select({ value: count() }).from(table).where(where)
-    : db.select({ value: count() }).from(table);
-  const [row] = await query;
-  return row?.value ?? 0;
+function toCount(value: number | string | null | undefined): number {
+  return Number(value ?? 0);
 }
 
 export async function getAdminOverviewMetrics(
@@ -45,92 +38,83 @@ export async function getAdminOverviewMetrics(
 ): Promise<AdminOverviewMetrics> {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgoIso = sevenDaysAgo.toISOString();
+  const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
+  const nowIso = now.toISOString();
 
   const [
-    totalUsers,
-    workers,
-    recruiters,
-    newUsersLast7Days,
-    newUsersLast30Days,
-    publishedWorkers,
+    userCounts,
+    workerCounts,
     publishedOpenings,
-    pendingVerifications,
     pendingPhotos,
     paidPremiumAccounts,
-    adminGrantedPremiumAccounts,
-    lifetimeGrants,
+    entitlementCounts,
     billing,
-    publishedWorkerIds,
+    topTalentCount,
   ] = await Promise.all([
-    countWhere(users),
-    countWhere(users, eq(users.role, "worker")),
-    countWhere(users, eq(users.role, "recruiter")),
-    countWhere(users, gte(users.createdAt, sevenDaysAgo)),
-    countWhere(users, gte(users.createdAt, thirtyDaysAgo)),
-    countWhere(workerProfiles, eq(workerProfiles.isPublished, true)),
-    countWhere(recruiterOpenings, eq(recruiterOpenings.isPublished, true)),
-    countWhere(
-      workerProfiles,
-      eq(workerProfiles.verificationStatus, "pending")
-    ),
-    countWhere(profilePhotos, eq(profilePhotos.moderationStatus, "pending")),
-    countWhere(
-      subscriptions,
-      and(
-        eq(subscriptions.plan, "top_talent_unlock"),
-        inArray(subscriptions.status, ["active", "trialing"])
-      )
-    ),
     db
-      .select({ value: count() })
-      .from(adminEntitlements)
-      .where(
-        and(
-          isNull(adminEntitlements.revokedAt),
-          or(
-            eq(adminEntitlements.isLifetime, true),
-            gt(adminEntitlements.expiresAt, now)
-          )
-        )
-      )
-      .then((rows) => rows[0]?.value ?? 0),
+      .select({
+        totalUsers: count(),
+        workers: sql<number>`count(*) filter (where ${users.role} = 'worker')::int`,
+        recruiters: sql<number>`count(*) filter (where ${users.role} = 'recruiter')::int`,
+        newUsersLast7Days: sql<number>`count(*) filter (where ${users.createdAt} >= ${sevenDaysAgoIso}::timestamptz)::int`,
+        newUsersLast30Days: sql<number>`count(*) filter (where ${users.createdAt} >= ${thirtyDaysAgoIso}::timestamptz)::int`,
+      })
+      .from(users)
+      .then((rows) => rows[0]),
     db
-      .select({ value: count() })
-      .from(adminEntitlements)
-      .where(
-        and(
-          eq(adminEntitlements.isLifetime, true),
-          isNull(adminEntitlements.revokedAt)
-        )
-      )
-      .then((rows) => rows[0]?.value ?? 0),
-    getPlatformBillingSettings(),
-    db
-      .select({ id: workerProfiles.id })
+      .select({
+        publishedWorkers: sql<number>`count(*) filter (where ${workerProfiles.isPublished} = true)::int`,
+        pendingVerifications: sql<number>`count(*) filter (where ${workerProfiles.verificationStatus} = 'pending')::int`,
+      })
       .from(workerProfiles)
-      .where(eq(workerProfiles.isPublished, true)),
+      .then((rows) => rows[0]),
+    db
+      .select({ value: count() })
+      .from(recruiterOpenings)
+      .where(eq(recruiterOpenings.isPublished, true))
+      .then((rows) => rows[0]?.value ?? 0),
+    db
+      .select({ value: count() })
+      .from(profilePhotos)
+      .where(eq(profilePhotos.moderationStatus, "pending"))
+      .then((rows) => rows[0]?.value ?? 0),
+    db
+      .select({ value: count() })
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.plan, "top_talent_unlock"),
+          inArray(subscriptions.status, ["active", "trialing"])
+        )
+      )
+      .then((rows) => rows[0]?.value ?? 0),
+    db
+      .select({
+        adminGrantedPremiumAccounts: sql<number>`count(*) filter (where ${adminEntitlements.revokedAt} is null and (${adminEntitlements.isLifetime} = true or ${adminEntitlements.expiresAt} > ${nowIso}::timestamptz))::int`,
+        lifetimeGrants: sql<number>`count(*) filter (where ${adminEntitlements.isLifetime} = true and ${adminEntitlements.revokedAt} is null)::int`,
+      })
+      .from(adminEntitlements)
+      .then((rows) => rows[0]),
+    getPlatformBillingSettings(),
+    countPublishedTopTalent(now),
   ]);
 
-  let topTalentCount = 0;
-  for (const profile of publishedWorkerIds) {
-    if (await isProfileTopTalent(profile.id)) {
-      topTalentCount += 1;
-    }
-  }
-
   return {
-    totalUsers,
-    workers,
-    recruiters,
-    newUsersLast7Days,
-    newUsersLast30Days,
-    publishedWorkers,
+    totalUsers: toCount(userCounts?.totalUsers),
+    workers: toCount(userCounts?.workers),
+    recruiters: toCount(userCounts?.recruiters),
+    newUsersLast7Days: toCount(userCounts?.newUsersLast7Days),
+    newUsersLast30Days: toCount(userCounts?.newUsersLast30Days),
+    publishedWorkers: toCount(workerCounts?.publishedWorkers),
     publishedOpenings,
-    pendingVerifications,
+    pendingVerifications: toCount(workerCounts?.pendingVerifications),
     pendingPhotos,
     paidPremiumAccounts,
-    adminGrantedPremiumAccounts,
-    lifetimeGrants,
+    adminGrantedPremiumAccounts: toCount(
+      entitlementCounts?.adminGrantedPremiumAccounts
+    ),
+    lifetimeGrants: toCount(entitlementCounts?.lifetimeGrants),
     billingAccessMode: billing.mode,
     billingAccessModeLabel:
       billing.mode === "open_access" ? "Open Access" : "Enabled",
