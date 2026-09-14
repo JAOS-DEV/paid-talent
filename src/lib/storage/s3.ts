@@ -11,6 +11,7 @@ import {
   PROFILE_PHOTO_ALLOWED_TYPES,
   PROFILE_PHOTO_MAX_BYTES,
 } from "@/lib/media/profile-photo";
+import { buildPublicMediaUrl } from "@/lib/media/public-url";
 
 const s3Client = new S3Client({
   region: process.env.S3_REGION || "us-east-1",
@@ -118,17 +119,12 @@ export async function getSignedDownloadUrl(
 }
 
 export function getPublicUrl(key: string): string {
-  const cdnUrl = process.env.S3_CDN_URL;
-  if (cdnUrl) {
-    return `${cdnUrl}/${key}`;
-  }
-
-  const endpoint = process.env.S3_ENDPOINT;
-  if (endpoint) {
-    return `${endpoint}/${BUCKET_NAME}/${key}`;
-  }
-
-  return `https://${BUCKET_NAME}.s3.${process.env.S3_REGION || "us-east-1"}.amazonaws.com/${key}`;
+  return buildPublicMediaUrl(key, {
+    cdnUrl: process.env.S3_CDN_URL,
+    endpoint: process.env.S3_ENDPOINT,
+    bucketName: BUCKET_NAME,
+    region: process.env.S3_REGION,
+  });
 }
 
 export function generateProfilePhotoKey(userId: string, extension: string): string {

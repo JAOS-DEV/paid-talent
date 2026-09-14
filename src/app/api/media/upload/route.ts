@@ -5,6 +5,7 @@ import {
   generatePresignedUploadUrl,
   assertUploadedProfileImageWithinLimit,
   ALLOWED_IMAGE_TYPES,
+  getPublicUrl,
 } from "@/lib/storage/s3";
 import {
   sendModerationWebhook,
@@ -19,6 +20,10 @@ import {
   PROFILE_PHOTO_ERRORS,
   PROFILE_PHOTO_MAX_BYTES,
 } from "@/lib/media/profile-photo";
+import {
+  PublicMediaConfigError,
+  isPersistablePublicMediaUrl,
+} from "@/lib/media/public-url";
 
 const uploadRequestSchema = z.object({
   contentType: z.enum(ALLOWED_IMAGE_TYPES as [string, ...string[]]),
@@ -42,6 +47,38 @@ function logMediaEvent(event: {
     contentType: event.contentType,
     fileSize: event.contentLength,
   });
+}
+
+function publicMediaConfigResponse(stage: "presign" | "confirm"): NextResponse {
+  logMediaEvent({ stage, status: 503 });
+  console.error(
+    "[Media Upload] Public media URL is not configured. Set S3_CDN_URL to an R2 custom public domain. Do not use the R2 S3 API endpoint as a browser URL."
+  );
+  return NextResponse.json(
+    {
+      error: PROFILE_PHOTO_ERRORS.publicUrlUnavailable,
+      message: PROFILE_PHOTO_ERRORS.publicUrlUnavailable,
+    },
+    { status: 503 }
+  );
+}
+
+function resolveCanonicalPublicUrl(
+  key: string,
+  stage: "presign" | "confirm"
+): string | NextResponse {
+  try {
+    const publicUrl = getPublicUrl(key);
+    if (!isPersistablePublicMediaUrl(publicUrl)) {
+      return publicMediaConfigResponse(stage);
+    }
+    return publicUrl;
+  } catch (error) {
+    if (error instanceof PublicMediaConfigError) {
+      return publicMediaConfigResponse(stage);
+    }
+    throw error;
+  }
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -140,6 +177,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     });
   } catch (error) {
+    if (error instanceof PublicMediaConfigError) {
+      return publicMediaConfigResponse("presign");
+    }
     logMediaEvent({ stage: "presign", status: 500 });
     console.error("[Media Upload] Error:", error);
     return NextResponse.json(
@@ -161,14 +201,21 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
 
     const body = await request.json();
-    const { key, publicUrl, folder } = body;
+    const { key, publicUrl: requestedPublicUrl, folder } = body;
 
-    if (!key || !publicUrl) {
+    if (!key || !requestedPublicUrl) {
       return NextResponse.json(
         { error: "Missing key or publicUrl" },
         { status: 400 }
       );
     }
+
+    const canonicalPublicUrl = resolveCanonicalPublicUrl(key, "confirm");
+    if (canonicalPublicUrl instanceof NextResponse) {
+      return canonicalPublicUrl;
+    }
+
+    const publicUrl = canonicalPublicUrl;
 
     if (
       (folder === "profiles" || key.startsWith("profiles/")) &&

@@ -6,10 +6,17 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { validateProfileText } from "@/lib/helpers/text-filter";
+import { PROFILE_PHOTO_ERRORS } from "@/lib/media/profile-photo";
+import { isPersistablePublicMediaUrl } from "@/lib/media/public-url";
 
 const photoSchema = z.object({
   photoKey: z.string().min(1),
-  photoUrl: z.string().url(),
+  photoUrl: z
+    .string()
+    .url()
+    .refine(isPersistablePublicMediaUrl, {
+      message: PROFILE_PHOTO_ERRORS.publicUrlUnavailable,
+    }),
 });
 
 const nameSchema = z.object({

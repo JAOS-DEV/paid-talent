@@ -92,6 +92,36 @@ describe("uploadProfilePhoto", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("reports preparing, uploading, and saving stages", async () => {
+    const file = jpegFile();
+    const stages: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/media/upload" && init?.method === "POST") {
+        return jsonResponse({
+          uploadUrl: "https://storage.example/upload",
+          key: "profiles/u1/photo.jpeg",
+          publicUrl: "https://cdn.example/photo.jpeg",
+        });
+      }
+      if (url === "https://storage.example/upload" && init?.method === "PUT") {
+        return okResponse();
+      }
+      if (url === "/api/media/upload" && init?.method === "PUT") {
+        return jsonResponse({ success: true });
+      }
+      throw new Error(`Unexpected fetch ${init?.method} ${url}`);
+    });
+
+    await uploadProfilePhoto(file, {
+      fetch: fetchMock as unknown as typeof fetch,
+      prepareImage: identityPrepare,
+      onStage: (stage) => stages.push(stage),
+    });
+
+    expect(stages).toEqual(["preparing", "uploading", "saving"]);
+  });
+
   it("surfaces a useful message when presign fails", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse(

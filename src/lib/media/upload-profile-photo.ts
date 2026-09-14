@@ -3,6 +3,7 @@ import {
   inspectProfilePhotoFile,
   mapUploadNetworkError,
   readSafeApiError,
+  type ProfilePhotoUploadStage,
 } from "@/lib/media/profile-photo";
 import { prepareProfileImage } from "@/lib/media/resize-profile-image";
 
@@ -14,6 +15,7 @@ export interface ProfilePhotoUploadResult {
 export interface ProfilePhotoUploadDeps {
   fetch?: typeof fetch;
   prepareImage?: (file: File) => Promise<File>;
+  onStage?: (stage: ProfilePhotoUploadStage) => void;
 }
 
 /**
@@ -62,6 +64,8 @@ export async function uploadProfilePhoto(
   if (!inspected.ok) {
     throw new ProfilePhotoUploadError("validate", inspected.message);
   }
+
+  deps.onStage?.("preparing");
 
   const prepareImage = deps.prepareImage ?? prepareProfileImage;
   let prepared: File;
@@ -126,6 +130,8 @@ export async function uploadProfilePhoto(
     );
   }
 
+  deps.onStage?.("uploading");
+
   let uploadRes: Response;
   try {
     uploadRes = await callProfilePhotoFetch(deps.fetch, uploadUrl, {
@@ -148,6 +154,8 @@ export async function uploadProfilePhoto(
       PROFILE_PHOTO_ERRORS.uploadFailed
     );
   }
+
+  deps.onStage?.("saving");
 
   let confirmRes: Response;
   try {

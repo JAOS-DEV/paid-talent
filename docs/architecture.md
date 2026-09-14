@@ -511,6 +511,29 @@ as a valid origin wildcard).
 The R2 API token also needs `s3:HeadObject` (or equivalent) on this bucket so
 confirm can enforce the 10MB limit.
 
+### Public media URL (required for R2)
+
+Profile photos are public marketplace media. Do **not** store expiring signed
+GET URLs, and do **not** use the R2 S3 API endpoint
+(`*.r2.cloudflarestorage.com`) as a browser image URL.
+
+Architecture:
+
+- `S3_ENDPOINT` — private S3/R2 API for authenticated PUT/HEAD
+- `S3_CDN_URL` — public media base URL for `<img>` / marketplace display
+
+If `S3_ENDPOINT` is R2 and `S3_CDN_URL` is unset, presign fails closed with a
+configuration error instead of persisting a known-broken browser URL.
+
+Preferred production setup:
+
+1. Cloudflare dashboard → **R2** → **paid-talent-media** → **Settings**
+2. **Public access** → add a **Custom Domain** (do not invent one in this repo)
+3. Set Vercel env `S3_CDN_URL` to that origin, with no trailing slash, for example:
+   `S3_CDN_URL=https://media.example.com`
+4. `r2.dev` Public Development URL is acceptable for local testing only, not
+   the preferred production architecture
+
 ---
 
 ## Stripe Integration
