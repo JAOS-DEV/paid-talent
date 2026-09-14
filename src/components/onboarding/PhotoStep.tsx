@@ -3,6 +3,11 @@
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui";
 import { updateProfilePhoto } from "@/app/worker/actions";
+import {
+  PROFILE_PHOTO_ACCEPT,
+  PROFILE_PHOTO_ERRORS,
+} from "@/lib/media/profile-photo";
+import { uploadProfilePhoto } from "@/lib/media/upload-profile-photo";
 
 interface PhotoStepProps {
   initialPhotoUrl: string | null;
@@ -24,65 +29,30 @@ export function PhotoStep({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      setError("Please select an image file");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image must be less than 5MB");
-      return;
-    }
-
     setError(null);
     setUploading(true);
 
     try {
-      const presignedRes = await fetch("/api/media/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contentType: file.type,
-          folder: "profiles",
-        }),
+      const result = await uploadProfilePhoto(file, { fetch });
+      setPhotoUrl(result.publicUrl);
+      await updateProfilePhoto({
+        photoKey: result.key,
+        photoUrl: result.publicUrl,
       });
-
-      if (!presignedRes.ok) {
-        throw new Error("Failed to get upload URL");
-      }
-
-      const { uploadUrl, key, publicUrl } = await presignedRes.json();
-
-      const uploadRes = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error("Failed to upload image");
-      }
-
-      const confirmRes = await fetch("/api/media/upload", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, publicUrl }),
-      });
-
-      if (!confirmRes.ok) {
-        const data = await confirmRes.json();
-        throw new Error(data.error || "Failed to confirm upload");
-      }
-
-      setPhotoUrl(publicUrl);
-      await updateProfilePhoto({ photoKey: key, photoUrl: publicUrl });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(
+        err instanceof Error ? err.message : PROFILE_PHOTO_ERRORS.uploadFailed
+      );
     } finally {
       setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
+  }
+
+  function handleChoosePhoto(): void {
+    fileInputRef.current?.click();
   }
 
   function handleContinue(): void {
@@ -113,7 +83,7 @@ export function PhotoStep({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={1.5}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7 7z"
                 />
               </svg>
             </div>
@@ -128,21 +98,21 @@ export function PhotoStep({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept={PROFILE_PHOTO_ACCEPT}
           className="hidden"
           onChange={handleFileSelect}
         />
 
         <Button
           variant="outline"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={handleChoosePhoto}
           disabled={uploading}
         >
           {photoUrl ? "Change Photo" : "Upload Photo"}
         </Button>
 
         <p className="text-charcoal-500 text-xs mt-2">
-          JPG, PNG or WebP. Max 5MB.
+          JPG, PNG or WebP. Max 10MB. Photos are resized on your device.
         </p>
 
         {error && <p className="text-error text-sm mt-2">{error}</p>}
