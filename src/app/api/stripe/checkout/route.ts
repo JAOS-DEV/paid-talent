@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { createCheckoutSession, STRIPE_PLANS } from "@/lib/stripe";
+import { getBillingAccessMode } from "@/lib/platform-settings";
+import { getUserAccountAccess } from "@/lib/auth/account-access";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -15,6 +17,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         { error: "Only recruiters can subscribe to Top Talent" },
         { status: 403 }
+      );
+    }
+
+    const viewerAccess = await getUserAccountAccess(session.user.id);
+    if (!viewerAccess.allowed) {
+      return NextResponse.json(
+        { error: "Account restricted", reason: viewerAccess.reason },
+        { status: 403 }
+      );
+    }
+
+    const billingMode = await getBillingAccessMode();
+    if (billingMode === "open_access") {
+      return NextResponse.json(
+        {
+          error: "Checkout is unavailable while premium access is in Open Access mode.",
+          billingAccessMode: billingMode,
+        },
+        { status: 409 }
       );
     }
 

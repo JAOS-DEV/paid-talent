@@ -74,6 +74,38 @@ export const hireConfirmationRequestStatusEnum = pgEnum(
   ["pending", "confirmed", "rejected", "cancelled"]
 );
 
+export const accountStatusEnum = pgEnum("account_status", [
+  "active",
+  "suspended",
+  "banned",
+]);
+
+export const billingAccessModeEnum = pgEnum("billing_access_mode", [
+  "enforced",
+  "open_access",
+]);
+
+export const adminEntitlementKindEnum = pgEnum("admin_entitlement_kind", [
+  "top_talent_unlock",
+]);
+
+export const adminAuditActionEnum = pgEnum("admin_audit_action", [
+  "account_suspended",
+  "account_reactivated",
+  "account_banned",
+  "ban_lifted",
+  "admin_premium_granted",
+  "admin_premium_extended",
+  "lifetime_premium_granted",
+  "admin_premium_revoked",
+  "subscription_paywall_mode_changed",
+  "identity_verification_approved",
+  "identity_verification_rejected",
+  "identity_verification_revoked",
+  "photo_approved",
+  "photo_rejected",
+]);
+
 export const users = pgTable(
   "users",
   {
@@ -86,12 +118,21 @@ export const users = pgTable(
     ageVerified: boolean("age_verified").notNull().default(false),
     dateOfBirth: date("date_of_birth"),
     ageVerifiedAt: timestamp("age_verified_at", { mode: "date" }),
+    accountStatus: accountStatusEnum("account_status")
+      .notNull()
+      .default("active"),
+    accountStatusReason: text("account_status_reason"),
+    accountStatusChangedAt: timestamp("account_status_changed_at", {
+      mode: "date",
+    }),
+    accountStatusChangedBy: text("account_status_changed_by"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     index("users_email_idx").on(table.email),
     index("users_role_idx").on(table.role),
+    index("users_account_status_idx").on(table.accountStatus),
   ]
 );
 
@@ -472,6 +513,91 @@ export const verificationEvents = pgTable(
   ]
 );
 
+export const PLATFORM_SETTINGS_ID = "default";
+
+export const platformSettings = pgTable("platform_settings", {
+  id: text("id").primaryKey(),
+  billingAccessMode: billingAccessModeEnum("billing_access_mode")
+    .notNull()
+    .default("enforced"),
+  billingAccessModeReason: text("billing_access_mode_reason"),
+  billingAccessModeUpdatedAt: timestamp("billing_access_mode_updated_at", {
+    mode: "date",
+  }),
+  billingAccessModeUpdatedBy: text("billing_access_mode_updated_by"),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+});
+
+export const bannedIdentities = pgTable(
+  "banned_identities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    normalizedEmail: text("normalized_email").notNull(),
+    originalUserId: uuid("original_user_id"),
+    reason: text("reason").notNull(),
+    bannedAt: timestamp("banned_at", { mode: "date" }).notNull().defaultNow(),
+    bannedByAdminEmail: text("banned_by_admin_email").notNull(),
+    liftedAt: timestamp("lifted_at", { mode: "date" }),
+    liftedByAdminEmail: text("lifted_by_admin_email"),
+  },
+  (table) => [
+    index("banned_identities_normalized_email_idx").on(table.normalizedEmail),
+    uniqueIndex("banned_identities_active_email_uidx")
+      .on(table.normalizedEmail)
+      .where(sql`${table.liftedAt} IS NULL`),
+  ]
+);
+
+export const adminEntitlements = pgTable(
+  "admin_entitlements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: adminEntitlementKindEnum("kind")
+      .notNull()
+      .default("top_talent_unlock"),
+    startsAt: timestamp("starts_at", { mode: "date" }).notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }),
+    isLifetime: boolean("is_lifetime").notNull().default(false),
+    reason: text("reason").notNull(),
+    grantedByAdminEmail: text("granted_by_admin_email").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    revokedAt: timestamp("revoked_at", { mode: "date" }),
+    revokedByAdminEmail: text("revoked_by_admin_email"),
+    revocationReason: text("revocation_reason"),
+  },
+  (table) => [
+    index("admin_entitlements_user_id_idx").on(table.userId),
+    uniqueIndex("admin_entitlements_active_user_kind_uidx")
+      .on(table.userId, table.kind)
+      .where(sql`${table.revokedAt} IS NULL`),
+  ]
+);
+
+export const adminAuditEvents = pgTable(
+  "admin_audit_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    action: adminAuditActionEnum("action").notNull(),
+    actorAdminEmail: text("actor_admin_email").notNull(),
+    actorUserId: uuid("actor_user_id"),
+    targetUserId: uuid("target_user_id"),
+    targetIdentity: text("target_identity"),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id"),
+    reason: text("reason"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("admin_audit_events_created_at_idx").on(table.createdAt),
+    index("admin_audit_events_action_idx").on(table.action),
+    index("admin_audit_events_target_user_id_idx").on(table.targetUserId),
+  ]
+);
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   workerProfile: one(workerProfiles, {
     fields: [users.id],
@@ -488,6 +614,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   accounts: many(accounts),
   sessions: many(sessions),
   sentInterests: many(profileInterests),
+  adminEntitlements: many(adminEntitlements),
 }));
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
@@ -616,6 +743,16 @@ export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   }),
 }));
 
+export const adminEntitlementsRelations = relations(
+  adminEntitlements,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [adminEntitlements.userId],
+      references: [users.id],
+    }),
+  })
+);
+
 export const verificationEventsRelations = relations(
   verificationEvents,
   ({ one }) => ({
@@ -666,3 +803,16 @@ export type HireConfirmationRequestedStatus =
   (typeof hireConfirmationRequestedStatusEnum.enumValues)[number];
 export type HireConfirmationRequestStatus =
   (typeof hireConfirmationRequestStatusEnum.enumValues)[number];
+export type AccountStatus = (typeof accountStatusEnum.enumValues)[number];
+export type BillingAccessMode =
+  (typeof billingAccessModeEnum.enumValues)[number];
+export type AdminEntitlementKind =
+  (typeof adminEntitlementKindEnum.enumValues)[number];
+export type AdminAuditAction = (typeof adminAuditActionEnum.enumValues)[number];
+export type BannedIdentity = typeof bannedIdentities.$inferSelect;
+export type NewBannedIdentity = typeof bannedIdentities.$inferInsert;
+export type AdminEntitlement = typeof adminEntitlements.$inferSelect;
+export type NewAdminEntitlement = typeof adminEntitlements.$inferInsert;
+export type PlatformSetting = typeof platformSettings.$inferSelect;
+export type AdminAuditEvent = typeof adminAuditEvents.$inferSelect;
+export type NewAdminAuditEvent = typeof adminAuditEvents.$inferInsert;

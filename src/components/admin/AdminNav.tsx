@@ -16,6 +16,9 @@ const navItems: AdminNavItem[] = [
   { href: "/admin", label: "Overview", exact: true },
   { href: "/admin/verifications", label: "Identity verification" },
   { href: "/admin/photos", label: "Photo moderation" },
+  { href: "/admin/users", label: "Users" },
+  { href: "/admin/activity", label: "Activity" },
+  { href: "/admin/settings", label: "Settings" },
 ];
 
 export function AdminNav(): React.ReactElement {
@@ -29,7 +32,7 @@ export function AdminNav(): React.ReactElement {
             Internal
           </p>
           <Link href="/admin" className="text-lg font-semibold text-charcoal-100">
-            Admin Review Console
+            Admin Dashboard
           </Link>
         </div>
 

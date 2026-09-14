@@ -9,6 +9,7 @@ declare module "next-auth" {
       role?: UserRole;
       ageVerified: boolean;
       signupPending?: boolean;
+      isAdmin?: boolean;
     } & DefaultSession["user"];
   }
 

@@ -282,6 +282,15 @@ const SEED_USERS: {
         },
       ],
     },
+    {
+      email: "admin@example.com",
+      name: "Platform Admin",
+      organizationName: "Paid Talent Staff",
+      organizationType: "Internal",
+      description: "Allowlisted staff account used for local admin dashboard tests",
+      location: "Bangkok",
+      hasSubscription: false,
+    },
   ],
 };
 

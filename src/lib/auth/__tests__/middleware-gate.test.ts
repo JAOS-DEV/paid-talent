@@ -15,6 +15,7 @@ describe("resolveMiddlewareGate", () => {
         "/auth/age-gate",
         "/auth/verify-request",
         "/auth/error",
+        "/auth/account-restricted",
       ]) {
         expect(
           resolveMiddlewareGate({

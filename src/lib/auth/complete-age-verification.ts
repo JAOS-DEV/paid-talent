@@ -8,6 +8,7 @@ import {
   isValidSignupIntentRole,
 } from "@/lib/auth/sign-in-decision";
 import { meetsMinimumAge } from "@/lib/helpers/age-verification";
+import { findActiveBannedIdentity } from "@/lib/auth/banned-identities";
 import type { UserRole } from "@/types/auth";
 
 export interface AgeVerificationSession {
@@ -66,6 +67,15 @@ export async function completeAgeVerification(input: {
     const email = session.email?.trim().toLowerCase();
     if (!email || !email.includes("@")) {
       return { ok: false, status: 401, error: "Unauthorized" };
+    }
+
+    const activeBan = await findActiveBannedIdentity(email);
+    if (activeBan) {
+      return {
+        ok: false,
+        status: 403,
+        error: "This verified identity is banned from Paid Talent.",
+      };
     }
 
     if (

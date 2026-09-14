@@ -5,11 +5,13 @@ import Credentials from "next-auth/providers/credentials";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
 import { meetsMinimumAge } from "@/lib/helpers/age-verification";
 import { resolveProviderSignInDecision } from "@/lib/auth/sign-in-decision";
 import { createUserWithRole } from "@/lib/auth/create-account";
+import { findActiveBannedIdentity } from "@/lib/auth/banned-identities";
+import { normalizeVerifiedEmail } from "@/lib/auth/identity";
 import {
   SIGNUP_INTENT_COOKIE,
   consumeSignupIntentCookie,
@@ -115,14 +117,21 @@ function buildProviders(): NextAuthConfig["providers"] {
             return null;
           }
 
-          const email = credentials.email as string;
+          const email = normalizeVerifiedEmail(credentials.email as string);
+          if (!email) return null;
+
+          const activeBan = await findActiveBannedIdentity(email);
+          if (activeBan) {
+            return null;
+          }
+
           const [existingUser] = await db
             .select()
             .from(users)
-            .where(eq(users.email, email))
+            .where(sql`lower(${users.email}) = ${email}`)
             .limit(1);
 
-          if (existingUser) {
+          if (existingUser && existingUser.accountStatus === "active") {
             return {
               id: existingUser.id,
               email: existingUser.email,
@@ -170,19 +179,51 @@ export const authConfig: NextAuthConfig = {
 
       const provider = account?.provider;
       if (provider !== "google" && provider !== "email") {
+        if (provider === "credentials" && user.email) {
+          const email = normalizeVerifiedEmail(user.email);
+          if (email) {
+            const activeBan = await findActiveBannedIdentity(email);
+            const [existingUser] = await db
+              .select()
+              .from(users)
+              .where(sql`lower(${users.email}) = ${email}`)
+              .limit(1);
+            const decision = resolveProviderSignInDecision({
+              existingUser: existingUser
+                ? {
+                    id: existingUser.id,
+                    role: existingUser.role as UserRole,
+                    ageVerified: existingUser.ageVerified,
+                    accountStatus: existingUser.accountStatus,
+                  }
+                : null,
+              signupIntentRole,
+              email,
+              hasActiveBan: Boolean(activeBan),
+            });
+            if (decision.kind === "abort_redirect") {
+              return decision.url;
+            }
+          }
+        }
         consumeIntentSafely();
         return true;
       }
 
-      if (!user.email) {
+      const email = normalizeVerifiedEmail(user.email);
+      if (!email) {
         return "/auth/error";
       }
 
-      const [existingUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, user.email))
-        .limit(1);
+      const [existingUser, activeBan] = await Promise.all([
+        db
+          .select()
+          .from(users)
+          .where(sql`lower(${users.email}) = ${email}`)
+          .limit(1)
+          .then((rows) => rows[0] ?? null),
+        findActiveBannedIdentity(email),
+      ]);
 
       const decision = resolveProviderSignInDecision({
         existingUser: existingUser
@@ -190,10 +231,12 @@ export const authConfig: NextAuthConfig = {
               id: existingUser.id,
               role: existingUser.role as UserRole,
               ageVerified: existingUser.ageVerified,
+              accountStatus: existingUser.accountStatus,
             }
           : null,
         signupIntentRole,
-        email: user.email,
+        email,
+        hasActiveBan: Boolean(activeBan),
       });
 
       if (decision.kind === "abort_redirect") {
@@ -219,7 +262,7 @@ export const authConfig: NextAuthConfig = {
       }
 
       const created = await createUserWithRole({
-        email: user.email,
+        email,
         name: user.name ?? null,
         image: provider === "google" ? (user.image ?? null) : null,
         role: decision.role,

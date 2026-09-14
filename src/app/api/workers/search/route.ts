@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { db, workerProfiles } from "@/lib/db";
+import { db, workerProfiles, users } from "@/lib/db";
 import { eq, and, ilike, sql, type SQL } from "drizzle-orm";
 import { isProfileTopTalent } from "@/lib/ranking";
 import { isSearchableWorker } from "@/lib/verification";
@@ -10,6 +10,7 @@ import {
   buildFilterCriteria,
 } from "@/lib/helpers/search-filters";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
+import { getUserAccountAccess } from "@/lib/auth/account-access";
 
 export interface SearchWorkerResult {
   id: string;
@@ -42,6 +43,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const viewerAccess = await getUserAccountAccess(session.user.id);
+    if (!viewerAccess.allowed) {
+      return NextResponse.json(
+        { error: "Account restricted", reason: viewerAccess.reason },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const validation = validateSearchParams({
       query: searchParams.get("query") || searchParams.get("q") || undefined,
@@ -66,6 +75,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const conditions: SQL[] = [
       eq(workerProfiles.isPublished, true),
       eq(workerProfiles.verificationStatus, "verified"),
+      eq(users.accountStatus, "active"),
     ];
 
     if (filters.query) {
@@ -89,21 +99,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const profiles = await db
-      .select()
+      .select({
+        profile: workerProfiles,
+      })
       .from(workerProfiles)
+      .innerJoin(users, eq(workerProfiles.userId, users.id))
       .where(and(...conditions))
       .orderBy(workerProfiles.createdAt)
       .limit(limit)
       .offset(offset);
 
-    const searchableProfiles = profiles.filter((profile) => {
-      const result = isSearchableWorker(profile);
-      return result.isSearchable;
-    });
+    const searchableProfiles = profiles
+      .map((row) => row.profile)
+      .filter((profile) => {
+        const result = isSearchableWorker(profile);
+        return result.isSearchable;
+      });
 
     const totalResult = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(workerProfiles)
+      .innerJoin(users, eq(workerProfiles.userId, users.id))
       .where(and(...conditions));
     const total = totalResult[0]?.count ?? 0;
 

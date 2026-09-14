@@ -20,6 +20,7 @@ export function Header(): React.ReactElement {
 
   const isFullUser = !!session?.user && session.user.signupPending !== true;
   const isRecruiter = isFullUser && session?.user?.role === "recruiter";
+  const isAdmin = isFullUser && session?.user?.isAdmin === true;
 
   const recruiterLinks = [
     { href: "/recruiter/search", label: "Search Workers" },
@@ -96,6 +97,14 @@ export function Header(): React.ReactElement {
               </Link>
             ) : isFullUser ? (
               <div className="flex items-center space-x-3">
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="inline-flex items-center justify-center min-h-11 px-3 py-1.5 text-sm rounded-lg bg-gold-500 hover:bg-gold-600 text-charcoal-950 font-semibold"
+                  >
+                    Admin Dashboard
+                  </Link>
+                )}
                 <Link href={getDashboardLink()}>
                   <Button variant="ghost" size="sm">
                     Dashboard
@@ -140,6 +149,15 @@ export function Header(): React.ReactElement {
                 {link.label}
               </Link>
             ))}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="block px-2 py-3 text-gold-500 hover:bg-charcoal-800 rounded-lg"
+                onClick={() => setMobileOpen(false)}
+              >
+                Admin Dashboard
+              </Link>
+            )}
           </nav>
         )}
       </div>

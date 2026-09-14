@@ -192,6 +192,68 @@ function VenueStatusCard(): React.ReactElement {
   );
 }
 
+function TopTalentAccessCard(): React.ReactElement {
+  const [hasTopTalent, setHasTopTalent] = useState(false);
+  const [openAccess, setOpenAccess] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const load = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/stripe/status");
+        if (response.ok) {
+          const data = (await response.json()) as {
+            canAccessTopTalent?: boolean;
+            billingAccessMode?: string;
+          };
+          setHasTopTalent(data.canAccessTopTalent === true);
+          setOpenAccess(data.billingAccessMode === "open_access");
+        }
+      } finally {
+        setLoaded(true);
+      }
+    };
+    void load();
+  }, []);
+
+  return (
+    <Card padding="lg">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Top Talent Access</CardTitle>
+          <TopTalentBadge />
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!loaded ? (
+          <div className="h-16 bg-charcoal-800 animate-pulse rounded-lg" />
+        ) : openAccess ? (
+          <p className="text-charcoal-400 text-sm">
+            Premium Top Talent features are currently available without a
+            subscription. Top Talent badges and ranking continue as normal.
+          </p>
+        ) : hasTopTalent ? (
+          <p className="text-charcoal-400 text-sm">
+            You have access to full contact details for Top Talent workers.
+          </p>
+        ) : (
+          <>
+            <p className="text-charcoal-400 text-sm mb-4">
+              Unlock full contact details including LINE, WhatsApp, and phone
+              numbers.
+            </p>
+            <Link href="/recruiter/search">
+              <Button variant="gold" fullWidth>
+                Browse Top Talent
+              </Button>
+            </Link>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function RecruiterDashboardPage(): React.ReactElement {
   const { data: session, status } = useSession();
 
@@ -206,8 +268,6 @@ export default function RecruiterDashboardPage(): React.ReactElement {
   if (!session || session.user.role !== "recruiter") {
     redirect("/auth/signin");
   }
-
-  const hasTopTalent = false;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -248,37 +308,7 @@ export default function RecruiterDashboardPage(): React.ReactElement {
 
             <InterestsCard />
 
-            <Card padding="lg">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Top Talent Access</CardTitle>
-                  <TopTalentBadge />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {hasTopTalent ? (
-                  <>
-                    <p className="text-charcoal-400 text-sm mb-4">
-                      You have access to full contact details for Top Talent
-                      workers.
-                    </p>
-                    <Button variant="outline" fullWidth>
-                      Manage Subscription
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-charcoal-400 text-sm mb-4">
-                      Unlock full contact details including LINE, WhatsApp, and
-                      phone numbers.
-                    </p>
-                    <Button variant="gold" fullWidth>
-                      Subscribe Now
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+            <TopTalentAccessCard />
           </div>
 
           <div className="mt-8">

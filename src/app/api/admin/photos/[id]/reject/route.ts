@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { isAdminEmail } from "@/lib/admin";
 import { rejectPhoto, PHOTO_POLICY_COPY } from "@/lib/moderation";
+import { recordAdminAuditEvent } from "@/lib/admin/audit";
 import { z } from "zod";
 
 interface RouteParams {
@@ -57,6 +58,15 @@ export async function POST(
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
+
+    await recordAdminAuditEvent({
+      action: "photo_rejected",
+      actorAdminEmail: adminCheck.email ?? session.user.email ?? "",
+      actorUserId: session.user.id,
+      targetType: "photo",
+      targetId: id,
+      reason: reason ?? PHOTO_POLICY_COPY.rejected,
+    });
 
     return NextResponse.json({
       success: true,

@@ -4,6 +4,7 @@ import { db, workerProfiles, verificationEvents, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { isAdminEmail } from "@/lib/admin";
+import { recordAdminAuditEvent, verificationActionToAudit } from "@/lib/admin/audit";
 import {
   canTransitionVerificationStatus,
   getRetentionExpiryDate,
@@ -208,6 +209,22 @@ export async function POST(
       issuingCountry: issuingCountry ?? null,
       notes: notes ?? null,
       retentionExpiresAt,
+      createdAt: now,
+    });
+
+    await recordAdminAuditEvent({
+      action: verificationActionToAudit(action),
+      actorAdminEmail: adminCheck.email ?? session.user.email ?? "",
+      actorUserId: session.user.id,
+      targetUserId: existingProfile.userId,
+      targetType: "verification",
+      targetId: existingProfile.id,
+      reason: notes ?? null,
+      metadata: {
+        decision,
+        currentStatus: existingProfile.verificationStatus,
+        targetStatus,
+      },
       createdAt: now,
     });
 
