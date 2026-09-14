@@ -3,9 +3,14 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
+import {
+  PROFILE_PHOTO_ALLOWED_TYPES,
+  PROFILE_PHOTO_MAX_BYTES,
+} from "@/lib/media/profile-photo";
 
 const s3Client = new S3Client({
   region: process.env.S3_REGION || "us-east-1",
@@ -18,13 +23,8 @@ const s3Client = new S3Client({
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || "paid-talent-media";
-const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_IMAGE_TYPES: string[] = [...PROFILE_PHOTO_ALLOWED_TYPES];
+const MAX_FILE_SIZE = PROFILE_PHOTO_MAX_BYTES;
 
 export interface UploadResult {
   key: string;
@@ -40,11 +40,18 @@ export interface PresignedUploadResult {
 export async function generatePresignedUploadUrl(
   userId: string,
   contentType: string,
-  folder: string = "profiles"
+  folder: string = "profiles",
+  contentLength?: number
 ): Promise<PresignedUploadResult> {
   if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
     throw new Error(
       `Invalid content type. Allowed: ${ALLOWED_IMAGE_TYPES.join(", ")}`
+    );
+  }
+
+  if (contentLength !== undefined && contentLength > MAX_FILE_SIZE) {
+    throw new Error(
+      `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`
     );
   }
 
@@ -55,6 +62,7 @@ export async function generatePresignedUploadUrl(
     Bucket: BUCKET_NAME,
     Key: key,
     ContentType: contentType,
+    ...(contentLength !== undefined ? { ContentLength: contentLength } : {}),
   });
 
   const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
@@ -125,6 +133,54 @@ export function getPublicUrl(key: string): string {
 
 export function generateProfilePhotoKey(userId: string, extension: string): string {
   return `profiles/${userId}/${uuidv4()}.${extension}`;
+}
+
+export async function getUploadedObjectMetadata(
+  key: string
+): Promise<{ contentLength?: number; contentType?: string } | null> {
+  try {
+    const response = await s3Client.send(
+      new HeadObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+      })
+    );
+
+    return {
+      contentLength: response.ContentLength,
+      contentType: response.ContentType,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function assertUploadedProfileImageWithinLimit(
+  key: string
+): Promise<{ contentLength: number; contentType?: string }> {
+  const metadata = await getUploadedObjectMetadata(key);
+
+  if (!metadata || metadata.contentLength == null) {
+    throw new Error("UPLOAD_NOT_VERIFIED");
+  }
+
+  if (metadata.contentLength > MAX_FILE_SIZE) {
+    await deleteFile(key);
+    throw new Error("UPLOAD_TOO_LARGE");
+  }
+
+  if (
+    metadata.contentType &&
+    !ALLOWED_IMAGE_TYPES.includes(metadata.contentType)
+  ) {
+    await deleteFile(key);
+    throw new Error("UPLOAD_INVALID_TYPE");
+  }
+
+  return {
+    contentLength: metadata.contentLength,
+    contentType: metadata.contentType,
+  };
 }
 
 const PRIVATE_BUCKET_NAME =

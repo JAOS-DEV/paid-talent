@@ -259,12 +259,19 @@ worker_profiles
 ### Middleware Protection
 
 ```typescript
-// src/middleware.ts
-- Public routes: /, /auth/*, /api/auth/*
-- Age gate: All authenticated routes require ageVerified
+// src/middleware.ts — Edge runtime, JWT only
+- Matcher excludes /api/auth/* so Google/email callbacks never run auth()/DB
+- Public routes: /, /auth/signin, /auth/role-select, /auth/age-gate, ...
+- Age gate: authenticated routes require ageVerified (JWT claim)
 - Role routes: /worker/* requires worker role
-              /recruiter/* requires recruiter role
+              /recruiter/* and /search require recruiter role
+- Authenticated `/` uses JWT role only (worker → dashboard, recruiter → dashboard)
+- Completeness / onboarding redirects stay on Worker dashboard (Node + DB)
 ```
+
+Middleware must stay Edge-safe: no `postgres`, Drizzle, or `src/lib/auth/config.ts`.
+Session JWT read uses `src/lib/auth/edge-config.ts`. Sign-in callbacks that
+create users remain in the Node Auth.js config.
 
 ---
 
@@ -433,21 +440,25 @@ src/lib/storage/s3.ts
 1. **Client requests presigned URL**
    ```
    POST /api/media/upload
-   { contentType: "image/jpeg", folder: "profiles" }
+   { contentType: "image/jpeg", folder: "profiles", contentLength: 123456 }
    ```
+   `contentLength` is required and must be ≤ 10MB. The presigned PUT signs
+   `Content-Type` and `Content-Length` so a larger body cannot reuse the URL.
 
 2. **Server returns presigned URL**
    ```
-   { uploadUrl, key, publicUrl, expiresIn }
+   { uploadUrl, key, publicUrl, expiresIn, maxFileSize }
    ```
 
-3. **Client uploads directly to S3**
+3. **Client uploads directly to S3** (browser PUT). Profile photos are resized
+   on-device first (max dimension 1920px).
 
 4. **Client confirms upload**
    ```
    PUT /api/media/upload
    { key, publicUrl }
    ```
+   Confirm runs `HeadObject` and rejects / deletes objects over 10MB.
 
 5. **Server triggers moderation & updates profile**
 
@@ -458,9 +469,47 @@ src/lib/storage/s3.ts
 - `image/webp`
 - `image/gif`
 
+`image/heic` and `image/heif` are **not** converted. The uploader shows:
+"HEIC photos aren't supported yet. Please choose a JPG, PNG or WebP image."
+If iOS Safari converts a Library photo to JPEG automatically, that JPEG is accepted.
+
 ### Size Limit
 
-5MB maximum
+**10MB** for profile photos (ID documents remain 10MB; liveness videos remain 50MB).
+
+### Bucket CORS (required outside this repo)
+
+Local/dev storage is **Cloudflare R2**, public bucket `paid-talent-media`
+(`S3_REGION=auto`, path-style). This repository cannot change bucket CORS.
+
+A signed PUT from a non-browser client can succeed while Safari still shows
+`TypeError: Load failed` if R2 does not return CORS headers on OPTIONS/PUT.
+
+Configure **R2 → paid-talent-media → Settings → CORS policy** with:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://paid-talent.vercel.app",
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["Content-Type", "Content-Length"],
+    "ExposeHeaders": ["ETag", "Content-Length"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Do **not** use `AllowedOrigins: "*"`. R2 needs exact origins. Required for production
+uploads: `https://paid-talent.vercel.app`. Add `http://localhost:3000` only if you
+want local browser uploads. Do not add changing Vercel preview URLs unless you
+intentionally test uploads from those hosts (R2 does not treat `*.vercel.app`
+as a valid origin wildcard).
+
+The R2 API token also needs `s3:HeadObject` (or equivalent) on this bucket so
+confirm can enforce the 10MB limit.
 
 ---
 

@@ -1,100 +1,78 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
-import { db, workerProfiles } from "@/lib/db";
-import { eq } from "drizzle-orm";
-import { getProfileCompleteness } from "@/lib/profile";
-import { getHomeRedirectDestination } from "@/lib/helpers/home-redirect";
+import NextAuth from "next-auth";
+import { edgeAuthConfig } from "@/lib/auth/edge-config";
 import { resolveMiddlewareGate } from "@/lib/auth/middleware-gate";
+import {
+  getSessionHomePath,
+  isAuthApiPath,
+  resolveRoleRouteRedirect,
+} from "@/lib/auth/middleware-paths";
 
-const workerOnlyRoutes = ["/worker"];
-const recruiterOnlyRoutes = ["/recruiter", "/search"];
+const { auth } = NextAuth(edgeAuthConfig);
 
-async function getWorkerProfileCompleteness(
-  userId: string
-): Promise<ReturnType<typeof getProfileCompleteness>> {
-  const [profile] = await db
-    .select()
-    .from(workerProfiles)
-    .where(eq(workerProfiles.userId, userId))
-    .limit(1);
-
-  return getProfileCompleteness(profile || null);
-}
-
-export default async function middleware(req: NextRequest): Promise<NextResponse> {
+export default auth((req) => {
   const { pathname } = req.nextUrl;
-  const session = await auth();
 
-  const isApiRoute = pathname.startsWith("/api/");
-  const isAuthApiRoute = pathname.startsWith("/api/auth");
-  const user = session?.user as
-    | { ageVerified?: boolean; role?: string; id?: string }
-    | undefined;
-
-  const gate = resolveMiddlewareGate({
-    pathname,
-    hasSession: !!session?.user,
-    ageVerified: !!user?.ageVerified,
-    isApiRoute,
-    isAuthApiRoute,
-  });
-
-  if (gate.action === "json") {
-    return NextResponse.json({ error: gate.error }, { status: gate.status });
-  }
-
-  if (gate.action === "redirect") {
-    const url = new URL(gate.destination, req.url);
-    if (gate.setCallbackUrl) {
-      url.searchParams.set("callbackUrl", pathname);
-    }
-    return NextResponse.redirect(url);
-  }
-
-  // Auth API and unauthenticated public routes are done after allow
-  if (isAuthApiRoute || !session?.user || !user) {
+  // NextAuth callback/session routes must never run gate logic or Node/DB code.
+  if (isAuthApiPath(pathname)) {
     return NextResponse.next();
   }
 
-  if (pathname === "/") {
-    let profileCompleteness = null;
+  try {
+    const session = req.auth;
+    const isApiRoute = pathname.startsWith("/api/");
+    const user = session?.user as
+      | { ageVerified?: boolean; role?: string; id?: string }
+      | undefined;
 
-    if (user.role === "worker" && user.id) {
-      profileCompleteness = await getWorkerProfileCompleteness(user.id);
-    }
-
-    const redirectResult = getHomeRedirectDestination({
-      isAuthenticated: true,
-      role: (user.role as "worker" | "recruiter") || null,
-      profileCompleteness,
+    const gate = resolveMiddlewareGate({
+      pathname,
+      hasSession: !!session?.user,
+      ageVerified: !!user?.ageVerified,
+      isApiRoute,
+      isAuthApiRoute: false,
     });
 
-    if (redirectResult.shouldRedirect && redirectResult.destination) {
-      return NextResponse.redirect(new URL(redirectResult.destination, req.url));
+    if (gate.action === "json") {
+      return NextResponse.json({ error: gate.error }, { status: gate.status });
     }
+
+    if (gate.action === "redirect") {
+      const url = new URL(gate.destination, req.url);
+      if (gate.setCallbackUrl) {
+        url.searchParams.set("callbackUrl", pathname);
+      }
+      return NextResponse.redirect(url);
+    }
+
+    if (!session?.user || !user) {
+      return NextResponse.next();
+    }
+
+    if (pathname === "/" && (user.role === "worker" || user.role === "recruiter")) {
+      return NextResponse.redirect(
+        new URL(getSessionHomePath(user.role), req.url)
+      );
+    }
+
+    const roleRedirect = resolveRoleRouteRedirect(pathname, user.role);
+    if (roleRedirect) {
+      return NextResponse.redirect(new URL(roleRedirect, req.url));
+    }
+
+    return NextResponse.next();
+  } catch (error) {
+    console.error("[middleware]", {
+      pathname,
+      name: error instanceof Error ? error.name : "unknown",
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    throw error;
   }
-
-  const isWorkerRoute = workerOnlyRoutes.some(
-    (route) => pathname === route || pathname.startsWith(route + "/")
-  );
-  const isRecruiterRoute = recruiterOnlyRoutes.some(
-    (route) => pathname === route || pathname.startsWith(route + "/")
-  );
-
-  if (isWorkerRoute && user.role !== "worker") {
-    return NextResponse.redirect(new URL("/recruiter/dashboard", req.url));
-  }
-
-  if (isRecruiterRoute && user.role !== "recruiter") {
-    return NextResponse.redirect(new URL("/worker/dashboard", req.url));
-  }
-
-  return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|public|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|public|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

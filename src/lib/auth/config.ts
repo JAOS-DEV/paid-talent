@@ -8,10 +8,12 @@ import { users, workerProfiles, recruiterProfiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
 import { isOver18 } from "@/lib/helpers/age-verification";
+import { resolveProviderSignInDecision } from "@/lib/auth/sign-in-decision";
 import {
-  applyJwtSessionUpdate,
-  resolveProviderSignInDecision,
-} from "@/lib/auth/sign-in-decision";
+  authPages,
+  jwtCallback,
+  sessionCallback,
+} from "@/lib/auth/edge-config";
 
 let cachedNodemailer: Provider | null = null;
 
@@ -135,12 +137,7 @@ function buildProviders(): NextAuthConfig["providers"] {
 
 export const authConfig: NextAuthConfig = {
   providers: buildProviders(),
-  pages: {
-    signIn: "/auth/signin",
-    verifyRequest: "/auth/verify-request",
-    error: "/auth/error",
-    newUser: "/onboarding",
-  },
+  pages: authPages,
   callbacks: {
     async signIn({ user, account }) {
       const cookieStore = await cookies();
@@ -222,34 +219,8 @@ export const authConfig: NextAuthConfig = {
       // Complete sign-in; middleware redirects to age-verification
       return true;
     },
-    async jwt({ token, user, trigger, session }) {
-      if (user) {
-        token.id = user.id as string;
-        token.role = (user as { role: UserRole }).role;
-        token.ageVerified = (user as { ageVerified: boolean }).ageVerified;
-      }
-
-      if (trigger === "update" && session) {
-        const updated = applyJwtSessionUpdate({
-          tokenRole: token.role as UserRole | undefined,
-          tokenAgeVerified: token.ageVerified as boolean | undefined,
-          sessionRole: (session as { role?: UserRole }).role,
-          sessionAgeVerified: (session as { ageVerified?: boolean }).ageVerified,
-        });
-        token.role = updated.role;
-        token.ageVerified = updated.ageVerified;
-      }
-
-      return token;
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as UserRole;
-        session.user.ageVerified = token.ageVerified as boolean;
-      }
-      return session;
-    },
+    jwt: jwtCallback,
+    session: sessionCallback,
   },
   session: {
     strategy: "jwt",
