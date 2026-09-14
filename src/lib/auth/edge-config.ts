@@ -1,7 +1,6 @@
 import { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
-import type { UserRole } from "@/types/auth";
-import { applyJwtSessionUpdate } from "@/lib/auth/sign-in-decision";
+import { applyJwtCallback, toPublicSessionUser } from "@/lib/auth/jwt-session";
 
 /**
  * Edge-safe NextAuth config for middleware.
@@ -19,34 +18,42 @@ export const authPages = {
 
 export const jwtCallback: NonNullable<NextAuthConfig["callbacks"]>["jwt"] =
   async ({ token, user, trigger, session }) => {
-    if (user) {
-      token.id = user.id as string;
-      token.role = (user as { role: UserRole }).role;
-      token.ageVerified = (user as { ageVerified: boolean }).ageVerified;
-    }
-
-    if (trigger === "update" && session) {
-      const updated = applyJwtSessionUpdate({
-        tokenRole: token.role as UserRole | undefined,
-        tokenAgeVerified: token.ageVerified as boolean | undefined,
-        sessionRole: (session as { role?: UserRole }).role,
-        sessionAgeVerified: (session as { ageVerified?: boolean })
-          .ageVerified,
-      });
-      token.role = updated.role;
-      token.ageVerified = updated.ageVerified;
-    }
-
-    return token;
+    return applyJwtCallback({
+      token,
+      user: user
+        ? {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            role: (user as { role?: "worker" | "recruiter" }).role,
+            ageVerified: (user as { ageVerified?: boolean }).ageVerified,
+            signupPending: (user as { signupPending?: boolean }).signupPending,
+          }
+        : undefined,
+      trigger,
+      session: session as
+        | { ageVerified?: boolean; role?: unknown; email?: unknown }
+        | undefined,
+    });
   };
 
 export const sessionCallback: NonNullable<
   NextAuthConfig["callbacks"]
 >["session"] = async ({ session, token }) => {
-  if (token) {
-    session.user.id = token.id as string;
-    session.user.role = token.role as UserRole;
-    session.user.ageVerified = token.ageVerified as boolean;
+  const publicUser = toPublicSessionUser(token);
+  session.user.id = publicUser.id;
+  session.user.role = publicUser.role;
+  session.user.ageVerified = publicUser.ageVerified;
+  session.user.signupPending = publicUser.signupPending;
+  if (typeof publicUser.email === "string") {
+    session.user.email = publicUser.email;
+  }
+  if (typeof publicUser.name === "string") {
+    session.user.name = publicUser.name;
+  }
+  if (typeof publicUser.image === "string") {
+    session.user.image = publicUser.image;
   }
   return session;
 };

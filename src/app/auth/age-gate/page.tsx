@@ -2,14 +2,18 @@
 
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Button, Card, CardContent } from "@/components/ui";
 import { persistSignupIntentRole } from "@/lib/auth/signup-intent-action";
+import { isPendingSignupUser } from "@/lib/auth/pending-signup";
 import { isValidSignupIntentRole } from "@/lib/auth/sign-in-decision";
 import type { UserRole } from "@/types/auth";
 
 function AgeGateForm(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const pendingSignup = isPendingSignupUser(session?.user);
   const roleParam = searchParams.get("role");
   const role = isValidSignupIntentRole(roleParam ?? undefined)
     ? (roleParam as UserRole)
@@ -44,6 +48,11 @@ function AgeGateForm(): React.ReactElement {
     if (!result.ok) {
       setError(result.error);
       setIsLoading(false);
+      return;
+    }
+
+    if (pendingSignup) {
+      router.push("/auth/age-verification");
       return;
     }
 

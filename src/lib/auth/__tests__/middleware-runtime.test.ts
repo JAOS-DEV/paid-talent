@@ -107,6 +107,15 @@ describe("middleware runtime safety", () => {
     expect(
       imported.some((file) => file.includes("signup-intent-action"))
     ).toBe(false);
+    expect(
+      imported.some((file) => file.includes("create-account"))
+    ).toBe(false);
+    expect(
+      imported.some((file) => file.includes("complete-age-verification"))
+    ).toBe(false);
+    expect(
+      imported.some((file) => file.includes("session-cookie"))
+    ).toBe(false);
     expect(source).not.toContain("next/headers");
   });
 

@@ -4,11 +4,12 @@ import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { users, workerProfiles, recruiterProfiles } from "@/lib/db/schema";
+import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { UserRole } from "@/types/auth";
 import { meetsMinimumAge } from "@/lib/helpers/age-verification";
 import { resolveProviderSignInDecision } from "@/lib/auth/sign-in-decision";
+import { createUserWithRole } from "@/lib/auth/create-account";
 import {
   SIGNUP_INTENT_COOKIE,
   consumeSignupIntentCookie,
@@ -173,10 +174,14 @@ export const authConfig: NextAuthConfig = {
         return true;
       }
 
+      if (!user.email) {
+        return "/auth/error";
+      }
+
       const [existingUser] = await db
         .select()
         .from(users)
-        .where(eq(users.email, user.email!))
+        .where(eq(users.email, user.email))
         .limit(1);
 
       const decision = resolveProviderSignInDecision({
@@ -188,7 +193,7 @@ export const authConfig: NextAuthConfig = {
             }
           : null,
         signupIntentRole,
-        email: user.email!,
+        email: user.email,
       });
 
       if (decision.kind === "abort_redirect") {
@@ -197,56 +202,39 @@ export const authConfig: NextAuthConfig = {
 
       if (decision.kind === "complete_existing") {
         user.id = decision.user.id;
-        (user as { role: UserRole }).role = decision.user.role;
-        (user as { ageVerified: boolean }).ageVerified =
-          decision.user.ageVerified;
+        user.role = decision.user.role;
+        user.ageVerified = decision.user.ageVerified;
+        user.signupPending = false;
         if (shouldConsumeSignupIntent(decision.kind)) {
           consumeIntentSafely();
         }
-        // Complete sign-in; middleware redirects if ageVerified=false
         return true;
       }
 
-      // create_and_complete — new user with valid signup_intent_role
-      const role = decision.role;
-      const now = new Date();
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          email: user.email!,
-          name: user.name ?? null,
-          image: provider === "google" ? (user.image ?? null) : null,
-          role,
-          ageVerified: false,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
-
-      if (role === "worker") {
-        await db.insert(workerProfiles).values({
-          userId: newUser.id,
-          displayName: user.name || user.email!.split("@")[0],
-          createdAt: now,
-          updatedAt: now,
-        });
-      } else {
-        await db.insert(recruiterProfiles).values({
-          userId: newUser.id,
-          createdAt: now,
-          updatedAt: now,
-        });
+      if (decision.kind === "complete_pending_signup") {
+        user.signupPending = true;
+        user.ageVerified = false;
+        user.role = undefined;
+        return true;
       }
 
-      user.id = newUser.id;
-      (user as { role: UserRole }).role = role;
-      (user as { ageVerified: boolean }).ageVerified = false;
+      const created = await createUserWithRole({
+        email: user.email,
+        name: user.name ?? null,
+        image: provider === "google" ? (user.image ?? null) : null,
+        role: decision.role,
+        ageVerified: false,
+      });
+
+      user.id = created.id;
+      user.role = created.role;
+      user.ageVerified = false;
+      user.signupPending = false;
 
       if (shouldConsumeSignupIntent(decision.kind)) {
         consumeIntentSafely();
       }
 
-      // Complete sign-in; middleware redirects to age-verification
       return true;
     },
     jwt: jwtCallback,

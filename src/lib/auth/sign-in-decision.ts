@@ -12,6 +12,10 @@ export interface ExistingAuthUser {
  * CRITICAL: Never return a redirect to `/auth/age-verification` from `signIn`.
  * That aborts OAuth/email auth before a session exists and causes a redirect loop
  * (age-verification requires auth → bounce to signin → repeat).
+ *
+ * Unknown identities must complete OAuth into a constrained pending JWT rather
+ * than aborting. Returning a URL from `signIn` discards the provider proof and
+ * forces a second Google login.
  */
 export type SignInDecision =
   | {
@@ -21,6 +25,9 @@ export type SignInDecision =
   | {
       kind: "create_and_complete";
       role: UserRole;
+    }
+  | {
+      kind: "complete_pending_signup";
     }
   | {
       kind: "abort_redirect";
@@ -49,10 +56,11 @@ export function resolveProviderSignInDecision(input: {
       return { kind: "create_and_complete", role: signupIntentRole };
     }
 
-    return {
-      kind: "abort_redirect",
-      url: "/auth/role-select?email=" + encodeURIComponent(email),
-    };
+    if (!email) {
+      return { kind: "abort_redirect", url: "/auth/error" };
+    }
+
+    return { kind: "complete_pending_signup" };
   }
 
   // Always complete sign-in for existing users — including ageVerified=false.
@@ -67,20 +75,7 @@ export function resolveProviderSignInDecision(input: {
   };
 }
 
-/**
- * Apply a client `session.update({ ageVerified: true })` into the JWT token fields.
- */
-export function applyJwtSessionUpdate(input: {
-  tokenRole: UserRole | undefined;
-  tokenAgeVerified: boolean | undefined;
-  sessionRole?: UserRole;
-  sessionAgeVerified?: boolean;
-}): { role: UserRole | undefined; ageVerified: boolean | undefined } {
-  return {
-    role: input.sessionRole ?? input.tokenRole,
-    ageVerified: input.sessionAgeVerified ?? input.tokenAgeVerified,
-  };
-}
+export { applyJwtSessionUpdate } from "@/lib/auth/jwt-session";
 
 /**
  * Post-DOB redirect preserves Worker/Recruiter role.

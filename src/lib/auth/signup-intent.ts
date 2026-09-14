@@ -70,7 +70,11 @@ export function consumeSignupIntentCookie(
 }
 
 export function shouldConsumeSignupIntent(
-  decisionKind: "complete_existing" | "create_and_complete" | "abort_redirect"
+  decisionKind:
+    | "complete_existing"
+    | "create_and_complete"
+    | "complete_pending_signup"
+    | "abort_redirect"
 ): boolean {
   return (
     decisionKind === "create_and_complete" ||

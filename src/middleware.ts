@@ -7,6 +7,11 @@ import {
   isAuthApiPath,
   resolveRoleRouteRedirect,
 } from "@/lib/auth/middleware-paths";
+import {
+  SIGNUP_INTENT_COOKIE,
+  parseSignupIntentRole,
+} from "@/lib/auth/signup-intent";
+import { isAppUserId } from "@/lib/auth/pending-signup";
 
 const { auth } = NextAuth(edgeAuthConfig);
 
@@ -22,15 +27,25 @@ export default auth((req) => {
     const session = req.auth;
     const isApiRoute = pathname.startsWith("/api/");
     const user = session?.user as
-      | { ageVerified?: boolean; role?: string; id?: string }
+      | {
+          ageVerified?: boolean;
+          role?: string;
+          id?: string;
+          signupPending?: boolean;
+        }
       | undefined;
+    const signupPending = user?.signupPending === true;
 
     const gate = resolveMiddlewareGate({
       pathname,
-      hasSession: !!session?.user,
+      hasSession: isAppUserId(user?.id) && !signupPending,
       ageVerified: !!user?.ageVerified,
       isApiRoute,
       isAuthApiRoute: false,
+      signupPending,
+      hasSignupIntent: !!parseSignupIntentRole(
+        req.cookies.get(SIGNUP_INTENT_COOKIE)?.value
+      ),
     });
 
     if (gate.action === "json") {
@@ -45,7 +60,7 @@ export default auth((req) => {
       return NextResponse.redirect(url);
     }
 
-    if (!session?.user || !user) {
+    if (!session?.user || !user || signupPending) {
       return NextResponse.next();
     }
 

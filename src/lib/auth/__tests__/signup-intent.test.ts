@@ -47,9 +47,10 @@ describe("signup intent cookie", () => {
 });
 
 describe("signup intent consumption", () => {
-  it("clears after successful new-user and existing-user auth, not abort", () => {
+  it("clears after successful new-user and existing-user auth, not pending or abort", () => {
     expect(shouldConsumeSignupIntent("create_and_complete")).toBe(true);
     expect(shouldConsumeSignupIntent("complete_existing")).toBe(true);
+    expect(shouldConsumeSignupIntent("complete_pending_signup")).toBe(false);
     expect(shouldConsumeSignupIntent("abort_redirect")).toBe(false);
   });
 

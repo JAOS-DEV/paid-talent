@@ -307,3 +307,123 @@ describe("isPublicAuthRoute", () => {
     expect(isPublicAuthRoute("/auth/age-verification")).toBe(false);
   });
 });
+
+describe("pending signup sessions (Google already verified, no account yet)", () => {
+  it("does not send unknown Sign-in users back to Sign in", () => {
+    expect(
+      resolveMiddlewareGate({
+        pathname: "/auth/signin",
+        hasSession: false,
+        ageVerified: false,
+        isApiRoute: false,
+        isAuthApiRoute: false,
+        signupPending: true,
+      })
+    ).toEqual({
+      action: "redirect",
+      destination: "/auth/role-select",
+    });
+  });
+
+  it("allows role selection and age-gate continuation pages", () => {
+    for (const pathname of ["/auth/role-select", "/auth/age-gate"]) {
+      expect(
+        resolveMiddlewareGate({
+          pathname,
+          hasSession: false,
+          ageVerified: false,
+          isApiRoute: false,
+          isAuthApiRoute: false,
+          signupPending: true,
+        })
+      ).toEqual({ action: "allow" });
+    }
+  });
+
+  it("blocks DOB until the server-minted signup intent exists", () => {
+    expect(
+      resolveMiddlewareGate({
+        pathname: AGE_VERIFICATION_PATH,
+        hasSession: false,
+        ageVerified: false,
+        isApiRoute: false,
+        isAuthApiRoute: false,
+        signupPending: true,
+        hasSignupIntent: false,
+      })
+    ).toEqual({
+      action: "redirect",
+      destination: "/auth/role-select",
+    });
+  });
+
+  it("allows DOB after role + 20+ gate minted the intent cookie", () => {
+    expect(
+      resolveMiddlewareGate({
+        pathname: AGE_VERIFICATION_PATH,
+        hasSession: false,
+        ageVerified: false,
+        isApiRoute: false,
+        isAuthApiRoute: false,
+        signupPending: true,
+        hasSignupIntent: true,
+      })
+    ).toEqual({ action: "allow" });
+  });
+
+  it("unknown identity cannot access Worker or Recruiter routes prematurely", () => {
+    for (const pathname of [
+      "/worker/dashboard",
+      "/worker/onboarding",
+      "/recruiter/dashboard",
+      "/search",
+    ]) {
+      expect(
+        resolveMiddlewareGate({
+          pathname,
+          hasSession: false,
+          ageVerified: false,
+          isApiRoute: false,
+          isAuthApiRoute: false,
+          signupPending: true,
+        })
+      ).toEqual({
+        action: "redirect",
+        destination: "/auth/role-select",
+      });
+    }
+  });
+
+  it("unknown identity cannot call protected APIs", () => {
+    expect(
+      resolveMiddlewareGate({
+        pathname: "/api/worker/profile",
+        hasSession: false,
+        ageVerified: false,
+        isApiRoute: true,
+        isAuthApiRoute: false,
+        signupPending: true,
+      })
+    ).toEqual({
+      action: "json",
+      status: 403,
+      error: "Finish creating your account",
+    });
+  });
+
+  it("REGRESSION: pending users hitting home are not bounced to signin", () => {
+    const result = resolveMiddlewareGate({
+      pathname: "/",
+      hasSession: false,
+      ageVerified: false,
+      isApiRoute: false,
+      isAuthApiRoute: false,
+      signupPending: true,
+    });
+    expect(result).toEqual({
+      action: "redirect",
+      destination: "/auth/role-select",
+    });
+    expect(JSON.stringify(result)).not.toContain("/auth/signin");
+  });
+});
