@@ -12,8 +12,16 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Badge,
   TopTalentBadge,
 } from "@/components/ui";
+import {
+  getRecruiterProfile,
+  getRecruiterOpenings,
+} from "@/lib/recruiter-profile/actions";
+import {
+  getRecruiterProfileCompleteness,
+} from "@/lib/recruiter-profile";
 
 interface OutcomeStats {
   total: number;
@@ -29,8 +37,8 @@ function SubscriptionAlert(): React.ReactElement | null {
   if (subscriptionStatus === "success") {
     return (
       <div className="mb-6 p-4 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400">
-        Successfully subscribed to Top Talent! You can now view full
-        contact details.
+        Successfully subscribed to Top Talent! You can now view full contact
+        details.
       </div>
     );
   }
@@ -121,6 +129,69 @@ function InterestsCard(): React.ReactElement {
   );
 }
 
+function VenueStatusCard(): React.ReactElement {
+  const [loading, setLoading] = useState(true);
+  const [complete, setComplete] = useState(false);
+  const [publishedCount, setPublishedCount] = useState(0);
+  const [draftCount, setDraftCount] = useState(0);
+
+  useEffect(() => {
+    const load = async (): Promise<void> => {
+      try {
+        const [profile, openings] = await Promise.all([
+          getRecruiterProfile(),
+          getRecruiterOpenings(),
+        ]);
+        setComplete(getRecruiterProfileCompleteness(profile).isComplete);
+        setPublishedCount(openings.filter((o) => o.isPublished).length);
+        setDraftCount(openings.filter((o) => !o.isPublished).length);
+      } catch {
+        // leave defaults
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
+  }, []);
+
+  return (
+    <Card padding="lg">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle>Venue Profile</CardTitle>
+          {!loading && (
+            <Badge variant={complete ? "success" : "warning"}>
+              {complete ? "Venue profile complete" : "Venue profile incomplete"}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-charcoal-400 text-sm mb-4">
+          Update the venue details workers see when you express interest.
+        </p>
+        {!loading && (
+          <p className="text-xs text-charcoal-500 mb-4">
+            Openings: {publishedCount} published · {draftCount} draft
+          </p>
+        )}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Link href="/recruiter/profile" className="flex-1">
+            <Button fullWidth variant="outline">
+              Venue Profile
+            </Button>
+          </Link>
+          <Link href="/recruiter/openings" className="flex-1">
+            <Button fullWidth>
+              Openings
+            </Button>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function RecruiterDashboardPage(): React.ReactElement {
   const { data: session, status } = useSession();
 
@@ -173,6 +244,10 @@ export default function RecruiterDashboardPage(): React.ReactElement {
               </CardContent>
             </Card>
 
+            <VenueStatusCard />
+
+            <InterestsCard />
+
             <Card padding="lg">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -204,8 +279,6 @@ export default function RecruiterDashboardPage(): React.ReactElement {
                 )}
               </CardContent>
             </Card>
-
-            <InterestsCard />
           </div>
 
           <div className="mt-8">
