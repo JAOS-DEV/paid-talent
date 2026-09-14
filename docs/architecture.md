@@ -36,6 +36,7 @@ src/
 ├── app/                    # Next.js App Router pages & API routes
 │   ├── api/               # API route handlers
 │   ├── auth/              # Auth pages (signin, role-select, age-verification)
+│   ├── admin/             # Internal admin review console
 │   ├── worker/            # Worker-only pages
 │   └── recruiter/         # Recruiter-only pages
 ├── components/            # React components
@@ -91,6 +92,16 @@ src/
 | `/recruiter/interests` | Page | Interests / hire outcomes |
 
 **Access**: Recruiter role only (middleware enforced)
+
+### Admin Routes (`/admin/*`)
+
+| Route | Type | Description |
+|-------|------|-------------|
+| `/admin` | Page | Admin overview with pending counts |
+| `/admin/verifications` | Page | Pending worker identity verification queue |
+| `/admin/photos` | Page | Quarantined photo moderation queue |
+
+**Access**: Authenticated users whose email is in server-side `ADMIN_EMAILS` (comma-separated). Unauthenticated visitors are redirected to `/auth/signin?callbackUrl=…`. Non-allowlisted authenticated users receive `notFound()`. Admin page guards are additive; `/api/admin/*` remains independently protected via `isAdminEmail()`. Never expose `ADMIN_EMAILS` through `NEXT_PUBLIC_*`.
 
 ### Media Routes (`/api/media/*`)
 
