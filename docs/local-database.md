@@ -101,24 +101,27 @@ Local `.env.local` can accidentally still contain a Neon `DATABASE_URL`. Seed, r
 
 ## Playwright / local auth
 
-Authenticated E2E stays skipped unless:
+Authenticated E2E stays skipped unless **all** of these are true:
 
-- `DATABASE_URL` is localhost
+- `DATABASE_URL` is localhost / `127.0.0.1` / `::1`
+- the database name is `paid_talent_test` (not `paid_talent_dev`)
 - `AUTH_DEV_BYPASS=true`
 - the test DB has been migrated and seeded
 
+A normal `.env.local` pointed at `paid_talent_dev` does **not** qualify. Generic `npm run test:e2e` is unchanged and still useful for unauthenticated Playwright or an explicit staging `BASE_URL`. It does not inject the test database URL, so authenticated suites skip in the usual local-dev setup.
+
 `AUTH_DEV_BYPASS` remains development-only. Production auth is unchanged.
 
-```bash
-npm run test:db:start
-npm run test:db:reset
-npm run test:e2e
-```
-
-Equivalent one-shot (starts test DB, resets it, injects local URL + bypass, runs Playwright):
+Canonical isolated workflow (starts the test DB, resets it, injects `paid_talent_test` + bypass, runs Playwright):
 
 ```bash
 npm run test:e2e:local
+```
+
+Extra Playwright args are forwarded (PowerShell-safe):
+
+```bash
+npm run test:e2e:local -- e2e/hire-confirmation.spec.ts --project=chromium
 ```
 
 Unit tests (`npm test`) do not require Docker or PostgreSQL.
@@ -159,7 +162,7 @@ Stop does not delete the volume. Remove the container/volume manually when the P
 | `Docker is not available` | Start Docker Desktop, wait until it is running, retry |
 | Port already allocated | Set `PAID_TALENT_DEV_DB_PORT` / `PAID_TALENT_TEST_DB_PORT` and matching `DATABASE_URL` |
 | `Refusing to ... because DATABASE_URL is not local` | Point `.env.local` at `127.0.0.1:55440` or use `npm run dev:db:*` / `npm run test:db:*` |
-| Authenticated Playwright skipped | Run `npm run test:e2e:local` (or local URL + `AUTH_DEV_BYPASS=true` + seed) |
+| Authenticated Playwright skipped | Run `npm run test:e2e:local`. Generic `npm run test:e2e` skips auth tests unless DATABASE_URL already targets `paid_talent_test`. |
 | Schema desync on local DB | `npm run db:repair` against localhost, or `npm run dev:db:reset` |
 | Old `paid-talent-pr30-pg` still running | Leave it until the permanent Compose DBs are proven; then stop/remove it manually |
 

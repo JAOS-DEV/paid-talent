@@ -98,8 +98,10 @@ npm run dev:db:stop       # stops the container; does not delete data
 npm run dev:db:reset      # destructive, local dev DB only
 npm run test:db:start
 npm run test:db:reset     # destructive, local test DB only
-npm run test:e2e:local    # reset test DB + authenticated Playwright
+npm run test:e2e:local    # isolated paid_talent_test + authenticated Playwright
 ```
+
+Generic `npm run test:e2e` is unchanged (useful for unauthenticated Playwright or staging `BASE_URL`). It does not inject the test DB URL, so authenticated suites skip when `.env.local` points at `paid_talent_dev`.
 
 Destructive commands refuse remote/malformed/missing `DATABASE_URL` values and never print passwords. Generic `npm run db:migrate` remains available for intentional production migration.
 

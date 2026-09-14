@@ -134,27 +134,29 @@ BASE_URL=https://staging.example.com SKIP_WEB_SERVER=true npm run test:e2e
 
 Unit tests mock the database by default (see `vitest.setup.ts`). They do not need Docker or PostgreSQL.
 
-Authenticated Playwright tests require the isolated local test database:
+Authenticated Playwright tests require the isolated local test database `paid_talent_test`. Generic `npm run test:e2e` does **not** inject that URL; if `.env.local` points at `paid_talent_dev`, authenticated suites skip instead of mutating persistent local data.
 
-```bash
-npm run test:db:start
-npm run test:db:reset
-npm run test:e2e
-```
-
-Or:
+Canonical command:
 
 ```bash
 npm run test:e2e:local
 ```
 
-That workflow uses:
+Optional Playwright filters (cross-platform via npm):
 
-- Docker `paid-talent-test-pg` on `127.0.0.1:55441`
-- `AUTH_DEV_BYPASS=true` (development/test only; impossible in production)
-- deterministic seeded accounts from `npm run test:db:reset`
+```bash
+npm run test:e2e:local -- e2e/hire-confirmation.spec.ts --project=chromium
+```
 
-`DATABASE_URL` must be localhost. Remote Neon URLs skip authenticated E2E instead of mutating cloud data.
+That workflow:
+
+- starts Docker `paid-talent-test-pg` on `127.0.0.1:55441`
+- resets, migrates, and seeds `paid_talent_test` only
+- injects `DATABASE_URL` for `paid_talent_test` into the Playwright process
+- sets `AUTH_DEV_BYPASS=true` (development/test only; impossible in production)
+- leaves generic `npm run test:e2e` available for unauthenticated tests and staging `BASE_URL` runs
+
+Remote Neon URLs and `paid_talent_dev` never enable authenticated E2E.
 
 See [docs/local-database.md](local-database.md) for ports, volumes, and safety guards.
 

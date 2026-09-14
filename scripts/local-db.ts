@@ -364,7 +364,7 @@ export async function stopPrDb(prNumber: number): Promise<void> {
   }
 }
 
-export async function runLocalE2E(): Promise<void> {
+export async function runLocalE2E(playwrightArgs: string[] = []): Promise<void> {
   await startLocalDb("test");
   await resetLocalDb("test");
   const env: NodeJS.ProcessEnv = {
@@ -378,7 +378,7 @@ export async function runLocalE2E(): Promise<void> {
     expectedDatabase: LOCAL_DB_TARGETS.test.database,
   });
   console.log(`Running Playwright against ${describeDatabaseTarget(env.DATABASE_URL)}`);
-  const code = await runCommand("npx", ["playwright", "test"], {
+  const code = await runCommand("npx", ["playwright", "test", ...playwrightArgs], {
     env,
     shell: true,
   });
@@ -468,7 +468,7 @@ async function main(argv: string[]): Promise<void> {
       await stopPrDb(parsePrNumber(argv.slice(1)));
       return;
     case "e2e":
-      await runLocalE2E();
+      await runLocalE2E(argv.slice(1));
       return;
     default:
       printUsage();

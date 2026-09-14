@@ -5,9 +5,9 @@ import { hasLocalAuthEnv, LOCAL_AUTH_SKIP_REASON } from "./helpers/local-auth";
  * Recruiter profile & openings E2E
  *
  * Unauthenticated: always runs.
- * Authenticated: runs only when DATABASE_URL host is localhost/127.0.0.1/::1
- * AND AUTH_DEV_BYPASS=true (dev-only credentials against a seeded local DB).
- * Remote hosts (e.g. Neon) never enable this suite.
+ * Authenticated: runs only against local paid_talent_test with
+ * AUTH_DEV_BYPASS=true (use npm run test:e2e:local). paid_talent_dev,
+ * other localhost DBs, and remote hosts never enable this suite.
  *
  * Seeded recruiter used: recruiter-pro@example.com
  * Seed includes published Hostess/Bartender and draft Server openings.
