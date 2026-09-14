@@ -104,6 +104,16 @@ describe("public signup entry points", () => {
     expect(ageGate).toContain("persistSignupIntentRole");
     expect(ageGate).toContain("/auth/signin");
     expect(ageGate).toContain("ageConfirmed");
+    expect(ageGate).toContain("pendingSignup");
+    expect(ageGate).toContain("/auth/age-verification");
+  });
+
+  it("role-select does not treat email query params as identity", () => {
+    const roleSelect = readSrc("app/auth/role-select/page.tsx");
+    expect(roleSelect).not.toContain('searchParams.get("email")');
+    expect(roleSelect).not.toContain("params.set(\"email\"");
+    expect(roleSelect).toContain("Looks like you're new to Paid Talent");
+    expect(roleSelect).toContain("Let's finish creating your account.");
   });
 
   it("hard DOB page is DOB-only with no second 20+ checkbox", () => {
@@ -258,12 +268,14 @@ describe("canonical signup lifecycle (single authentication)", () => {
     });
   });
 
-  it("hard DOB verification still writes DOB only after auth via verify-age", () => {
+  it("hard DOB verification writes DOB only after auth via verify-age", () => {
     const verifyAge = readSrc("app/api/auth/verify-age/route.ts");
-    expect(verifyAge).toContain("session?.user?.id");
+    expect(verifyAge).toContain("completeAgeVerification");
     expect(verifyAge).toContain("dateOfBirth");
-    expect(verifyAge).toContain("ageVerified: true");
-    expect(verifyAge).not.toContain("email");
+    expect(verifyAge).toContain("signupIntentRole");
+    expect(verifyAge).not.toContain("validation.data.email");
+    expect(verifyAge).not.toContain("body.email");
+    expect(verifyAge).not.toContain("body.role");
 
     const registerGone = path.join(
       process.cwd(),
@@ -278,16 +290,13 @@ describe("canonical signup lifecycle (single authentication)", () => {
     expect(meetsMinimumAge(new Date("2010-01-01"), reference)).toBe(false);
   });
 
-  it("a brand-new Google account without a valid intent cannot be created", () => {
+  it("a brand-new Google account without a valid intent stays pending (no user row yet)", () => {
     const decision = resolveProviderSignInDecision({
       existingUser: null,
       signupIntentRole: undefined,
       email: "unknown@example.com",
     });
-    expect(decision.kind).toBe("abort_redirect");
-    if (decision.kind === "abort_redirect") {
-      expect(decision.url).toContain("/auth/role-select");
-    }
+    expect(decision.kind).toBe("complete_pending_signup");
   });
 
   it("stale worker intent cannot create a second unknown Google account once consumed", () => {
@@ -303,10 +312,7 @@ describe("canonical signup lifecycle (single authentication)", () => {
       signupIntentRole: undefined,
       email: "second@example.com",
     });
-    expect(afterConsume.kind).toBe("abort_redirect");
-    if (afterConsume.kind === "abort_redirect") {
-      expect(afterConsume.url).toContain("/auth/role-select");
-    }
+    expect(afterConsume.kind).toBe("complete_pending_signup");
   });
 
   it("existing-user auth ignores a stale signup intent", () => {

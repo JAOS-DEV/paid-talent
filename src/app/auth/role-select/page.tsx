@@ -2,17 +2,20 @@
 
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Button, Card, CardContent } from "@/components/ui";
+import { isPendingSignupUser } from "@/lib/auth/pending-signup";
 import type { UserRole } from "@/types/auth";
 
 function RoleSelectForm(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get("email");
-  const preselectedRole = searchParams.get("role") as UserRole | null;
+  const preselectedRole = searchParams.get("role");
 
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(
-    preselectedRole
+    preselectedRole === "worker" || preselectedRole === "recruiter"
+      ? preselectedRole
+      : null
   );
 
   const handleContinue = (): void => {
@@ -20,8 +23,6 @@ function RoleSelectForm(): React.ReactElement {
 
     const params = new URLSearchParams();
     params.set("role", selectedRole);
-    if (email) params.set("email", email);
-
     router.push(`/auth/age-gate?${params.toString()}`);
   };
 
@@ -123,18 +124,50 @@ function RoleSelectForm(): React.ReactElement {
   );
 }
 
+function RoleSelectHeader(): React.ReactElement {
+  const { data: session } = useSession();
+  const pendingSignup = isPendingSignupUser(session?.user);
+
+  return (
+    <div className="text-center mb-8">
+      <h1 className="text-2xl font-bold text-charcoal-100 mb-2">
+        {pendingSignup
+          ? "Looks like you're new to Paid Talent"
+          : "Welcome to Paid Talent"}
+      </h1>
+      <p className="text-charcoal-400">
+        {pendingSignup
+          ? "Let's finish creating your account."
+          : "Choose how you want to use the platform"}
+      </p>
+    </div>
+  );
+}
+
+function RoleSelectFooter(): React.ReactElement | null {
+  const { data: session } = useSession();
+  if (isPendingSignupUser(session?.user)) {
+    return null;
+  }
+
+  return (
+    <p className="text-center text-charcoal-500 text-sm mt-6">
+      Already have an account?{" "}
+      <a
+        href="/auth/signin"
+        className="text-primary-400 hover:text-primary-300"
+      >
+        Sign in
+      </a>
+    </p>
+  );
+}
+
 export default function RoleSelectPage(): React.ReactElement {
   return (
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-charcoal-100 mb-2">
-            Welcome to Paid Talent
-          </h1>
-          <p className="text-charcoal-400">
-            Choose how you want to use the platform
-          </p>
-        </div>
+        <RoleSelectHeader />
 
         <Suspense fallback={
           <div className="space-y-4">
@@ -145,15 +178,7 @@ export default function RoleSelectPage(): React.ReactElement {
           <RoleSelectForm />
         </Suspense>
 
-        <p className="text-center text-charcoal-500 text-sm mt-6">
-          Already have an account?{" "}
-          <a
-            href="/auth/signin"
-            className="text-primary-400 hover:text-primary-300"
-          >
-            Sign in
-          </a>
-        </p>
+        <RoleSelectFooter />
       </div>
     </div>
   );

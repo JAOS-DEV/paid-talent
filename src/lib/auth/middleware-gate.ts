@@ -3,6 +3,11 @@
  * Extracted so redirect-loop regressions can be unit-tested without NextRequest.
  */
 
+import {
+  PENDING_SIGNUP_CONTINUE_PATH,
+  isPendingSignupContinuationRoute,
+} from "@/lib/auth/pending-signup";
+
 export const AUTH_PUBLIC_ROUTES = [
   "/",
   "/auth/signin",
@@ -40,13 +45,48 @@ export function resolveMiddlewareGate(input: {
   ageVerified: boolean;
   isApiRoute: boolean;
   isAuthApiRoute: boolean;
+  signupPending?: boolean;
+  hasSignupIntent?: boolean;
 }): MiddlewareGateResult {
-  const { pathname, hasSession, ageVerified, isApiRoute, isAuthApiRoute } =
-    input;
+  const {
+    pathname,
+    hasSession,
+    ageVerified,
+    isApiRoute,
+    isAuthApiRoute,
+    signupPending = false,
+    hasSignupIntent = false,
+  } = input;
 
   // NextAuth routes must always pass (includes /api/auth/verify-age)
   if (isAuthApiRoute) {
     return { action: "allow" };
+  }
+
+  if (signupPending) {
+    if (pathname === AGE_VERIFICATION_PATH && !hasSignupIntent) {
+      return {
+        action: "redirect",
+        destination: PENDING_SIGNUP_CONTINUE_PATH,
+      };
+    }
+
+    if (isPendingSignupContinuationRoute(pathname)) {
+      return { action: "allow" };
+    }
+
+    if (isApiRoute) {
+      return {
+        action: "json",
+        status: 403,
+        error: "Finish creating your account",
+      };
+    }
+
+    return {
+      action: "redirect",
+      destination: PENDING_SIGNUP_CONTINUE_PATH,
+    };
   }
 
   if (!hasSession) {

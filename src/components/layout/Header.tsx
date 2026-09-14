@@ -10,13 +10,16 @@ export function Header(): React.ReactElement {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const getDashboardLink = (): string => {
-    if (!session?.user) return "/auth/signin";
+    if (!session?.user || session.user.signupPending) {
+      return "/auth/role-select";
+    }
     return session.user.role === "worker"
       ? "/worker/dashboard"
       : "/recruiter/dashboard";
   };
 
-  const isRecruiter = session?.user?.role === "recruiter";
+  const isFullUser = !!session?.user && session.user.signupPending !== true;
+  const isRecruiter = isFullUser && session?.user?.role === "recruiter";
 
   const recruiterLinks = [
     { href: "/recruiter/search", label: "Search Workers" },
@@ -85,7 +88,13 @@ export function Header(): React.ReactElement {
 
             {status === "loading" ? (
               <div className="w-8 h-8 rounded-full bg-charcoal-700 animate-pulse" />
-            ) : session?.user ? (
+            ) : session?.user?.signupPending ? (
+              <Link href="/auth/role-select">
+                <Button variant="primary" size="sm">
+                  Finish signup
+                </Button>
+              </Link>
+            ) : isFullUser ? (
               <div className="flex items-center space-x-3">
                 <Link href={getDashboardLink()}>
                   <Button variant="ghost" size="sm">

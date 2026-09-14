@@ -92,7 +92,7 @@ describe("canonical signup after register-route removal", () => {
       signupIntentRole: undefined,
       email: "unknown@example.com",
     });
-    expect(withoutIntent.kind).toBe("abort_redirect");
+    expect(withoutIntent.kind).toBe("complete_pending_signup");
   });
 
   it("existing users still complete sign-in without the register route", () => {

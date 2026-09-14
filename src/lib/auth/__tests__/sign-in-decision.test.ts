@@ -112,41 +112,49 @@ describe("resolveProviderSignInDecision", () => {
   });
 
   describe("new users without valid signup intent", () => {
-    it("redirects to role-select when no signup intent", () => {
+    it("completes a pending signup JWT instead of aborting OAuth", () => {
       const decision = resolveProviderSignInDecision({
         existingUser: null,
         signupIntentRole: undefined,
         email,
       });
 
-      expect(decision).toEqual({
-        kind: "abort_redirect",
-        url: "/auth/role-select?email=" + encodeURIComponent(email),
-      });
+      expect(decision).toEqual({ kind: "complete_pending_signup" });
+      expect(JSON.stringify(decision)).not.toContain(email);
+      expect(JSON.stringify(decision)).not.toContain("/auth/role-select");
     });
 
-    it("redirects to role-select for invalid signup intent (does not silently create)", () => {
+    it("does not silently create an account for invalid signup intent", () => {
       const decision = resolveProviderSignInDecision({
         existingUser: null,
         signupIntentRole: "admin",
         email,
       });
 
-      expect(decision.kind).toBe("abort_redirect");
-      if (decision.kind === "abort_redirect") {
-        expect(decision.url).toContain("/auth/role-select");
-        expect(decision.url).toContain(encodeURIComponent(email));
-      }
+      expect(decision.kind).toBe("complete_pending_signup");
+      expect(JSON.stringify(decision)).not.toContain("admin");
+      expect(JSON.stringify(decision)).not.toContain(email);
     });
 
-    it("redirects to role-select for empty signup intent", () => {
+    it("does not silently create an account for empty signup intent", () => {
       const decision = resolveProviderSignInDecision({
         existingUser: null,
         signupIntentRole: "",
         email,
       });
 
-      expect(decision.kind).toBe("abort_redirect");
+      expect(decision.kind).toBe("complete_pending_signup");
+    });
+
+    it("does not put the Google email in a redirect URL", () => {
+      const decision = resolveProviderSignInDecision({
+        existingUser: null,
+        signupIntentRole: undefined,
+        email: "secret-identity@example.com",
+      });
+
+      expect(JSON.stringify(decision)).not.toContain("secret-identity");
+      expect(JSON.stringify(decision)).not.toContain("email=");
     });
   });
 
@@ -268,6 +276,26 @@ describe("applyJwtSessionUpdate", () => {
       sessionAgeVerified: true,
     });
     expect(after.ageVerified).toBe(true);
+  });
+
+  it("never takes role from a client session.update payload", () => {
+    const updated = applyJwtSessionUpdate({
+      tokenRole: "worker",
+      tokenAgeVerified: false,
+      sessionAgeVerified: true,
+    });
+    expect(updated.role).toBe("worker");
+    expect(updated).not.toHaveProperty("sessionRole");
+  });
+
+  it("ignores client updates while signup is still pending", () => {
+    const updated = applyJwtSessionUpdate({
+      tokenRole: "recruiter",
+      tokenAgeVerified: true,
+      sessionAgeVerified: true,
+      signupPending: true,
+    });
+    expect(updated).toEqual({ role: undefined, ageVerified: false });
   });
 });
 

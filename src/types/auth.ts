@@ -6,14 +6,16 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      role: UserRole;
+      role?: UserRole;
       ageVerified: boolean;
+      signupPending?: boolean;
     } & DefaultSession["user"];
   }
 
   interface User {
-    role: UserRole;
+    role?: UserRole;
     ageVerified: boolean;
+    signupPending?: boolean;
   }
 }
 
