@@ -31,6 +31,11 @@ import {
 } from "@/lib/profile";
 import { VerificationStatusBanner } from "@/components/verification";
 import type { WorkerProfile } from "@/lib/db/schema";
+import {
+  PROFILE_PHOTO_ACCEPT,
+  PROFILE_PHOTO_ERRORS,
+} from "@/lib/media/profile-photo";
+import { uploadProfilePhoto } from "@/lib/media/upload-profile-photo";
 
 export default function WorkerProfilePage(): React.ReactElement {
   const { data: session, status } = useSession();
@@ -39,6 +44,7 @@ export default function WorkerProfilePage(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [displayName, setDisplayName] = useState("");
@@ -125,43 +131,23 @@ export default function WorkerProfilePage(): React.ReactElement {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) return;
-    if (file.size > 5 * 1024 * 1024) return;
-
     setSaving("photo");
+    setPhotoError(null);
 
     try {
-      const presignedRes = await fetch("/api/media/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contentType: file.type, folder: "profiles" }),
+      const result = await uploadProfilePhoto(file, { fetch });
+      setPhotoUrl(result.publicUrl);
+      await updateProfilePhoto({
+        photoKey: result.key,
+        photoUrl: result.publicUrl,
       });
-
-      if (!presignedRes.ok) throw new Error("Failed to get upload URL");
-
-      const { uploadUrl, key, publicUrl } = await presignedRes.json();
-
-      const uploadRes = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
-
-      if (!uploadRes.ok) throw new Error("Failed to upload");
-
-      const confirmRes = await fetch("/api/media/upload", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, publicUrl }),
-      });
-
-      if (!confirmRes.ok) throw new Error("Failed to confirm upload");
-
-      setPhotoUrl(publicUrl);
-      await updateProfilePhoto({ photoKey: key, photoUrl: publicUrl });
       showSuccess("Photo updated");
     } catch (error) {
-      console.error("Upload failed:", error);
+      setPhotoError(
+        error instanceof Error
+          ? error.message
+          : PROFILE_PHOTO_ERRORS.uploadFailed
+      );
     } finally {
       setSaving(null);
     }
@@ -339,7 +325,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/jpeg,image/png,image/webp"
+                      accept={PROFILE_PHOTO_ACCEPT}
                       className="hidden"
                       onChange={handlePhotoUpload}
                     />
@@ -352,8 +338,11 @@ export default function WorkerProfilePage(): React.ReactElement {
                       {photoUrl ? "Change Photo" : "Upload Photo"}
                     </Button>
                     <p className="text-charcoal-500 text-xs mt-2">
-                      JPG, PNG or WebP. Max 5MB.
+                      JPG, PNG or WebP. Max 10MB.
                     </p>
+                    {photoError && (
+                      <p className="text-error text-sm mt-2">{photoError}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>

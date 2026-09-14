@@ -254,6 +254,27 @@ test.describe("Mobile DOB Input Layout", () => {
   });
 });
 
+test.describe("Auth API middleware crash regression", () => {
+  test("Google callback route is not intercepted by crashing middleware", async ({
+    request,
+  }) => {
+    const response = await request.get("/api/auth/callback/google");
+    expect(response.status()).not.toBe(500);
+    const vercelError = response.headers()["x-vercel-error"];
+    expect(vercelError).not.toBe("MIDDLEWARE_INVOCATION_FAILED");
+  });
+
+  test("auth session route still responds without a middleware 500", async ({
+    request,
+  }) => {
+    const response = await request.get("/api/auth/session");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["x-vercel-error"]).not.toBe(
+      "MIDDLEWARE_INVOCATION_FAILED"
+    );
+  });
+});
+
 test.describe("Auth Redirect Loop Regression (anonymous + signup intent)", () => {
   test("unauthenticated users should be redirected from protected routes to signin", async ({ page }) => {
     await page.goto("/worker/dashboard");
