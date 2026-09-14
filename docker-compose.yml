@@ -1,0 +1,58 @@
+# Paid Talent — local PostgreSQL only.
+# This does not containerize the Next.js app or replace production Neon.
+#
+# Image pin: postgres:16-alpine
+# Production Neon major was not queried (current .env.local points at a remote
+# Neon host). Postgres 16 is a Neon-supported major and matches the existing
+# isolated local validation container (paid-talent-pr30-pg, PostgreSQL 16.15).
+# Do not use postgres:latest.
+#
+# Ports bind to 127.0.0.1 only. Defaults avoid 5432, VenuBoard (5432x / 5532x),
+# and the temporary paid-talent-pr30-pg mapping on 55432.
+
+name: paid-talent
+
+services:
+  paid-talent-dev-pg:
+    image: postgres:16-alpine
+    container_name: paid-talent-dev-pg
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PAID_TALENT_DEV_DB_PORT:-55440}:5432"
+    environment:
+      POSTGRES_USER: paidtalent
+      POSTGRES_PASSWORD: paidtalent
+      POSTGRES_DB: paid_talent_dev
+    volumes:
+      - paid-talent-dev-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paidtalent -d paid_talent_dev"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  paid-talent-test-pg:
+    image: postgres:16-alpine
+    container_name: paid-talent-test-pg
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PAID_TALENT_TEST_DB_PORT:-55441}:5432"
+    environment:
+      POSTGRES_USER: paidtalent
+      POSTGRES_PASSWORD: paidtalent
+      POSTGRES_DB: paid_talent_test
+    volumes:
+      - paid-talent-test-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paidtalent -d paid_talent_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+volumes:
+  paid-talent-dev-pg-data:
+    name: paid-talent-dev-pg-data
+  paid-talent-test-pg-data:
+    name: paid-talent-test-pg-data

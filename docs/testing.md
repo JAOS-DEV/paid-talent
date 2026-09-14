@@ -132,37 +132,37 @@ BASE_URL=https://staging.example.com SKIP_WEB_SERVER=true npm run test:e2e
 
 ## Database for Testing
 
-### Local Development
+Unit tests mock the database by default (see `vitest.setup.ts`). They do not need Docker or PostgreSQL.
 
-Unit tests mock the database by default (see `vitest.setup.ts`). No real database is needed.
+Authenticated Playwright tests require the isolated local test database:
 
-For e2e tests that require data:
+```bash
+npm run test:db:start
+npm run test:db:reset
+npm run test:e2e
+```
 
-1. Ensure you have a test database configured:
+Or:
 
-   ```bash
-   # .env.test (create this file)
-   DATABASE_URL=postgres://localhost:5432/paid_talent_test
-   ```
+```bash
+npm run test:e2e:local
+```
 
-2. Run migrations:
+That workflow uses:
 
-   ```bash
-   npm run db:migrate
-   ```
+- Docker `paid-talent-test-pg` on `127.0.0.1:55441`
+- `AUTH_DEV_BYPASS=true` (development/test only; impossible in production)
+- deterministic seeded accounts from `npm run test:db:reset`
 
-3. Seed the database (when available):
+`DATABASE_URL` must be localhost. Remote Neon URLs skip authenticated E2E instead of mutating cloud data.
 
-   ```bash
-   # Coming soon: npm run db:seed
-   ```
+See [docs/local-database.md](local-database.md) for ports, volumes, and safety guards.
 
 ### Important Notes
 
-- **Never run seed against production** - Seed scripts are for local/test only
-- The `db:seed` script will be added in a separate PR
-- E2E tests currently rely on the UI flow, not seeded data
-- For tests requiring existing data, use fixtures or the seed when available
+- Never seed or reset Neon/staging/production from these helpers
+- `npm run db:migrate` is the explicit operator path for production migrations
+- Do not force Docker for unit tests
 
 ## CI Integration
 

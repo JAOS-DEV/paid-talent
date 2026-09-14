@@ -28,7 +28,7 @@ A platform connecting skilled workers with recruiters. Workers create profiles s
 ### Prerequisites
 
 - Node.js 18+
-- PostgreSQL 14+
+- Docker Desktop (local PostgreSQL)
 - S3-compatible storage (AWS S3, MinIO, DigitalOcean Spaces)
 - Stripe account (for subscriptions)
 
@@ -37,7 +37,7 @@ A platform connecting skilled workers with recruiters. Workers create profiles s
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/paid-talent.git
+   git clone https://github.com/JAOS-DEV/paid-talent.git
    cd paid-talent
    ```
 
@@ -47,41 +47,29 @@ A platform connecting skilled workers with recruiters. Workers create profiles s
    npm install
    ```
 
-> **⚠️ After pulling new changes:** If the pull includes schema changes (migrations), you must run `npm run db:migrate` before starting the dev server. If migrate fails with "type already exists", run `npm run db:repair` instead. See [Local Development After Git Pull](#local-development-after-git-pull) for troubleshooting.
-
 3. **Set up environment variables**
 
    ```bash
    cp .env.example .env.local
    ```
 
-   Edit `.env.local` with your configuration:
+   Keep `DATABASE_URL` pointed at local Docker Postgres. Production Neon is supplied by Vercel and must not be copied into git.
 
    ```bash
-   # Required
-   DATABASE_URL="postgresql://user:password@localhost:5432/paid_talent"
+   DATABASE_URL="postgresql://paidtalent:paidtalent@127.0.0.1:55440/paid_talent_dev"
    AUTH_SECRET="your-secret-here"  # Generate: openssl rand -base64 32
-   
-   # S3 Storage
-   S3_REGION="us-east-1"
-   S3_BUCKET_NAME="paid-talent-media"
-   S3_ACCESS_KEY_ID="your-access-key"
-   S3_SECRET_ACCESS_KEY="your-secret-key"
-   
-   # Stripe
-   STRIPE_SECRET_KEY="sk_test_..."
-   STRIPE_WEBHOOK_SECRET="whsec_..."
+   AUTH_DEV_BYPASS="true"
    ```
 
-4. **Set up the database**
+4. **Start local PostgreSQL, migrate, and seed**
 
    ```bash
-   # Generate migrations
-   npm run db:generate
-   
-   # Run migrations
-   npm run db:migrate
+   npm run dev:db:start
+   npm run dev:db:migrate
+   npm run dev:db:seed
    ```
+
+   `npm run dev` does not seed or reset the database.
 
 5. **Start the development server**
 
@@ -91,35 +79,52 @@ A platform connecting skilled workers with recruiters. Workers create profiles s
 
    Open [http://localhost:3000](http://localhost:3000)
 
+> **After pulling schema changes:** run `npm run dev:db:migrate`. If migrate fails with "type already exists", run `npm run db:repair` against the local DB, or `npm run dev:db:reset`. See [Local Development Database](#local-development-database).
+
+## Local Development Database
+
+Everyday local work uses Docker PostgreSQL. Vercel production keeps using the Neon `DATABASE_URL` from Vercel environment variables.
+
+| Database | Container | Port | Data |
+| --- | --- | --- | --- |
+| Development | `paid-talent-dev-pg` | `127.0.0.1:55440` | Persistent named volume. `stop` keeps data. |
+| Test / E2E | `paid-talent-test-pg` | `127.0.0.1:55441` | Isolated volume. Safe to reset. |
+
+If Docker Desktop is stopped, local DB commands will fail until Docker is started.
+
+```bash
+npm run dev:db:start
+npm run dev:db:stop       # stops the container; does not delete data
+npm run dev:db:reset      # destructive, local dev DB only
+npm run test:db:start
+npm run test:db:reset     # destructive, local test DB only
+npm run test:e2e:local    # reset test DB + authenticated Playwright
+```
+
+Destructive commands refuse remote/malformed/missing `DATABASE_URL` values and never print passwords. Generic `npm run db:migrate` remains available for intentional production migration.
+
+Full ports, PR-specific disposable DBs, and troubleshooting: [docs/local-database.md](docs/local-database.md).
+
 ### Database Commands
 
 ```bash
-# Generate migration from schema changes
+npm run dev:db:start
+npm run dev:db:migrate
+npm run dev:db:seed
 npm run db:generate
-
-# Run pending migrations
-npm run db:migrate
-
-# Repair database schema desync (use when migrate fails)
-npm run db:repair
-
-# Seed database with sample data (development only)
-npm run db:seed
-
-# Open Drizzle Studio (database UI)
+npm run db:migrate          # uses current DATABASE_URL; production operator action
+npm run db:repair           # local-only
+npm run db:seed             # local-only
 npm run db:studio
-
-# Push schema directly (development only)
-npm run db:push
 ```
 
 ### Local Development After Git Pull
 
-After pulling changes that include schema updates (e.g., new columns, tables, or types), you must update your local database:
+After pulling changes that include schema updates (e.g., new columns, tables, or types), update the local Docker database:
 
 ```bash
-npm run db:migrate
-npm run db:seed  # Optional: refresh sample data
+npm run dev:db:migrate
+npm run dev:db:seed  # Optional: refresh sample data
 ```
 
 **Common Error: "type already exists" or "column does not exist"**
@@ -139,31 +144,26 @@ The repair tool will:
 2. Sync the migration journal if needed
 3. Apply any missing schema changes (like verification columns)
 
-**Nuclear Option: Full Database Reset**
+**Nuclear Option: Full local database reset**
 
-If repair doesn't work or you want a fresh start:
+If repair doesn't work or you want a fresh local database:
 
-1. **Neon (cloud):** Go to Neon Console → Your Project → Settings → Delete all data (or create a new branch)
-2. **Local PostgreSQL:** Drop and recreate the database
-   ```bash
-   dropdb paid_talent && createdb paid_talent
-   ```
-3. Run fresh setup:
-   ```bash
-   npm run db:migrate
-   npm run db:seed
-   ```
+```bash
+npm run dev:db:reset
+```
+
+This resets only `paid_talent_dev` on localhost. It will refuse to run against Neon/staging/production.
 
 ### Local Development Seed Data
 
-The `db:seed` script populates the database with sample users for local development and testing. **This script is blocked in production** (`NODE_ENV=production`).
+The `db:seed` / `dev:db:seed` scripts populate the database with sample users for local development and testing. They are blocked in production (`NODE_ENV=production`) **and** they refuse any non-localhost `DATABASE_URL`.
 
 #### Prerequisites
 
-1. PostgreSQL running with `DATABASE_URL` configured
-2. Migrations applied: `npm run db:migrate`
+1. Docker Postgres running: `npm run dev:db:start`
+2. Migrations applied: `npm run dev:db:migrate`
 
-> **Note:** The `db:seed` and `db:migrate` scripts load environment variables in Next.js order: `.env` first, then `.env.local` (which takes precedence). You can use either file for `DATABASE_URL`.
+> **Note:** Helper commands force the local Docker URL. Generic `db:seed` still loads `.env` then `.env.local`, but will abort if `DATABASE_URL` is remote.
 
 #### Running the Seed
 
@@ -237,7 +237,8 @@ src/
 │   └── moderation/       # Content moderation
 ├── types/                 # TypeScript types
 docs/
-└── architecture.md        # Detailed architecture docs
+├── architecture.md        # Detailed architecture docs
+└── local-database.md      # Docker Postgres local/test/PR workflow
 ```
 
 ## Architecture
@@ -535,7 +536,7 @@ When enabled:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `DATABASE_URL` | Yes | Local Docker Postgres for development; Neon via Vercel in production |
 | `AUTH_SECRET` | Yes | NextAuth.js secret |
 | `EMAIL_SERVER` | Prod | SMTP connection URL for magic links |
 | `EMAIL_FROM` | Prod | "From" address for sign-in emails |

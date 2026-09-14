@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { eq, and } from "drizzle-orm";
 import * as schema from "./schema";
+import { requireLocalDatabaseUrl, describeDatabaseTarget } from "./safety";
 
 type HireOutcomeStatusType = "interested" | "hired" | "started";
 
@@ -330,15 +331,19 @@ async function seed(): Promise<void> {
     process.exit(1);
   }
 
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    console.error("❌ ERROR: DATABASE_URL environment variable is not set");
+  let connectionString: string;
+  try {
+    connectionString = requireLocalDatabaseUrl(process.env.DATABASE_URL, {
+      action: "seed database",
+    });
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Refusing to seed database.");
     process.exit(1);
   }
 
   console.log("🌱 Starting database seed...\n");
   console.log(`   Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`   Database: ${connectionString.split("@")[1]?.split("/")[0] || "local"}\n`);
+  console.log(`   Database: ${describeDatabaseTarget(connectionString)}\n`);
 
   const client = postgres(connectionString, { max: 1 });
   const db = drizzle(client, { schema });

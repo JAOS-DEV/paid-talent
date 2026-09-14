@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
+import { requireLocalDatabaseUrl, describeDatabaseTarget } from "./safety";
 
 const MIGRATION_HASH = "0000_sticky_invisible_woman";
 const MIGRATION_TIMESTAMP = 1789318340493;
@@ -14,14 +15,18 @@ interface MigrationRow extends Record<string, unknown> {
 }
 
 async function repair(): Promise<void> {
-  const connectionString = process.env.DATABASE_URL;
-
-  if (!connectionString) {
-    console.error("❌ DATABASE_URL environment variable is not set");
+  let connectionString: string;
+  try {
+    connectionString = requireLocalDatabaseUrl(process.env.DATABASE_URL, {
+      action: "repair database",
+    });
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Refusing to repair database.");
     process.exit(1);
   }
 
   console.log("🔧 Database Repair Tool");
+  console.log(`   Database: ${describeDatabaseTarget(connectionString)}`);
   console.log("=".repeat(60));
   console.log("\nThis tool fixes migration issues for databases that were");
   console.log("seeded before the verification schema was added.\n");
@@ -279,10 +284,9 @@ async function repair(): Promise<void> {
     console.error("\n❌ Repair failed:", error);
     console.error("\n💡 This tool is re-runnable. Try running it again.");
     console.error("   If the error persists, check the error message above.");
-    console.error("\n💣 Nuclear option (last resort):");
-    console.error("   1. Reset your Neon database (or DROP all tables locally)");
-    console.error("   2. Run 'npm run db:migrate'");
-    console.error("   3. Run 'npm run db:seed'");
+    console.error("\n💣 Nuclear option (last resort, local Docker only):");
+    console.error("   1. npm run dev:db:reset   # or npm run test:db:reset");
+    console.error("   Never run destructive reset against Neon/staging/production.");
     process.exit(1);
   } finally {
     await client.end();

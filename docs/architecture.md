@@ -910,7 +910,7 @@ The app does **not** auto-migrate on start. Deploying this code before `0004` is
 
 Safe order:
 
-1. Validate `0004` on local Postgres (`npm run db:migrate`, then `npm run db:validate-hire-confirmation` against localhost only)
+1. Validate `0004` on local Postgres (`npm run dev:db:migrate`, then `npm run db:validate-hire-confirmation` against localhost only)
 2. Back up production Neon
 3. Apply `0004` to production
 4. Verify the new table, enums, FKs, and the one-pending-per-interest unique index
@@ -926,10 +926,12 @@ See `.env.example` for all configuration options.
 
 ### Required for Production
 
-- `DATABASE_URL` - PostgreSQL connection
+- `DATABASE_URL` - PostgreSQL connection (Neon, supplied by Vercel)
 - `AUTH_SECRET` - NextAuth secret
 - `S3_*` - Storage configuration
 - `STRIPE_*` - Payment processing
+
+Local development uses Docker PostgreSQL instead of Neon. See [docs/local-database.md](local-database.md).
 
 ### Optional
 
