@@ -127,7 +127,8 @@ export function isBrowserNetworkError(error: unknown): boolean {
   return (
     message === "Load failed" ||
     message === "Failed to fetch" ||
-    message === "NetworkError when attempting to fetch resource."
+    message === "NetworkError when attempting to fetch resource." ||
+    message === "Can only call Window.fetch on instances of Window."
   );
 }
 
