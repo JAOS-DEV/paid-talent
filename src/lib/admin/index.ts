@@ -4,6 +4,18 @@ export interface AdminAuthResult {
   reason: "authorized" | "not_in_allowlist" | "no_email" | "no_allowlist";
 }
 
+export {
+  resolveAdminPageAccess,
+  requireAdminPage,
+  type AdminPageAccess,
+} from "./guard";
+
+export {
+  buildVerificationDecisionBody,
+  buildPhotoRejectBody,
+  canSubmitVerificationApprove,
+} from "./review-actions";
+
 export function getAdminEmailAllowlist(): string[] {
   const envValue = process.env.ADMIN_EMAILS;
   if (!envValue) {
