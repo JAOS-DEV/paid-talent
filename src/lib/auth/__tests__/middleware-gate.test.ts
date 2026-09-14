@@ -60,6 +60,22 @@ describe("resolveMiddlewareGate", () => {
       });
     });
 
+    it("redirects unauthenticated onboarding access to signin", () => {
+      expect(
+        resolveMiddlewareGate({
+          pathname: "/worker/onboarding",
+          hasSession: false,
+          ageVerified: false,
+          isApiRoute: false,
+          isAuthApiRoute: false,
+        })
+      ).toEqual({
+        action: "redirect",
+        destination: "/auth/signin",
+        setCallbackUrl: true,
+      });
+    });
+
     it("redirects protected recruiter routes to signin", () => {
       expect(
         resolveMiddlewareGate({
@@ -94,6 +110,21 @@ describe("resolveMiddlewareGate", () => {
       expect(
         resolveMiddlewareGate({
           pathname: "/worker/dashboard",
+          hasSession: true,
+          ageVerified: false,
+          isApiRoute: false,
+          isAuthApiRoute: false,
+        })
+      ).toEqual({
+        action: "redirect",
+        destination: AGE_VERIFICATION_PATH,
+      });
+    });
+
+    it("redirects Worker onboarding to age-verification", () => {
+      expect(
+        resolveMiddlewareGate({
+          pathname: "/worker/onboarding",
           hasSession: true,
           ageVerified: false,
           isApiRoute: false,
@@ -186,6 +217,18 @@ describe("resolveMiddlewareGate", () => {
       expect(
         resolveMiddlewareGate({
           pathname: "/worker/dashboard",
+          hasSession: true,
+          ageVerified: true,
+          isApiRoute: false,
+          isAuthApiRoute: false,
+        })
+      ).toEqual({ action: "allow" });
+    });
+
+    it("allows Worker onboarding after age verification", () => {
+      expect(
+        resolveMiddlewareGate({
+          pathname: "/worker/onboarding",
           hasSession: true,
           ageVerified: true,
           isApiRoute: false,

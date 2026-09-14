@@ -123,6 +123,9 @@ describe("resolveRoleRouteRedirect", () => {
     expect(resolveRoleRouteRedirect("/worker/dashboard", "recruiter")).toBe(
       "/recruiter/dashboard"
     );
+    expect(resolveRoleRouteRedirect("/worker/onboarding", "recruiter")).toBe(
+      "/recruiter/dashboard"
+    );
   });
 
   it("sends workers away from recruiter routes and search", () => {

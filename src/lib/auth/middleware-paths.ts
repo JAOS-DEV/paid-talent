@@ -55,7 +55,7 @@ export function resolveRoleRouteRedirect(
 
 /**
  * JWT-only home destination used by Edge middleware (no DB / completeness).
- * Worker dashboard already sends incomplete profiles to onboarding.
+ * Incomplete workers may use the dashboard; completeness is not an access gate.
  */
 export function getSessionHomePath(role: UserRole): string {
   return role === "recruiter" ? "/recruiter/dashboard" : "/worker/dashboard";
