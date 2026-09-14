@@ -64,6 +64,9 @@ async function signInAs(page: Page, email: string, dest: string): Promise<void> 
       "Seeded user hit age gate; re-seed local DB (npm run db:seed)"
     );
   }
+
+  const destPattern = dest.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await expect(page).toHaveURL(new RegExp(destPattern));
 }
 
 test.describe("hire confirmation routes (unauthenticated)", () => {
@@ -158,12 +161,22 @@ test.describe("two-sided hire confirmation authenticated flow", () => {
       page.getByText(/says you have started working/i).first()
     ).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "Confirm started" }).click();
+    await expect(page.getByText("Action required")).toHaveCount(0, {
+      timeout: 10000,
+    });
 
     await page.context().clearCookies();
     await signInAs(page, SEEDED_RECRUITER_EMAIL, "/recruiter/interests");
-    await expect(page.getByText("Started").first()).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Your Interests" })).toBeVisible({
       timeout: 15000,
     });
+    await expect(
+      page
+        .locator(
+          `[data-testid="interest-card"][data-worker-name="${SEEDED_WORKER_NAME}"]`
+        )
+        .getByText("Started", { exact: true })
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test("worker can reject a hire request without becoming hired", async ({
