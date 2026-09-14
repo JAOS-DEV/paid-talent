@@ -83,10 +83,16 @@ test.describe("hire confirmation routes (unauthenticated)", () => {
 });
 
 test.describe("two-sided hire confirmation authenticated flow", () => {
-  test.beforeEach(() => {
+  test.describe.configure({ mode: "serial" });
+
+  test.beforeEach(({}, testInfo) => {
     test.skip(
       !hasLocalAuthEnv(),
       "Requires localhost DATABASE_URL + AUTH_DEV_BYPASS=true with seeded accounts"
+    );
+    test.skip(
+      testInfo.project.name !== "chromium",
+      "DB-mutating authenticated flow runs once on chromium"
     );
   });
 
@@ -100,11 +106,11 @@ test.describe("two-sided hire confirmation authenticated flow", () => {
       timeout: 15000,
     });
 
-    const workerCard = page.locator("article, div").filter({
-      hasText: SEEDED_WORKER_NAME,
-    }).first();
+    const workerCard = page.locator(
+      `[data-testid="interest-card"][data-worker-name="${SEEDED_WORKER_NAME}"]`
+    );
 
-    const requestHire = page.getByRole("button", {
+    const requestHire = workerCard.getByRole("button", {
       name: "Request hire confirmation",
     });
 
@@ -115,8 +121,8 @@ test.describe("two-sided hire confirmation authenticated flow", () => {
       );
     }
 
-    await requestHire.first().click();
-    await expect(page.getByText("Awaiting talent confirmation").first()).toBeVisible({
+    await requestHire.click();
+    await expect(workerCard.getByText("Awaiting talent confirmation")).toBeVisible({
       timeout: 10000,
     });
     await expect(workerCard.getByText("Hired", { exact: true })).toHaveCount(0);
@@ -158,5 +164,48 @@ test.describe("two-sided hire confirmation authenticated flow", () => {
     await expect(page.getByText("Started").first()).toBeVisible({
       timeout: 15000,
     });
+  });
+
+  test("worker can reject a hire request without becoming hired", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+
+    await signInAs(page, SEEDED_RECRUITER_EMAIL, "/recruiter/interests");
+    await expect(page.getByRole("heading", { name: "Your Interests" })).toBeVisible({
+      timeout: 15000,
+    });
+    const workerCard = page.locator(
+      '[data-testid="interest-card"][data-worker-name="Tanawat W."]'
+    );
+    await expect(workerCard).toBeVisible({ timeout: 15000 });
+    await expect(
+      workerCard.getByRole("button", { name: "Request hire confirmation" })
+    ).toBeVisible();
+
+    await workerCard.getByRole("button", { name: "Request hire confirmation" }).click();
+    await expect(workerCard.getByText("Awaiting talent confirmation")).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.context().clearCookies();
+    await signInAs(page, "worker5@example.com", "/worker/dashboard");
+    await expect(page.getByText("Action required").first()).toBeVisible({
+      timeout: 15000,
+    });
+    await page.getByRole("button", { name: "This isn't correct" }).click();
+    await expect(page.getByText("Action required")).toHaveCount(0, {
+      timeout: 10000,
+    });
+
+    await page.context().clearCookies();
+    await signInAs(page, SEEDED_RECRUITER_EMAIL, "/recruiter/interests");
+    const afterReject = page.locator(
+      '[data-testid="interest-card"][data-worker-name="Tanawat W."]'
+    );
+    await expect(afterReject.getByText("Talent did not confirm the hire")).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(afterReject.getByText("Hired", { exact: true })).toHaveCount(0);
   });
 });

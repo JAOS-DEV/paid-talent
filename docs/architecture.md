@@ -777,6 +777,22 @@ const stats = await getRecruiterOutcomeStats(userId);
 const pending = await getPendingConfirmationRequestsForWorker(workerUserId);
 ```
 
+### Production rollout
+
+`drizzle/0004_parallel_bulldozer.sql` is additive: new enums, table, FKs, and indexes. It does not rewrite existing `hire_outcomes` rows.
+
+The app does **not** auto-migrate on start. Deploying this code before `0004` is applied will query `hire_outcome_confirmation_requests` against a database that does not have it.
+
+Safe order:
+
+1. Validate `0004` on local Postgres (`npm run db:migrate`, then `npm run db:validate-hire-confirmation` against localhost only)
+2. Back up production Neon
+3. Apply `0004` to production
+4. Verify the new table, enums, FKs, and the one-pending-per-interest unique index
+5. Only then merge/deploy this code
+
+Do not apply `0004` from a developer machine unless that is the agreed production change process.
+
 ---
 
 ## Environment Variables

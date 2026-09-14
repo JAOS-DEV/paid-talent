@@ -86,6 +86,7 @@ function InterestCard({
   );
 
   return (
+    <div data-testid="interest-card" data-worker-name={interest.workerName}>
     <Card padding="md" className="hover:border-charcoal-600 transition-colors">
       <CardContent>
         <div className="flex items-start gap-4">
@@ -167,6 +168,7 @@ function InterestCard({
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }
 
