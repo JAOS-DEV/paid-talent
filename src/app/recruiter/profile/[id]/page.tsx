@@ -19,7 +19,6 @@ import {
   HireOutcomeActions,
 } from "@/components/hire-outcomes";
 import { OpeningInterestSelect } from "@/components/recruiter";
-import { getRecruiterOpenings } from "@/lib/recruiter-profile/actions";
 import type { WorkerProfileDetail } from "@/app/api/workers/[id]/route";
 import type { HireOutcomeStatus, RecruiterOpening } from "@/lib/db/schema";
 
@@ -108,8 +107,14 @@ export default function ProfileDetailPage({
 
     const loadOpenings = async (): Promise<void> => {
       try {
-        const openings = await getRecruiterOpenings();
+        const response = await fetch("/api/recruiter/openings");
         if (cancelled) return;
+        if (!response.ok) {
+          setPublishedOpenings([]);
+          return;
+        }
+        const data = await response.json();
+        const openings = (data.openings || []) as RecruiterOpening[];
         setPublishedOpenings(
           openings
             .filter((o) => o.isPublished)

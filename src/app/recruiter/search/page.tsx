@@ -15,7 +15,6 @@ import {
 } from "@/components/ui";
 import { AdSense } from "@/components/ads";
 import { OpeningInterestSelect } from "@/components/recruiter";
-import { getRecruiterOpenings } from "@/lib/recruiter-profile/actions";
 import type { SearchWorkerResult } from "@/app/api/workers/search/route";
 import type { RecruiterOpening } from "@/lib/db/schema";
 
@@ -237,7 +236,13 @@ export default function SearchPage(): React.ReactElement {
 
   const fetchPublishedOpenings = useCallback(async () => {
     try {
-      const openings = await getRecruiterOpenings();
+      const response = await fetch("/api/recruiter/openings");
+      if (!response.ok) {
+        setPublishedOpenings([]);
+        return;
+      }
+      const data = await response.json();
+      const openings = (data.openings || []) as RecruiterOpening[];
       setPublishedOpenings(
         openings
           .filter((o) => o.isPublished)
