@@ -534,6 +534,34 @@ Preferred production setup:
 4. `r2.dev` Public Development URL is acceptable for local testing only, not
    the preferred production architecture
 
+### Two R2 buckets
+
+| Bucket | Purpose | Public? |
+|---|---|---|
+| `paid-talent-media` | Profile photos / marketplace media | Yes, via `S3_CDN_URL` |
+| `paid-talent-private` | ID documents and liveness videos | **Never** |
+
+Use separate API credentials:
+
+- `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` scoped to `paid-talent-media`
+- `S3_PRIVATE_ACCESS_KEY_ID` / `S3_PRIVATE_SECRET_ACCESS_KEY` scoped to `paid-talent-private`
+
+The private client **must not** fall back to public credentials. Missing private
+config fails closed. Never enable r2.dev or a custom public domain on
+`paid-talent-private`.
+
+Object key prefixes:
+
+- Public: `profiles/{userId}/{uuid}.{ext}`
+- Private ID: `verification-docs/{userId}/{uuid}.{ext}`
+- Private liveness: `verification-liveness/{userId}/{uuid}.{ext}`
+
+`POST /api/media/upload` accepts profile photos only (`folder` may be omitted or
+`"profiles"`). `"documents"` and verification prefixes are rejected.
+
+Admin-only signed GET for private objects expires in **≤ 300 seconds** and is
+never persisted.
+
 ---
 
 ## Stripe Integration

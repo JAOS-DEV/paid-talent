@@ -4,6 +4,7 @@ import {
   getSignedIdDocumentUrl,
   getSignedLivenessVideoUrl,
 } from "@/lib/storage/s3";
+import { PrivateStorageConfigError } from "@/lib/storage/config";
 import { formatChallengeCodeForDisplay } from "@/lib/verification";
 
 export interface PendingPhotoItem {
@@ -21,7 +22,10 @@ export interface PendingPhotoItem {
   };
 }
 
-export async function listPendingWorkersForAdmin(): Promise<{
+export async function listPendingWorkersForAdmin(options: {
+  adminEmail: string;
+  includeSignedMedia?: boolean;
+}): Promise<{
   workers: Array<{
     id: string;
     userId: string;
@@ -69,30 +73,37 @@ export async function listPendingWorkersForAdmin(): Promise<{
     pendingWorkers.map(async (worker) => {
       let idDocumentUrl: string | null = null;
       let livenessVideoUrl: string | null = null;
+      const includeSignedMedia = options.includeSignedMedia === true;
 
-      if (worker.idDocumentKey) {
+      if (includeSignedMedia && worker.idDocumentKey) {
         try {
           idDocumentUrl = await getSignedIdDocumentUrl(
+            options.adminEmail,
             worker.idDocumentKey,
-            900
+            300
           );
-        } catch {
-          console.warn(
-            `[Admin Pending] Could not generate URL for ID document: ${worker.idDocumentKey}`
-          );
+        } catch (error) {
+          if (!(error instanceof PrivateStorageConfigError)) {
+            console.warn(
+              "[Admin Pending] Could not generate URL for ID document"
+            );
+          }
         }
       }
 
-      if (worker.livenessVideoKey) {
+      if (includeSignedMedia && worker.livenessVideoKey) {
         try {
           livenessVideoUrl = await getSignedLivenessVideoUrl(
+            options.adminEmail,
             worker.livenessVideoKey,
-            900
+            300
           );
-        } catch {
-          console.warn(
-            `[Admin Pending] Could not generate URL for liveness video: ${worker.livenessVideoKey}`
-          );
+        } catch (error) {
+          if (!(error instanceof PrivateStorageConfigError)) {
+            console.warn(
+              "[Admin Pending] Could not generate URL for liveness video"
+            );
+          }
         }
       }
 

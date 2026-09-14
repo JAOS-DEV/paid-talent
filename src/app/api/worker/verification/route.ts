@@ -6,12 +6,15 @@ import { z } from "zod";
 import {
   canTransitionVerificationStatus,
   computeFileSha256,
+  toWorkerVerificationStatusDto,
   validateVerificationSubmission,
 } from "@/lib/verification";
 import {
-  getIdDocumentBuffer,
-  getLivenessVideoBuffer,
+  getOwnedIdDocumentBuffer,
+  getOwnedLivenessVideoBuffer,
 } from "@/lib/storage/s3";
+import { PrivateStorageConfigError } from "@/lib/storage/config";
+import { assertOwnedPrivateVerificationKey } from "@/lib/storage/keys";
 
 const submitVerificationSchema = z.object({
   idDocumentKey: z.string().min(1, "ID document key is required"),
@@ -52,13 +55,7 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
-      verification: {
-        verificationStatus: profile.verificationStatus,
-        idDocumentSubmittedAt: profile.idDocumentSubmittedAt,
-        verificationReviewedAt: profile.verificationReviewedAt,
-        hasIdDocument: !!profile.idDocumentSubmittedAt,
-        hasChallengeCode: !!profile.challengeCode,
-      },
+      verification: toWorkerVerificationStatusDto(profile),
     });
   } catch (error) {
     console.error("[Worker Verification GET] Error:", error);
@@ -95,6 +92,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const { idDocumentKey, livenessVideoKey, docType } = parsed.data;
+
+    try {
+      assertOwnedPrivateVerificationKey(
+        session.user.id,
+        idDocumentKey,
+        "id"
+      );
+      assertOwnedPrivateVerificationKey(
+        session.user.id,
+        livenessVideoKey,
+        "liveness"
+      );
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid verification upload" },
+        { status: 400 }
+      );
+    }
 
     const [existingProfile] = await db
       .select()
@@ -146,9 +161,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let livenessVideoSha256: string | null = null;
 
     try {
-      const docBuffer = await getIdDocumentBuffer(idDocumentKey);
+      const docBuffer = await getOwnedIdDocumentBuffer(
+        session.user.id,
+        idDocumentKey
+      );
       idDocumentSha256 = computeFileSha256(docBuffer);
     } catch (error) {
+      if (error instanceof PrivateStorageConfigError) {
+        return NextResponse.json(
+          {
+            error:
+              "Verification upload is temporarily unavailable. Please try again later.",
+          },
+          { status: 503 }
+        );
+      }
       console.error(
         "[Worker Verification] Failed to compute ID document hash:",
         error
@@ -160,9 +187,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     try {
-      const videoBuffer = await getLivenessVideoBuffer(livenessVideoKey);
+      const videoBuffer = await getOwnedLivenessVideoBuffer(
+        session.user.id,
+        livenessVideoKey
+      );
       livenessVideoSha256 = computeFileSha256(videoBuffer);
     } catch (error) {
+      if (error instanceof PrivateStorageConfigError) {
+        return NextResponse.json(
+          {
+            error:
+              "Verification upload is temporarily unavailable. Please try again later.",
+          },
+          { status: 503 }
+        );
+      }
       console.error(
         "[Worker Verification] Failed to compute liveness video hash:",
         error

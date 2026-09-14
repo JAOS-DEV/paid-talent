@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth";
 import {
   generatePresignedUploadUrl,
   assertUploadedProfileImageWithinLimit,
-  ALLOWED_IMAGE_TYPES,
   getPublicUrl,
 } from "@/lib/storage/s3";
 import {
@@ -15,25 +14,15 @@ import {
 } from "@/lib/moderation";
 import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { z } from "zod";
-import {
-  PROFILE_PHOTO_ERRORS,
-  PROFILE_PHOTO_MAX_BYTES,
-} from "@/lib/media/profile-photo";
+import { PROFILE_PHOTO_ERRORS, PROFILE_PHOTO_MAX_BYTES } from "@/lib/media/profile-photo";
+import { publicMediaUploadRequestSchema } from "@/lib/media/public-upload-request";
 import {
   PublicMediaConfigError,
   isPersistablePublicMediaUrl,
 } from "@/lib/media/public-url";
+import { assertPublicMediaObjectKey } from "@/lib/storage/keys";
 
-const uploadRequestSchema = z.object({
-  contentType: z.enum(ALLOWED_IMAGE_TYPES as [string, ...string[]]),
-  folder: z.enum(["profiles", "documents"]).default("profiles"),
-  contentLength: z
-    .number()
-    .int()
-    .positive()
-    .max(PROFILE_PHOTO_MAX_BYTES, PROFILE_PHOTO_ERRORS.tooLarge),
-});
+const uploadRequestSchema = publicMediaUploadRequestSchema;
 
 function logMediaEvent(event: {
   stage: string;
@@ -124,9 +113,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { contentType, folder, contentLength } = validation.data;
+    const { contentType, contentLength } = validation.data;
 
-    if (folder === "profiles" && session.user.role === "worker") {
+    if (session.user.role === "worker") {
       const [profile] = await db
         .select({ id: workerProfiles.id })
         .from(workerProfiles)
@@ -154,7 +143,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { uploadUrl, key, publicUrl } = await generatePresignedUploadUrl(
       session.user.id,
       contentType,
-      folder,
       contentLength
     );
 
@@ -201,11 +189,24 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
 
     const body = await request.json();
-    const { key, publicUrl: requestedPublicUrl, folder } = body;
+    const { key, publicUrl: requestedPublicUrl } = body;
 
     if (!key || !requestedPublicUrl) {
       return NextResponse.json(
         { error: "Missing key or publicUrl" },
+        { status: 400 }
+      );
+    }
+
+    try {
+      assertPublicMediaObjectKey(key);
+    } catch {
+      logMediaEvent({ stage: "confirm", status: 400 });
+      return NextResponse.json(
+        {
+          error: PROFILE_PHOTO_ERRORS.uploadFailed,
+          message: PROFILE_PHOTO_ERRORS.uploadFailed,
+        },
         { status: 400 }
       );
     }
@@ -217,10 +218,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     const publicUrl = canonicalPublicUrl;
 
-    if (
-      (folder === "profiles" || key.startsWith("profiles/")) &&
-      session.user.role === "worker"
-    ) {
+    if (session.user.role === "worker") {
       try {
         await assertUploadedProfileImageWithinLimit(key);
       } catch (error) {

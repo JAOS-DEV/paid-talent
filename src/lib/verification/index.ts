@@ -260,3 +260,31 @@ export function validateAdminApproval(
     errors,
   };
 }
+
+export const WORKER_VERIFICATION_FORBIDDEN_FIELDS = [
+  "idDocumentKey",
+  "livenessVideoKey",
+  "idDocumentUrl",
+  "livenessVideoUrl",
+] as const;
+
+export function toWorkerVerificationStatusDto(profile: {
+  verificationStatus: string;
+  idDocumentSubmittedAt: Date | null;
+  verificationReviewedAt: Date | null;
+  challengeCode: string | null;
+}): {
+  verificationStatus: string;
+  idDocumentSubmittedAt: Date | null;
+  verificationReviewedAt: Date | null;
+  hasIdDocument: boolean;
+  hasChallengeCode: boolean;
+} {
+  return {
+    verificationStatus: profile.verificationStatus,
+    idDocumentSubmittedAt: profile.idDocumentSubmittedAt,
+    verificationReviewedAt: profile.verificationReviewedAt,
+    hasIdDocument: Boolean(profile.idDocumentSubmittedAt),
+    hasChallengeCode: Boolean(profile.challengeCode),
+  };
+}

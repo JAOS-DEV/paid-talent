@@ -20,8 +20,11 @@ function serializeWorkers(
 }
 
 export default async function AdminVerificationsPage(): Promise<React.ReactElement> {
-  await requireAdminPage("/admin/verifications");
-  const { workers } = await listPendingWorkersForAdmin();
+  const { email } = await requireAdminPage("/admin/verifications");
+  const { workers } = await listPendingWorkersForAdmin({
+    adminEmail: email,
+    includeSignedMedia: true,
+  });
 
   return (
     <div className="space-y-6">

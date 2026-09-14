@@ -1,6 +1,7 @@
 import { db, profilePhotos, workerProfiles } from "@/lib/db";
 import type { PhotoModerationStatus, ProfilePhoto } from "@/lib/db/schema";
 import { eq, and, count } from "drizzle-orm";
+import { deleteFile } from "@/lib/storage/s3";
 import {
   applyPhotoPolicy,
   checkPhotoLimits,
@@ -225,6 +226,14 @@ export async function rejectPhoto(
       updatedAt: new Date(),
     })
     .where(eq(profilePhotos.id, photoId));
+
+  if (photo.photoKey) {
+    try {
+      await deleteFile(photo.photoKey);
+    } catch {
+      console.warn("[Photo Moderation] Could not delete rejected public photo");
+    }
+  }
 
   return { success: true };
 }
