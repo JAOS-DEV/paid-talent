@@ -42,8 +42,8 @@ export function getHireOutcomeStatusDescription(
 ): string {
   const descriptions: Record<HireOutcomeStatus, string> = {
     interested: "Recruiter has expressed interest in the worker",
-    hired: "Worker has been hired by the recruiter",
-    started: "Worker has started working for the recruiter",
+    hired: "Worker has confirmed they were hired",
+    started: "Worker has confirmed they have started working",
   };
   return descriptions[status];
 }
@@ -218,3 +218,57 @@ export function getEffectiveStatus(
   }
   return outcome.status;
 }
+
+export interface ConfirmedOutcomeStats {
+  total: number;
+  interested: number;
+  hired: number;
+  started: number;
+}
+
+export function countConfirmedOutcomeStats(
+  statuses: Array<HireOutcomeStatus | null | undefined>
+): ConfirmedOutcomeStats {
+  const stats: ConfirmedOutcomeStats = {
+    total: statuses.length,
+    interested: 0,
+    hired: 0,
+    started: 0,
+  };
+
+  for (const status of statuses) {
+    if (!status || status === "interested") {
+      stats.interested++;
+    } else if (status === "hired") {
+      stats.hired++;
+    } else if (status === "started") {
+      stats.started++;
+    }
+  }
+
+  return stats;
+}
+
+export {
+  canRequestConfirmation,
+  canRespondToConfirmation,
+  getRequestedStatusForConfirmedStatus,
+  getRecruiterRequestAction,
+  getRecruiterPendingLabel,
+  getRecruiterRejectionLabel,
+  getRecruiterRequestButtonLabel,
+  getWorkerConfirmationCopy,
+  isPendingRequestCompatible,
+  confirmationDoesNotTouchAvailability,
+  WORKER_AVAILABILITY_FIELDS,
+} from "./confirmations";
+
+export type {
+  ConfirmationRequestedStatus,
+  ConfirmationRequestStatus,
+  CanRequestConfirmationResult,
+  CanRespondToConfirmationResult,
+  RecruiterRequestAction,
+  WorkerConfirmationCopy,
+  PendingConfirmationView,
+} from "./confirmations";

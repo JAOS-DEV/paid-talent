@@ -20,7 +20,12 @@ import {
 } from "@/components/hire-outcomes";
 import { OpeningInterestSelect } from "@/components/recruiter";
 import type { WorkerProfileDetail } from "@/app/api/workers/[id]/route";
-import type { HireOutcomeStatus, RecruiterOpening } from "@/lib/db/schema";
+import type {
+  HireConfirmationRequestStatus,
+  HireConfirmationRequestedStatus,
+  HireOutcomeStatus,
+  RecruiterOpening,
+} from "@/lib/db/schema";
 
 interface ProfilePageProps {
   params: Promise<{ id: string }>;
@@ -31,6 +36,10 @@ interface InterestOutcomeData {
   status: HireOutcomeStatus;
   hiredAt: string | null;
   startedAt: string | null;
+  confirmationRequest: {
+    requestedStatus: HireConfirmationRequestedStatus;
+    requestStatus: HireConfirmationRequestStatus;
+  } | null;
 }
 
 function LockIcon(): React.ReactElement {
@@ -151,6 +160,7 @@ export default function ProfileDetailPage({
               status: data.profile.hireOutcomeStatus ?? "interested",
               hiredAt: data.profile.hiredAt ?? null,
               startedAt: data.profile.startedAt ?? null,
+              confirmationRequest: data.profile.confirmationRequest ?? null,
             });
           }
         } else if (response.status === 404) {
@@ -197,6 +207,7 @@ export default function ProfileDetailPage({
           setInterestOutcome({
             interestId: data.interestId,
             status: "interested",
+            confirmationRequest: null,
             hiredAt: null,
             startedAt: null,
           });
@@ -228,24 +239,22 @@ export default function ProfileDetailPage({
     }
   };
 
-  const handleStatusUpdated = useCallback((newStatus: HireOutcomeStatus) => {
-    setInterestOutcome((prev) =>
-      prev
-        ? {
-            ...prev,
-            status: newStatus,
-            hiredAt:
-              newStatus === "hired"
-                ? new Date().toISOString()
-                : prev.hiredAt,
-            startedAt:
-              newStatus === "started"
-                ? new Date().toISOString()
-                : prev.startedAt,
-          }
-        : null
-    );
-  }, []);
+  const handleRequestCreated = useCallback(
+    (requestedStatus: HireConfirmationRequestedStatus) => {
+      setInterestOutcome((prev) =>
+        prev
+          ? {
+              ...prev,
+              confirmationRequest: {
+                requestedStatus,
+                requestStatus: "pending",
+              },
+            }
+          : null
+      );
+    },
+    []
+  );
 
   if (status === "loading" || loading) {
     return (
@@ -618,7 +627,8 @@ export default function ProfileDetailPage({
                       <HireOutcomeActions
                         interestId={interestOutcome.interestId}
                         currentStatus={interestOutcome.status}
-                        onStatusUpdated={handleStatusUpdated}
+                        confirmationRequest={interestOutcome.confirmationRequest}
+                        onRequestCreated={handleRequestCreated}
                       />
                       <Link href="/recruiter/interests" className="flex-1">
                         <Button variant="outline" fullWidth>

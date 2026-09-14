@@ -404,6 +404,16 @@ describe("profile completeness", () => {
         const result = getProfileCompleteness(profile);
         expect(result.nextStep).toBe("experience");
       });
+
+      it("resumes at the first incomplete required step when re-entering onboarding", () => {
+        const profile = createMockProfile({
+          photoUrl: "https://example.com/photo.jpg",
+          jobRoles: ["Bartender"],
+        });
+        const result = getProfileCompleteness(profile);
+        expect(result.nextStep).toBe("name");
+        expect(result.completedSteps).toEqual(["photo", "roles"]);
+      });
     });
 
     describe("edge cases", () => {

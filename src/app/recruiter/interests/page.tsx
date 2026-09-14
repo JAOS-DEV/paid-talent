@@ -10,14 +10,16 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui";
 import {
   HireOutcomeStatusBadge,
   HireOutcomeActions,
 } from "@/components/hire-outcomes";
-import type { HireOutcomeStatus } from "@/lib/db/schema";
+import type {
+  HireConfirmationRequestStatus,
+  HireConfirmationRequestedStatus,
+  HireOutcomeStatus,
+} from "@/lib/db/schema";
 
 type FilterTab = "all" | HireOutcomeStatus;
 
@@ -34,6 +36,12 @@ interface InterestWithOutcome {
     hiredAt: string | null;
     startedAt: string | null;
     notes: string | null;
+  } | null;
+  confirmationRequest: {
+    id: string;
+    requestedStatus: HireConfirmationRequestedStatus;
+    requestStatus: HireConfirmationRequestStatus;
+    requestedAt: string;
   } | null;
 }
 
@@ -59,22 +67,26 @@ function getEffectiveStatus(
 
 function InterestCard({
   interest,
-  onStatusUpdated,
+  onRequestCreated,
 }: {
   interest: InterestWithOutcome;
-  onStatusUpdated: (interestId: string, newStatus: HireOutcomeStatus) => void;
+  onRequestCreated: (
+    interestId: string,
+    requestedStatus: HireConfirmationRequestedStatus
+  ) => void;
 }): React.ReactElement {
   const effectiveStatus = getEffectiveStatus(interest);
   const createdDate = new Date(interest.createdAt).toLocaleDateString();
 
-  const handleStatusUpdated = useCallback(
-    (newStatus: HireOutcomeStatus) => {
-      onStatusUpdated(interest.id, newStatus);
+  const handleRequestCreated = useCallback(
+    (requestedStatus: HireConfirmationRequestedStatus) => {
+      onRequestCreated(interest.id, requestedStatus);
     },
-    [interest.id, onStatusUpdated]
+    [interest.id, onRequestCreated]
   );
 
   return (
+    <div data-testid="interest-card" data-worker-name={interest.workerName}>
     <Card padding="md" className="hover:border-charcoal-600 transition-colors">
       <CardContent>
         <div className="flex items-start gap-4">
@@ -143,7 +155,8 @@ function InterestCard({
             <HireOutcomeActions
               interestId={interest.id}
               currentStatus={effectiveStatus}
-              onStatusUpdated={handleStatusUpdated}
+              confirmationRequest={interest.confirmationRequest}
+              onRequestCreated={handleRequestCreated}
               compact
             />
             <Link href={`/recruiter/profile/${interest.workerProfileId}`}>
@@ -155,6 +168,7 @@ function InterestCard({
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }
 
@@ -246,55 +260,24 @@ function RecruiterInterestsContent(): React.ReactElement {
     }
   }, [status, loadInterests]);
 
-  const handleStatusUpdated = useCallback(
-    (interestId: string, newStatus: HireOutcomeStatus) => {
+  const handleRequestCreated = useCallback(
+    (interestId: string, requestedStatus: HireConfirmationRequestedStatus) => {
       setInterests((prev) =>
         prev.map((interest) => {
           if (interest.id !== interestId) return interest;
           return {
             ...interest,
-            hireOutcome: interest.hireOutcome
-              ? {
-                  ...interest.hireOutcome,
-                  status: newStatus,
-                  hiredAt:
-                    newStatus === "hired"
-                      ? new Date().toISOString()
-                      : interest.hireOutcome.hiredAt,
-                  startedAt:
-                    newStatus === "started"
-                      ? new Date().toISOString()
-                      : interest.hireOutcome.startedAt,
-                }
-              : {
-                  id: "temp-" + interestId,
-                  status: newStatus,
-                  hiredAt:
-                    newStatus === "hired" ? new Date().toISOString() : null,
-                  startedAt:
-                    newStatus === "started" ? new Date().toISOString() : null,
-                  notes: null,
-                },
+            confirmationRequest: {
+              id: interest.confirmationRequest?.id ?? `pending-${interestId}`,
+              requestedStatus,
+              requestStatus: "pending",
+              requestedAt: new Date().toISOString(),
+            },
           };
         })
       );
-
-      setStats((prev) => {
-        const newStats = { ...prev };
-        const prevStatus =
-          interests.find((i) => i.id === interestId)?.hireOutcome?.status ??
-          "interested";
-
-        if (prevStatus === "interested") newStats.interested--;
-        else if (prevStatus === "hired") newStats.hired--;
-
-        if (newStatus === "hired") newStats.hired++;
-        else if (newStatus === "started") newStats.started++;
-
-        return newStats;
-      });
     },
-    [interests]
+    []
   );
 
   if (status === "loading" || loading) {
@@ -402,7 +385,7 @@ function RecruiterInterestsContent(): React.ReactElement {
                 <p className="text-charcoal-400 mb-6">
                   {activeFilter === "all"
                     ? "Start by searching for workers and expressing interest."
-                    : `You haven't marked any workers as ${activeFilter} yet.`}
+                    : `No workers have a confirmed ${activeFilter} status yet.`}
                 </p>
                 <Link href="/recruiter/search">
                   <Button>Search Workers</Button>
@@ -415,7 +398,7 @@ function RecruiterInterestsContent(): React.ReactElement {
                 <InterestCard
                   key={interest.id}
                   interest={interest}
-                  onStatusUpdated={handleStatusUpdated}
+                  onRequestCreated={handleRequestCreated}
                 />
               ))}
             </div>
