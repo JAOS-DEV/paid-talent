@@ -485,6 +485,11 @@ Local/dev storage is **Cloudflare R2**, public bucket `paid-talent-media`
 A signed PUT from a non-browser client can succeed while Safari still shows
 `TypeError: Load failed` if R2 does not return CORS headers on OPTIONS/PUT.
 
+Browser profile-photo PUT now targets **paid-talent-private**
+(`profile-photo-staging/`). Configure **R2 → paid-talent-private → Settings →
+CORS policy** with the same origin allowlist as below.
+
+Public marketplace `<img>` GETs still use **paid-talent-media** via `S3_CDN_URL`.
 Configure **R2 → paid-talent-media → Settings → CORS policy** with:
 
 ```json
@@ -513,17 +518,21 @@ confirm can enforce the 10MB limit.
 
 ### Public media URL (required for R2)
 
-Profile photos are public marketplace media. Do **not** store expiring signed
-GET URLs, and do **not** use the R2 S3 API endpoint
+Approved profile photos are public marketplace media. Do **not** store expiring
+signed GET URLs, and do **not** use the R2 S3 API endpoint
 (`*.r2.cloudflarestorage.com`) as a browser image URL.
+
+Pending and rejected photos never receive a public URL.
 
 Architecture:
 
 - `S3_ENDPOINT` — private S3/R2 API for authenticated PUT/HEAD
-- `S3_CDN_URL` — public media base URL for `<img>` / marketplace display
+- `S3_CDN_URL` — public media base URL for `<img>` / marketplace display,
+  created only after an approved object exists in `paid-talent-media`
 
-If `S3_ENDPOINT` is R2 and `S3_CDN_URL` is unset, presign fails closed with a
-configuration error instead of persisting a known-broken browser URL.
+If `S3_ENDPOINT` is R2 and `S3_CDN_URL` is unset, promotion to the public bucket
+fails closed instead of persisting a known-broken browser URL. The private
+staging object remains pending.
 
 Preferred production setup:
 
@@ -538,8 +547,8 @@ Preferred production setup:
 
 | Bucket | Purpose | Public? |
 |---|---|---|
-| `paid-talent-media` | Profile photos / marketplace media | Yes, via `S3_CDN_URL` |
-| `paid-talent-private` | ID documents and liveness videos | **Never** |
+| `paid-talent-media` | **Approved** profile photos only | Yes, via `S3_CDN_URL` |
+| `paid-talent-private` | ID documents, liveness videos, and pending profile photos | **Never** |
 
 Use separate API credentials:
 
@@ -552,15 +561,31 @@ config fails closed. Never enable r2.dev or a custom public domain on
 
 Object key prefixes:
 
-- Public: `profiles/{userId}/{uuid}.{ext}`
+- Public approved photos: `profiles/{userId}/{uuid}.{ext}`
+- Private photo staging: `profile-photo-staging/{userId}/{uuid}.{ext}`
 - Private ID: `verification-docs/{userId}/{uuid}.{ext}`
 - Private liveness: `verification-liveness/{userId}/{uuid}.{ext}`
 
+Profile photo flow:
+
+1. Browser PUT goes to private staging (`profile-photo-staging/`). No public URL
+   is returned or persisted.
+2. Moderation analyzes the private object via a short-lived signed GET
+   (≤ 300 seconds, never persisted, never returned to workers/recruiters).
+3. **Approved:** server GETs the staging bytes with the private client and PUTs
+   them to `paid-talent-media` `profiles/` with the public-media client. Then
+   `S3_CDN_URL` is created, persisted, and the staging object is deleted.
+4. **Pending:** object stays only in private staging. `photoKey` / `photoUrl`
+   remain null. The previous approved photo stays visible.
+5. **Rejected:** staging object is deleted. No public object is created.
+
 `POST /api/media/upload` accepts profile photos only (`folder` may be omitted or
-`"profiles"`). `"documents"` and verification prefixes are rejected.
+`"profiles"`). `"documents"`, verification prefixes, and staging prefixes are
+rejected as public-media keys.
 
 Admin-only signed GET for private objects expires in **≤ 300 seconds** and is
-never persisted.
+never persisted. Photo preview is scoped to `profile-photo-staging/`. Identity
+preview is scoped to `verification-docs/` or `verification-liveness/`.
 
 ---
 

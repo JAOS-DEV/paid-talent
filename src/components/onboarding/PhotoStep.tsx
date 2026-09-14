@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { updateProfilePhoto } from "@/app/worker/actions";
 import {
@@ -9,8 +9,12 @@ import {
   PROFILE_PHOTO_STATUS,
   type ProfilePhotoUploadStage,
 } from "@/lib/media/profile-photo";
-import { uploadProfilePhoto } from "@/lib/media/upload-profile-photo";
+import {
+  isApprovedPublicPhotoUpload,
+  uploadProfilePhoto,
+} from "@/lib/media/upload-profile-photo";
 import { ProfilePhotoPreview } from "@/components/media/ProfilePhotoPreview";
+import { PHOTO_POLICY_COPY } from "@/lib/moderation/photo-policy";
 
 interface PhotoStepProps {
   initialPhotoUrl: string | null;
@@ -27,13 +31,45 @@ export function PhotoStep({
     useState<ProfilePhotoUploadStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
+  const [pendingReview, setPendingReview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadingRef = useRef(false);
+  const localPreviewUrlRef = useRef<string | null>(null);
 
   const isBusy = uploading;
-  const continueDisabled = isBusy || !photoUrl;
+  const continueDisabled = isBusy || (!photoUrl && !pendingReview);
   const statusText = uploadStage ? PROFILE_PHOTO_STATUS[uploadStage] : null;
-  const chooseLabel = photoUrl ? "Change Photo" : "Upload Photo";
+  const chooseLabel = photoUrl || pendingReview ? "Change Photo" : "Upload Photo";
+
+  useEffect(() => {
+    return () => {
+      if (
+        localPreviewUrlRef.current &&
+        typeof URL.revokeObjectURL === "function"
+      ) {
+        URL.revokeObjectURL(localPreviewUrlRef.current);
+      }
+    };
+  }, []);
+
+  function replaceLocalPreview(file: File): string | null {
+    if (typeof URL.createObjectURL !== "function") {
+      return null;
+    }
+    if (localPreviewUrlRef.current) {
+      URL.revokeObjectURL(localPreviewUrlRef.current);
+    }
+    const url = URL.createObjectURL(file);
+    localPreviewUrlRef.current = url;
+    return url;
+  }
+
+  function clearLocalPreview(): void {
+    if (localPreviewUrlRef.current && typeof URL.revokeObjectURL === "function") {
+      URL.revokeObjectURL(localPreviewUrlRef.current);
+      localPreviewUrlRef.current = null;
+    }
+  }
 
   async function handleFileSelect(
     event: React.ChangeEvent<HTMLInputElement>
@@ -52,16 +88,36 @@ export function PhotoStep({
         onStage: setUploadStage,
       });
       setUploadStage("saving");
-      const persist = await updateProfilePhoto({
-        photoKey: result.key,
-        photoUrl: result.publicUrl,
-      });
-      if (!persist.success) {
-        throw new Error(
-          persist.error || PROFILE_PHOTO_ERRORS.uploadFailed
-        );
+
+      if (result.status === "rejected") {
+        clearLocalPreview();
+        setPendingReview(false);
+        setPhotoUrl(initialPhotoUrl);
+        setError(result.message || PHOTO_POLICY_COPY.rejected);
+        return;
       }
-      setPhotoUrl(result.publicUrl);
+
+      if (isApprovedPublicPhotoUpload(result)) {
+        const persist = await updateProfilePhoto({
+          photoKey: result.photoKey,
+          photoUrl: result.publicUrl,
+        });
+        if (!persist.success) {
+          throw new Error(
+            persist.error || PROFILE_PHOTO_ERRORS.uploadFailed
+          );
+        }
+        clearLocalPreview();
+        setPendingReview(false);
+        setPhotoUrl(result.publicUrl);
+        return;
+      }
+
+      setPendingReview(true);
+      const localPreview = replaceLocalPreview(file);
+      if (localPreview) {
+        setPhotoUrl(localPreview);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : PROFILE_PHOTO_ERRORS.uploadFailed
@@ -82,7 +138,7 @@ export function PhotoStep({
   }
 
   function handleContinue(): void {
-    if (!isBusy && photoUrl) {
+    if (!isBusy && (photoUrl || pendingReview)) {
       onComplete();
     }
   }
@@ -124,6 +180,12 @@ export function PhotoStep({
         {statusText ? (
           <p className="text-charcoal-300 text-sm mt-3" aria-live="polite">
             {statusText}
+          </p>
+        ) : null}
+
+        {pendingReview && !isBusy ? (
+          <p className="text-charcoal-300 text-sm mt-3 text-center">
+            {PHOTO_POLICY_COPY.pending}
           </p>
         ) : null}
 

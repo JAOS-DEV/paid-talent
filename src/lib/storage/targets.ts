@@ -6,7 +6,9 @@ import {
 import {
   PRIVATE_ID_KEY_PREFIX,
   PRIVATE_LIVENESS_KEY_PREFIX,
+  PRIVATE_PHOTO_STAGING_PREFIX,
   PUBLIC_MEDIA_KEY_PREFIX,
+  assertOwnedPhotoStagingKey,
   assertOwnedPrivateVerificationKey,
   assertPublicMediaObjectKey,
 } from "./keys";
@@ -24,6 +26,13 @@ export function generateProfilePhotoKey(
   extension: string
 ): string {
   return `${PUBLIC_MEDIA_KEY_PREFIX}${userId}/${uuidv4()}.${extension}`;
+}
+
+export function generateProfilePhotoStagingKey(
+  userId: string,
+  extension: string
+): string {
+  return `${PRIVATE_PHOTO_STAGING_PREFIX}${userId}/${uuidv4()}.${extension}`;
 }
 
 export function generateIdDocumentKey(
@@ -52,6 +61,22 @@ export function getProfilePhotoUploadTarget(
     key,
     credentialSource: "S3_ACCESS_KEY_ID",
     generatesPublicCdnUrl: true,
+  };
+}
+
+export function getProfilePhotoStagingUploadTarget(
+  userId: string,
+  extension: string
+): StorageUploadTarget {
+  const config = getPrivateVerificationStorageConfig();
+  const key = generateProfilePhotoStagingKey(userId, extension);
+  assertOwnedPhotoStagingKey(userId, key);
+  return {
+    client: "private",
+    bucket: config.bucketName,
+    key,
+    credentialSource: config.credentialSource,
+    generatesPublicCdnUrl: false,
   };
 }
 

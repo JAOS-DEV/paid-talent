@@ -9,7 +9,7 @@ export interface PendingPhoto {
   id: string;
   userId: string;
   workerProfileId: string;
-  photoUrl: string;
+  photoUrl: string | null;
   moderationReason: string | null;
   moderationConfidence: number | null;
   moderationCategories: string[] | null;
@@ -90,12 +90,18 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
     <Card padding="lg" className="w-full">
       <CardContent className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={photo.photoUrl}
-            alt={`Profile photo for ${photo.worker.displayName}`}
-            className="w-full sm:w-48 h-48 object-cover rounded-lg border border-charcoal-700 bg-charcoal-900"
-          />
+          {photo.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photo.photoUrl}
+              alt={`Profile photo for ${photo.worker.displayName}`}
+              className="w-full sm:w-48 h-48 object-cover rounded-lg border border-charcoal-700 bg-charcoal-900"
+            />
+          ) : (
+            <div className="w-full sm:w-48 h-48 rounded-lg border border-charcoal-700 bg-charcoal-900 flex items-center justify-center text-sm text-charcoal-500 px-3 text-center">
+              Preview unavailable
+            </div>
+          )}
           <div className="flex-1 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div>

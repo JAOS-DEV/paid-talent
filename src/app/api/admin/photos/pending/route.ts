@@ -16,7 +16,7 @@ export async function GET(): Promise<NextResponse> {
 
     const adminCheck = isAdminEmail(session.user.email);
 
-    if (!adminCheck.isAdmin) {
+    if (!adminCheck.isAdmin || !adminCheck.email) {
       return NextResponse.json(
         {
           error: "Forbidden",
@@ -26,7 +26,10 @@ export async function GET(): Promise<NextResponse> {
       );
     }
 
-    const { photos, count } = await listPendingPhotosForAdmin();
+    const { photos, count } = await listPendingPhotosForAdmin({
+      adminEmail: adminCheck.email,
+      includeSignedMedia: true,
+    });
 
     return NextResponse.json({
       success: true,

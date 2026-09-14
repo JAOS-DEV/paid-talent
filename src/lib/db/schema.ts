@@ -214,8 +214,9 @@ export const profilePhotos = pgTable(
     workerProfileId: uuid("worker_profile_id")
       .notNull()
       .references(() => workerProfiles.id, { onDelete: "cascade" }),
-    photoKey: text("photo_key").notNull(),
-    photoUrl: text("photo_url").notNull(),
+    stagingKey: text("staging_key"),
+    photoKey: text("photo_key"),
+    photoUrl: text("photo_url"),
     moderationStatus: photoModerationStatusEnum("moderation_status")
       .notNull()
       .default("pending"),

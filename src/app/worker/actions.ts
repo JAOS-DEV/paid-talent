@@ -8,6 +8,7 @@ import { z } from "zod";
 import { validateProfileText } from "@/lib/helpers/text-filter";
 import { PROFILE_PHOTO_ERRORS } from "@/lib/media/profile-photo";
 import { isPersistablePublicMediaUrl } from "@/lib/media/public-url";
+import { assertOwnedPublicProfilePhotoKey } from "@/lib/storage/keys";
 
 const photoSchema = z.object({
   photoKey: z.string().min(1),
@@ -79,6 +80,12 @@ export async function updateProfilePhoto(
   const validation = photoSchema.safeParse(data);
   if (!validation.success) {
     return { success: false, error: validation.error.issues[0].message };
+  }
+
+  try {
+    assertOwnedPublicProfilePhotoKey(worker.userId, validation.data.photoKey);
+  } catch {
+    return { success: false, error: PROFILE_PHOTO_ERRORS.uploadFailed };
   }
 
   await db

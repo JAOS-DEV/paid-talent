@@ -18,7 +18,9 @@ import {
   getPublicMediaStorageConfig,
 } from "@/lib/storage/config";
 import {
+  assertOwnedPhotoStagingKey,
   assertOwnedPrivateVerificationKey,
+  assertPhotoStagingObjectKey,
   assertPrivateVerificationObjectKey,
   assertPublicMediaObjectKey,
 } from "@/lib/storage/keys";
@@ -27,8 +29,10 @@ import {
   generateIdDocumentKey,
   generateLivenessVideoKey,
   generateProfilePhotoKey,
+  generateProfilePhotoStagingKey,
   getIdDocumentUploadTarget,
   getLivenessVideoUploadTarget,
+  getProfilePhotoStagingUploadTarget,
   getProfilePhotoUploadTarget,
 } from "@/lib/storage/targets";
 
@@ -75,6 +79,174 @@ export interface PresignedUploadResult {
 export interface PresignedPrivateUploadResult {
   uploadUrl: string;
   key: string;
+}
+
+export async function generatePresignedProfilePhotoStagingUrl(
+  userId: string,
+  contentType: string,
+  contentLength?: number
+): Promise<PresignedPrivateUploadResult> {
+  if (!ALLOWED_IMAGE_TYPES.includes(contentType)) {
+    throw new Error(
+      `Invalid content type. Allowed: ${ALLOWED_IMAGE_TYPES.join(", ")}`
+    );
+  }
+
+  if (contentLength !== undefined && contentLength > MAX_FILE_SIZE) {
+    throw new Error(
+      `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`
+    );
+  }
+
+  const extension = contentType.split("/")[1];
+  const target = getProfilePhotoStagingUploadTarget(userId, extension);
+  const privateClient = createPrivateVerificationClient();
+
+  const command = new PutObjectCommand({
+    Bucket: target.bucket,
+    Key: target.key,
+    ContentType: contentType,
+    ...(contentLength !== undefined ? { ContentLength: contentLength } : {}),
+  });
+
+  const uploadUrl = await getSignedUrl(privateClient, command, {
+    expiresIn: 3600,
+  });
+
+  return { uploadUrl, key: target.key };
+}
+
+export async function getStagedProfilePhotoMetadata(
+  key: string
+): Promise<{ contentLength?: number; contentType?: string } | null> {
+  assertPhotoStagingObjectKey(key);
+  try {
+    const privateClient = createPrivateVerificationClient();
+    const response = await privateClient.send(
+      new HeadObjectCommand({
+        Bucket: getPrivateVerificationStorageConfig().bucketName,
+        Key: key,
+      })
+    );
+
+    return {
+      contentLength: response.ContentLength,
+      contentType: response.ContentType,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteStagedProfilePhoto(key: string): Promise<void> {
+  assertPhotoStagingObjectKey(key);
+  const privateClient = createPrivateVerificationClient();
+  const command = new DeleteObjectCommand({
+    Bucket: getPrivateVerificationStorageConfig().bucketName,
+    Key: key,
+  });
+
+  await privateClient.send(command);
+}
+
+export async function assertUploadedStagedProfileImageWithinLimit(
+  key: string
+): Promise<{ contentLength: number; contentType?: string }> {
+  assertPhotoStagingObjectKey(key);
+  const metadata = await getStagedProfilePhotoMetadata(key);
+
+  if (!metadata || metadata.contentLength == null) {
+    throw new Error("UPLOAD_NOT_VERIFIED");
+  }
+
+  if (metadata.contentLength > MAX_FILE_SIZE) {
+    await deleteStagedProfilePhoto(key);
+    throw new Error("UPLOAD_TOO_LARGE");
+  }
+
+  if (
+    metadata.contentType &&
+    !ALLOWED_IMAGE_TYPES.includes(metadata.contentType)
+  ) {
+    await deleteStagedProfilePhoto(key);
+    throw new Error("UPLOAD_INVALID_TYPE");
+  }
+
+  return {
+    contentLength: metadata.contentLength,
+    contentType: metadata.contentType,
+  };
+}
+
+export async function getStagedProfilePhotoBuffer(key: string): Promise<Buffer> {
+  assertPhotoStagingObjectKey(key);
+  const privateClient = createPrivateVerificationClient();
+  const command = new GetObjectCommand({
+    Bucket: getPrivateVerificationStorageConfig().bucketName,
+    Key: key,
+  });
+
+  const response = await privateClient.send(command);
+  const chunks: Uint8Array[] = [];
+
+  if (response.Body) {
+    const stream = response.Body as AsyncIterable<Uint8Array>;
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+  }
+
+  return Buffer.concat(chunks);
+}
+
+export async function createModerationStagingSignedGet(
+  key: string,
+  expiresIn: number = 300
+): Promise<string> {
+  assertPhotoStagingObjectKey(key);
+  const privateClient = createPrivateVerificationClient();
+  const command = new GetObjectCommand({
+    Bucket: getPrivateVerificationStorageConfig().bucketName,
+    Key: key,
+  });
+
+  return getSignedUrl(privateClient, command, {
+    expiresIn: capPrivateSignedGetExpiry(expiresIn),
+  });
+}
+
+export async function getSignedPhotoStagingUrlForAdmin(
+  adminEmail: string | null | undefined,
+  key: string,
+  expiresIn: number = 300
+): Promise<string> {
+  assertAdminCanAccessPrivateVerificationMedia(adminEmail);
+  assertPhotoStagingObjectKey(key);
+  return createModerationStagingSignedGet(key, expiresIn);
+}
+
+export async function promoteStagedProfilePhotoToPublic(
+  userId: string,
+  stagingKey: string
+): Promise<{ photoKey: string; photoUrl: string }> {
+  assertOwnedPhotoStagingKey(userId, stagingKey);
+
+  const metadata = await assertUploadedStagedProfileImageWithinLimit(stagingKey);
+  const contentType = metadata.contentType || "image/jpeg";
+  const extension = contentType.split("/")[1] || "jpeg";
+  const publicTarget = getProfilePhotoUploadTarget(userId, extension);
+  const publicUrl = getPublicUrl(publicTarget.key);
+  const body = await getStagedProfilePhotoBuffer(stagingKey);
+
+  await uploadFile(body, publicTarget.key, contentType);
+
+  try {
+    await deleteStagedProfilePhoto(stagingKey);
+  } catch {
+    console.warn("[Media] Could not delete private staging object after promotion");
+  }
+
+  return { photoKey: publicTarget.key, photoUrl: publicUrl };
 }
 
 export async function generatePresignedUploadUrl(
@@ -465,6 +637,7 @@ const BUCKET_NAME = getPublicMediaBucketName();
 
 export {
   generateProfilePhotoKey,
+  generateProfilePhotoStagingKey,
   generateIdDocumentKey,
   generateLivenessVideoKey,
   ALLOWED_IMAGE_TYPES,

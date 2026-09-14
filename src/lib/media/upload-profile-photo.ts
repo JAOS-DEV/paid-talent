@@ -6,10 +6,14 @@ import {
   type ProfilePhotoUploadStage,
 } from "@/lib/media/profile-photo";
 import { prepareProfileImage } from "@/lib/media/resize-profile-image";
+import { isPersistablePublicMediaUrl } from "@/lib/media/public-url";
+import type { PhotoModerationStatus } from "@/lib/db/schema";
 
 export interface ProfilePhotoUploadResult {
-  key: string;
-  publicUrl: string;
+  status: PhotoModerationStatus;
+  photoKey: string | null;
+  publicUrl: string | null;
+  message?: string;
 }
 
 export interface ProfilePhotoUploadDeps {
@@ -40,7 +44,16 @@ export function callProfilePhotoFetch(
 interface PresignResponse {
   uploadUrl?: string;
   key?: string;
-  publicUrl?: string;
+}
+
+interface ConfirmResponse {
+  success?: boolean;
+  photoKey?: string | null;
+  url?: string | null;
+  moderation?: {
+    status?: PhotoModerationStatus;
+    message?: string;
+  };
 }
 
 export class ProfilePhotoUploadError extends Error {
@@ -54,6 +67,21 @@ export class ProfilePhotoUploadError extends Error {
     this.name = "ProfilePhotoUploadError";
     this.stage = stage;
   }
+}
+
+export function isApprovedPublicPhotoUpload(
+  result: ProfilePhotoUploadResult
+): result is ProfilePhotoUploadResult & {
+  status: "approved";
+  photoKey: string;
+  publicUrl: string;
+} {
+  return (
+    result.status === "approved" &&
+    Boolean(result.photoKey) &&
+    Boolean(result.publicUrl) &&
+    isPersistablePublicMediaUrl(result.publicUrl ?? "")
+  );
 }
 
 export async function uploadProfilePhoto(
@@ -122,8 +150,8 @@ export async function uploadProfilePhoto(
     );
   }
 
-  const { uploadUrl, key, publicUrl } = presignBody;
-  if (!uploadUrl || !key || !publicUrl) {
+  const { uploadUrl, key } = presignBody;
+  if (!uploadUrl || !key) {
     throw new ProfilePhotoUploadError(
       "presign",
       PROFILE_PHOTO_ERRORS.serviceUnavailable
@@ -162,7 +190,7 @@ export async function uploadProfilePhoto(
     confirmRes = await callProfilePhotoFetch(deps.fetch, "/api/media/upload", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, publicUrl }),
+      body: JSON.stringify({ key }),
     });
   } catch (error) {
     throw new ProfilePhotoUploadError(
@@ -178,5 +206,30 @@ export async function uploadProfilePhoto(
     );
   }
 
-  return { key, publicUrl };
+  let confirmBody: ConfirmResponse;
+  try {
+    confirmBody = (await confirmRes.json()) as ConfirmResponse;
+  } catch {
+    throw new ProfilePhotoUploadError(
+      "confirm",
+      PROFILE_PHOTO_ERRORS.uploadFailed
+    );
+  }
+
+  const status = confirmBody.moderation?.status ?? "pending";
+  const message = confirmBody.moderation?.message;
+  const publicUrl =
+    status === "approved" &&
+    confirmBody.photoKey &&
+    confirmBody.url &&
+    isPersistablePublicMediaUrl(confirmBody.url)
+      ? confirmBody.url
+      : null;
+
+  return {
+    status,
+    photoKey: publicUrl ? confirmBody.photoKey ?? null : null,
+    publicUrl,
+    message,
+  };
 }

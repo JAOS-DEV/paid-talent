@@ -10,14 +10,24 @@ import {
   getPublicMediaBucketName,
 } from "@/lib/storage/config";
 import {
+  assertOwnedPhotoStagingKey,
+  assertPhotoStagingObjectKey,
   assertPublicMediaObjectKey,
   isForbiddenPublicMediaKey,
 } from "@/lib/storage/keys";
 import { resolvePrivateVerificationReadAccess } from "@/lib/storage/private-access";
-import { deleteFile, deletePrivateFile, getSignedIdDocumentUrl } from "@/lib/storage/s3";
+import {
+  deleteFile,
+  deletePrivateFile,
+  getPublicUrl,
+  getSignedIdDocumentUrl,
+  getSignedLivenessVideoUrl,
+  getSignedPhotoStagingUrlForAdmin,
+} from "@/lib/storage/s3";
 import {
   getIdDocumentUploadTarget,
   getLivenessVideoUploadTarget,
+  getProfilePhotoStagingUploadTarget,
   getProfilePhotoUploadTarget,
 } from "@/lib/storage/targets";
 import {
@@ -41,7 +51,7 @@ describe("two-bucket storage security", () => {
     vi.unstubAllEnvs();
   });
 
-  it("targets profile photos at paid-talent-media under profiles/", () => {
+  it("targets approved profile photos at paid-talent-media under profiles/", () => {
     stubSeparatedBuckets();
     const target = getProfilePhotoUploadTarget("user-1", "jpeg");
     expect(target.client).toBe("public");
@@ -51,6 +61,20 @@ describe("two-bucket storage security", () => {
     expect(target.credentialSource).toBe("S3_ACCESS_KEY_ID");
     expect(target.generatesPublicCdnUrl).toBe(true);
     expect(isForbiddenPublicMediaKey(target.key)).toBe(false);
+    expect(getPublicUrl(target.key).startsWith("https://media.example.com/profiles/user-1/")).toBe(
+      true
+    );
+  });
+
+  it("targets newly selected profile photos at paid-talent-private under profile-photo-staging/", () => {
+    stubSeparatedBuckets();
+    const target = getProfilePhotoStagingUploadTarget("user-1", "jpeg");
+    expect(target.client).toBe("private");
+    expect(target.bucket).toBe("paid-talent-private");
+    expect(target.key.startsWith("profile-photo-staging/user-1/")).toBe(true);
+    expect(target.credentialSource).toBe("S3_PRIVATE_ACCESS_KEY_ID");
+    expect(target.generatesPublicCdnUrl).toBe(false);
+    expect(isForbiddenPublicMediaKey(target.key)).toBe(true);
   });
 
   it("targets ID uploads at paid-talent-private under verification-docs/", () => {
@@ -84,7 +108,7 @@ describe("two-bucket storage security", () => {
     expect(config.bucketName).not.toBe(getPublicMediaBucketName());
   });
 
-  it("rejects public media keys for documents and verification prefixes", () => {
+  it("rejects public media keys for documents, verification, and staging prefixes", () => {
     expect(isForbiddenPublicMediaKey("documents/user-1/id.jpg")).toBe(true);
     expect(isForbiddenPublicMediaKey("verification-docs/user-1/id.jpg")).toBe(
       true
@@ -92,15 +116,21 @@ describe("two-bucket storage security", () => {
     expect(
       isForbiddenPublicMediaKey("verification-liveness/user-1/live.mp4")
     ).toBe(true);
+    expect(
+      isForbiddenPublicMediaKey("profile-photo-staging/user-1/photo.jpeg")
+    ).toBe(true);
     expect(() =>
       assertPublicMediaObjectKey("verification-docs/user-1/id.jpg")
+    ).toThrow("PUBLIC_MEDIA_FORBIDDEN_KEY");
+    expect(() =>
+      assertPublicMediaObjectKey("profile-photo-staging/user-1/photo.jpeg")
     ).toThrow("PUBLIC_MEDIA_FORBIDDEN_KEY");
     expect(() =>
       assertPublicMediaObjectKey("profiles/user-1/photo.jpeg")
     ).not.toThrow();
   });
 
-  it("rejects folder documents on the generic public media route", () => {
+  it("rejects folder documents, verification, and staging on the generic public media route", () => {
     const allowed = publicMediaUploadRequestSchema.safeParse({
       contentType: "image/jpeg",
       folder: "profiles",
@@ -111,18 +141,33 @@ describe("two-bucket storage security", () => {
       folder: "documents",
       contentLength: 2048,
     });
+    const staging = publicMediaUploadRequestSchema.safeParse({
+      contentType: "image/jpeg",
+      folder: "profile-photo-staging",
+      contentLength: 2048,
+    });
+    const verification = publicMediaUploadRequestSchema.safeParse({
+      contentType: "image/jpeg",
+      folder: "verification-docs",
+      contentLength: 2048,
+    });
 
     expect(allowed.success).toBe(true);
     expect(documents.success).toBe(false);
+    expect(staging.success).toBe(false);
+    expect(verification.success).toBe(false);
   });
 
-  it("never builds S3_CDN_URL for private verification uploads", () => {
+  it("never builds S3_CDN_URL for private verification or photo staging uploads", () => {
     stubSeparatedBuckets();
     expect(getIdDocumentUploadTarget("user-1", "jpg").generatesPublicCdnUrl).toBe(
       false
     );
     expect(
       getLivenessVideoUploadTarget("user-1", "mp4").generatesPublicCdnUrl
+    ).toBe(false);
+    expect(
+      getProfilePhotoStagingUploadTarget("user-1", "jpeg").generatesPublicCdnUrl
     ).toBe(false);
   });
 
@@ -172,6 +217,18 @@ describe("two-bucket storage security", () => {
     await expect(
       deleteFile("verification-docs/user-1/id.jpg")
     ).rejects.toThrow("PUBLIC_MEDIA_FORBIDDEN_KEY");
+  });
+
+  it("refuses to delete staged photos through the public client", async () => {
+    await expect(
+      deleteFile("profile-photo-staging/user-1/photo.jpeg")
+    ).rejects.toThrow("PUBLIC_MEDIA_FORBIDDEN_KEY");
+  });
+
+  it("refuses to delete staged photos through the identity private deleter", async () => {
+    await expect(
+      deletePrivateFile("profile-photo-staging/user-1/photo.jpeg")
+    ).rejects.toThrow("PRIVATE_VERIFICATION_INVALID_KEY");
   });
 
   it("denies unauthenticated, worker, recruiter, and non-admin reads of ID media", () => {
@@ -264,5 +321,65 @@ describe("two-bucket storage security", () => {
     }
     expect(dto.hasIdDocument).toBe(true);
     expect(dto.hasChallengeCode).toBe(true);
+  });
+
+  it("does not let non-admins obtain a pending-photo private preview", async () => {
+    stubSeparatedBuckets();
+    await expect(
+      getSignedPhotoStagingUrlForAdmin(
+        "worker@example.com",
+        "profile-photo-staging/user-1/photo.jpeg"
+      )
+    ).rejects.toThrow("Not allowed to access private verification media");
+  });
+
+  it("scopes photo staging preview away from identity objects", async () => {
+    stubSeparatedBuckets();
+    await expect(
+      getSignedPhotoStagingUrlForAdmin(
+        "admin@example.com",
+        "verification-docs/user-1/id.jpg"
+      )
+    ).rejects.toThrow("PHOTO_STAGING_INVALID_KEY");
+    await expect(
+      getSignedPhotoStagingUrlForAdmin(
+        "admin@example.com",
+        "verification-liveness/user-1/live.mp4"
+      )
+    ).rejects.toThrow("PHOTO_STAGING_INVALID_KEY");
+    expect(() =>
+      assertPhotoStagingObjectKey("verification-docs/user-1/id.jpg")
+    ).toThrow("PHOTO_STAGING_INVALID_KEY");
+  });
+
+  it("scopes identity admin preview away from photo staging objects", async () => {
+    stubSeparatedBuckets();
+    await expect(
+      getSignedIdDocumentUrl(
+        "admin@example.com",
+        "profile-photo-staging/user-1/photo.jpeg"
+      )
+    ).rejects.toThrow("PRIVATE_VERIFICATION_INVALID_KEY");
+    await expect(
+      getSignedLivenessVideoUrl(
+        "admin@example.com",
+        "profile-photo-staging/user-1/photo.jpeg"
+      )
+    ).rejects.toThrow("PRIVATE_VERIFICATION_INVALID_KEY");
+  });
+
+  it("requires photo staging keys to be owned by the uploading worker", () => {
+    expect(() =>
+      assertOwnedPhotoStagingKey(
+        "user-1",
+        "profile-photo-staging/user-2/photo.jpeg"
+      )
+    ).toThrow("PHOTO_STAGING_KEY_NOT_OWNED");
+    expect(() =>
+      assertOwnedPhotoStagingKey(
+        "user-1",
+        "profile-photo-staging/user-1/photo.jpeg"
+      )
+    ).not.toThrow();
   });
 });

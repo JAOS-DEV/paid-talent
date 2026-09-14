@@ -14,8 +14,11 @@ function serializePhotos(
 }
 
 export default async function AdminPhotosPage(): Promise<React.ReactElement> {
-  await requireAdminPage("/admin/photos");
-  const { photos } = await listPendingPhotosForAdmin();
+  const { email } = await requireAdminPage("/admin/photos");
+  const { photos } = await listPendingPhotosForAdmin({
+    adminEmail: email,
+    includeSignedMedia: true,
+  });
 
   return (
     <div className="space-y-6">

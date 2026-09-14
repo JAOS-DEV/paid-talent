@@ -9,9 +9,14 @@ vi.mock("@/app/worker/actions", () => ({
   updateProfilePhoto: vi.fn(),
 }));
 
-vi.mock("@/lib/media/upload-profile-photo", () => ({
-  uploadProfilePhoto: vi.fn(),
-}));
+vi.mock("@/lib/media/upload-profile-photo", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/media/upload-profile-photo")>();
+  return {
+    ...actual,
+    uploadProfilePhoto: vi.fn(),
+  };
+});
 
 const mockedUpload = vi.mocked(uploadProfilePhoto);
 const mockedPersist = vi.mocked(updateProfilePhoto);
@@ -32,11 +37,16 @@ describe("PhotoStep upload feedback", () => {
     mockedUpload.mockReset();
     mockedPersist.mockReset();
     mockedPersist.mockResolvedValue({ success: true });
+    URL.createObjectURL = vi.fn(() => "blob:photo-preview");
+    URL.revokeObjectURL = vi.fn();
   });
 
   it("shows Preparing photo… and disables controls when a file is selected", async () => {
-    let resolveUpload: (value: { key: string; publicUrl: string }) => void =
-      () => undefined;
+    let resolveUpload: (value: {
+      status: "approved";
+      photoKey: string;
+      publicUrl: string;
+    }) => void = () => undefined;
     mockedUpload.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -58,7 +68,8 @@ describe("PhotoStep upload feedback", () => {
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
 
     resolveUpload({
-      key: "profiles/u1/photo.jpeg",
+      status: "approved",
+      photoKey: "profiles/u1/photo.jpeg",
       publicUrl: "https://cdn.example/photo.jpeg",
     });
 
@@ -69,7 +80,8 @@ describe("PhotoStep upload feedback", () => {
 
   it("clears loading state after a successful upload and shows the preview", async () => {
     mockedUpload.mockResolvedValue({
-      key: "profiles/u1/photo.jpeg",
+      status: "approved",
+      photoKey: "profiles/u1/photo.jpeg",
       publicUrl: "https://cdn.example/photo.jpeg",
     });
 
@@ -85,6 +97,10 @@ describe("PhotoStep upload feedback", () => {
       "src",
       "https://cdn.example/photo.jpeg"
     );
+    expect(mockedPersist).toHaveBeenCalledWith({
+      photoKey: "profiles/u1/photo.jpeg",
+      photoUrl: "https://cdn.example/photo.jpeg",
+    });
   });
 
   it("clears loading state and shows a friendly error when upload fails", async () => {
@@ -105,7 +121,8 @@ describe("PhotoStep upload feedback", () => {
 
   it("uses a placeholder instead of a broken-image icon when the preview fails", async () => {
     mockedUpload.mockResolvedValue({
-      key: "profiles/u1/photo.jpeg",
+      status: "approved",
+      photoKey: "profiles/u1/photo.jpeg",
       publicUrl: "https://cdn.example/broken.jpeg",
     });
 
@@ -120,5 +137,26 @@ describe("PhotoStep upload feedback", () => {
     ).toBeInTheDocument();
     expect(screen.queryByAltText("Profile")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+  });
+
+  it("shows Photo under review for a pending upload and does not persist a public URL", async () => {
+    mockedUpload.mockResolvedValue({
+      status: "pending",
+      photoKey: null,
+      publicUrl: null,
+      message: "Photo under review — your profile stays visible with your previous photo until approved.",
+    });
+
+    render(<PhotoStep initialPhotoUrl={null} onComplete={() => undefined} />);
+    selectPhoto();
+
+    expect(
+      await screen.findByText(/Photo under review/)
+    ).toBeInTheDocument();
+    expect(mockedPersist).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    expect(screen.getByAltText("Profile").getAttribute("src")).toMatch(
+      /^blob:/
+    );
   });
 });

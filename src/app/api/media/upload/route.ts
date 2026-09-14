@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import {
-  generatePresignedUploadUrl,
-  assertUploadedProfileImageWithinLimit,
-  getPublicUrl,
+  generatePresignedProfilePhotoStagingUrl,
+  assertUploadedStagedProfileImageWithinLimit,
 } from "@/lib/storage/s3";
 import {
   sendModerationWebhook,
@@ -16,13 +15,8 @@ import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { PROFILE_PHOTO_ERRORS, PROFILE_PHOTO_MAX_BYTES } from "@/lib/media/profile-photo";
 import { publicMediaUploadRequestSchema } from "@/lib/media/public-upload-request";
-import {
-  PublicMediaConfigError,
-  isPersistablePublicMediaUrl,
-} from "@/lib/media/public-url";
-import { assertPublicMediaObjectKey } from "@/lib/storage/keys";
-
-const uploadRequestSchema = publicMediaUploadRequestSchema;
+import { PrivateStorageConfigError } from "@/lib/storage/config";
+import { assertOwnedPhotoStagingKey } from "@/lib/storage/keys";
 
 function logMediaEvent(event: {
   stage: string;
@@ -38,36 +32,18 @@ function logMediaEvent(event: {
   });
 }
 
-function publicMediaConfigResponse(stage: "presign" | "confirm"): NextResponse {
+function privateStorageConfigResponse(stage: "presign" | "confirm"): NextResponse {
   logMediaEvent({ stage, status: 503 });
   console.error(
-    "[Media Upload] Public media URL is not configured. Set S3_CDN_URL to an R2 custom public domain. Do not use the R2 S3 API endpoint as a browser URL."
+    "[Media Upload] Private photo staging is not configured. Set distinct S3_PRIVATE_* credentials for paid-talent-private."
   );
   return NextResponse.json(
     {
-      error: PROFILE_PHOTO_ERRORS.publicUrlUnavailable,
-      message: PROFILE_PHOTO_ERRORS.publicUrlUnavailable,
+      error: PROFILE_PHOTO_ERRORS.serviceUnavailable,
+      message: PROFILE_PHOTO_ERRORS.serviceUnavailable,
     },
     { status: 503 }
   );
-}
-
-function resolveCanonicalPublicUrl(
-  key: string,
-  stage: "presign" | "confirm"
-): string | NextResponse {
-  try {
-    const publicUrl = getPublicUrl(key);
-    if (!isPersistablePublicMediaUrl(publicUrl)) {
-      return publicMediaConfigResponse(stage);
-    }
-    return publicUrl;
-  } catch (error) {
-    if (error instanceof PublicMediaConfigError) {
-      return publicMediaConfigResponse(stage);
-    }
-    throw error;
-  }
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -85,8 +61,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    if (session.user.role !== "worker") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await request.json();
-    const validation = uploadRequestSchema.safeParse(body);
+    const validation = publicMediaUploadRequestSchema.safeParse(body);
 
     if (!validation.success) {
       const sizeIssue = validation.error.issues.find(
@@ -115,32 +95,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { contentType, contentLength } = validation.data;
 
-    if (session.user.role === "worker") {
-      const [profile] = await db
-        .select({ id: workerProfiles.id })
-        .from(workerProfiles)
-        .where(eq(workerProfiles.userId, session.user.id))
-        .limit(1);
+    const [profile] = await db
+      .select({ id: workerProfiles.id })
+      .from(workerProfiles)
+      .where(eq(workerProfiles.userId, session.user.id))
+      .limit(1);
 
-      if (profile) {
-        const limitCheck = await canUploadPhoto(profile.id);
-        if (!limitCheck.canUpload) {
-          return NextResponse.json(
-            {
-              error: "Upload limit reached",
-              message: limitCheck.reason,
-              limits: {
-                approved: limitCheck.currentApprovedCount,
-                pending: limitCheck.currentPendingCount,
-              },
+    if (profile) {
+      const limitCheck = await canUploadPhoto(profile.id);
+      if (!limitCheck.canUpload) {
+        return NextResponse.json(
+          {
+            error: "Upload limit reached",
+            message: limitCheck.reason,
+            limits: {
+              approved: limitCheck.currentApprovedCount,
+              pending: limitCheck.currentPendingCount,
             },
-            { status: 400 }
-          );
-        }
+          },
+          { status: 400 }
+        );
       }
     }
 
-    const { uploadUrl, key, publicUrl } = await generatePresignedUploadUrl(
+    const { uploadUrl, key } = await generatePresignedProfilePhotoStagingUrl(
       session.user.id,
       contentType,
       contentLength
@@ -156,7 +134,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({
       uploadUrl,
       key,
-      publicUrl,
       expiresIn: 3600,
       maxFileSize: PROFILE_PHOTO_MAX_BYTES,
       policy: {
@@ -165,8 +142,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     });
   } catch (error) {
-    if (error instanceof PublicMediaConfigError) {
-      return publicMediaConfigResponse("presign");
+    if (error instanceof PrivateStorageConfigError) {
+      return privateStorageConfigResponse("presign");
     }
     logMediaEvent({ stage: "presign", status: 500 });
     console.error("[Media Upload] Error:", error);
@@ -188,18 +165,19 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { key, publicUrl: requestedPublicUrl } = body;
+    if (session.user.role !== "worker") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-    if (!key || !requestedPublicUrl) {
-      return NextResponse.json(
-        { error: "Missing key or publicUrl" },
-        { status: 400 }
-      );
+    const body = await request.json();
+    const { key } = body as { key?: unknown };
+
+    if (typeof key !== "string" || !key) {
+      return NextResponse.json({ error: "Missing key" }, { status: 400 });
     }
 
     try {
-      assertPublicMediaObjectKey(key);
+      assertOwnedPhotoStagingKey(session.user.id, key);
     } catch {
       logMediaEvent({ stage: "confirm", status: 400 });
       return NextResponse.json(
@@ -211,111 +189,71 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const canonicalPublicUrl = resolveCanonicalPublicUrl(key, "confirm");
-    if (canonicalPublicUrl instanceof NextResponse) {
-      return canonicalPublicUrl;
-    }
-
-    const publicUrl = canonicalPublicUrl;
-
-    if (session.user.role === "worker") {
-      try {
-        await assertUploadedProfileImageWithinLimit(key);
-      } catch (error) {
-        const code = error instanceof Error ? error.message : "UPLOAD_FAILED";
-        const message =
-          code === "UPLOAD_TOO_LARGE"
-            ? PROFILE_PHOTO_ERRORS.tooLarge
-            : code === "UPLOAD_INVALID_TYPE"
-              ? PROFILE_PHOTO_ERRORS.invalidType
-              : PROFILE_PHOTO_ERRORS.uploadFailed;
-        logMediaEvent({
-          stage: "confirm",
-          status: 400,
-        });
-        return NextResponse.json(
-          { error: message, message },
-          { status: 400 }
-        );
-      }
-
-      const [profile] = await db
-        .select({ id: workerProfiles.id })
-        .from(workerProfiles)
-        .where(eq(workerProfiles.userId, session.user.id))
-        .limit(1);
-
-      if (!profile) {
-        return NextResponse.json(
-          { error: "Worker profile not found" },
-          { status: 404 }
-        );
-      }
-
-      const uploadResult = await submitPhotoForModeration(
-        session.user.id,
-        profile.id,
-        key,
-        publicUrl
-      );
-
-      if (!uploadResult.success) {
-        logMediaEvent({
-          stage: "confirm",
-          status: 400,
-        });
-        return NextResponse.json(
-          {
-            error: uploadResult.error,
-            message: uploadResult.userMessage,
-          },
-          { status: 400 }
-        );
-      }
-
-      await sendModerationWebhook({
-        type: "image",
-        resourceId: key,
-        resourceType: "profile_photo",
-        userId: session.user.id,
-        result: {
-          approved: uploadResult.status === "approved",
-          flagged: uploadResult.status !== "approved",
-          reason: uploadResult.decision?.reason,
-        },
-        timestamp: new Date(),
-      });
-
+    try {
+      await assertUploadedStagedProfileImageWithinLimit(key);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "UPLOAD_FAILED";
+      const message =
+        code === "UPLOAD_TOO_LARGE"
+          ? PROFILE_PHOTO_ERRORS.tooLarge
+          : code === "UPLOAD_INVALID_TYPE"
+            ? PROFILE_PHOTO_ERRORS.invalidType
+            : PROFILE_PHOTO_ERRORS.uploadFailed;
       logMediaEvent({
         stage: "confirm",
-        status: 200,
+        status: 400,
       });
+      return NextResponse.json(
+        { error: message, message },
+        { status: 400 }
+      );
+    }
 
-      return NextResponse.json({
-        success: true,
-        key,
-        url: publicUrl,
-        photoId: uploadResult.photoId,
-        moderation: {
-          status: uploadResult.status,
+    const [profile] = await db
+      .select({ id: workerProfiles.id })
+      .from(workerProfiles)
+      .where(eq(workerProfiles.userId, session.user.id))
+      .limit(1);
+
+    if (!profile) {
+      return NextResponse.json(
+        { error: "Worker profile not found" },
+        { status: 404 }
+      );
+    }
+
+    const uploadResult = await submitPhotoForModeration(
+      session.user.id,
+      profile.id,
+      key
+    );
+
+    if (!uploadResult.success) {
+      logMediaEvent({
+        stage: "confirm",
+        status: 400,
+      });
+      return NextResponse.json(
+        {
+          error: uploadResult.error,
           message: uploadResult.userMessage,
-          requiresReview: uploadResult.decision?.requiresReview ?? false,
         },
-      });
+        { status: 400 }
+      );
     }
 
-    if (key.startsWith("profiles/")) {
-      try {
-        await assertUploadedProfileImageWithinLimit(key);
-      } catch (error) {
-        const code = error instanceof Error ? error.message : "UPLOAD_FAILED";
-        const message =
-          code === "UPLOAD_TOO_LARGE"
-            ? PROFILE_PHOTO_ERRORS.tooLarge
-            : PROFILE_PHOTO_ERRORS.uploadFailed;
-        return NextResponse.json({ error: message, message }, { status: 400 });
-      }
-    }
+    await sendModerationWebhook({
+      type: "image",
+      resourceId: key,
+      resourceType: "profile_photo",
+      userId: session.user.id,
+      result: {
+        approved: uploadResult.status === "approved",
+        flagged: uploadResult.status !== "approved",
+        reason: uploadResult.decision?.reason,
+      },
+      timestamp: new Date(),
+    });
 
     logMediaEvent({
       stage: "confirm",
@@ -324,10 +262,20 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
-      key,
-      url: publicUrl,
+      stagingKey: key,
+      photoKey: uploadResult.photoKey ?? null,
+      url: uploadResult.photoUrl ?? null,
+      photoId: uploadResult.photoId,
+      moderation: {
+        status: uploadResult.status,
+        message: uploadResult.userMessage,
+        requiresReview: uploadResult.decision?.requiresReview ?? false,
+      },
     });
   } catch (error) {
+    if (error instanceof PrivateStorageConfigError) {
+      return privateStorageConfigResponse("confirm");
+    }
     logMediaEvent({ stage: "confirm", status: 500 });
     console.error("[Media Confirm] Error:", error);
     return NextResponse.json(

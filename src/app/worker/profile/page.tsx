@@ -37,8 +37,12 @@ import {
   PROFILE_PHOTO_STATUS,
   type ProfilePhotoUploadStage,
 } from "@/lib/media/profile-photo";
-import { uploadProfilePhoto } from "@/lib/media/upload-profile-photo";
+import {
+  isApprovedPublicPhotoUpload,
+  uploadProfilePhoto,
+} from "@/lib/media/upload-profile-photo";
 import { ProfilePhotoPreview } from "@/components/media/ProfilePhotoPreview";
+import { PHOTO_POLICY_COPY } from "@/lib/moderation/photo-policy";
 
 export default function WorkerProfilePage(): React.ReactElement {
   const { data: session, status } = useSession();
@@ -70,7 +74,9 @@ export default function WorkerProfilePage(): React.ReactElement {
     null
   );
   const [photoPreviewFailed, setPhotoPreviewFailed] = useState(false);
+  const [photoPendingReview, setPhotoPendingReview] = useState(false);
   const photoUploadingRef = useRef(false);
+  const localPhotoPreviewUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     async function fetchProfile(): Promise<void> {
@@ -129,6 +135,17 @@ export default function WorkerProfilePage(): React.ReactElement {
     fetchProfile();
   }, [session, router]);
 
+  useEffect(() => {
+    return () => {
+      if (
+        localPhotoPreviewUrlRef.current &&
+        typeof URL.revokeObjectURL === "function"
+      ) {
+        URL.revokeObjectURL(localPhotoPreviewUrlRef.current);
+      }
+    };
+  }, []);
+
   function showSuccess(message: string): void {
     setSuccessMessage(message);
     setTimeout(() => setSuccessMessage(null), 3000);
@@ -141,6 +158,28 @@ export default function WorkerProfilePage(): React.ReactElement {
   function handleChoosePhoto(): void {
     if (photoUploadingRef.current) return;
     fileInputRef.current?.click();
+  }
+
+  function replaceLocalPhotoPreview(file: File): string | null {
+    if (typeof URL.createObjectURL !== "function") {
+      return null;
+    }
+    if (localPhotoPreviewUrlRef.current) {
+      URL.revokeObjectURL(localPhotoPreviewUrlRef.current);
+    }
+    const url = URL.createObjectURL(file);
+    localPhotoPreviewUrlRef.current = url;
+    return url;
+  }
+
+  function clearLocalPhotoPreview(): void {
+    if (
+      localPhotoPreviewUrlRef.current &&
+      typeof URL.revokeObjectURL === "function"
+    ) {
+      URL.revokeObjectURL(localPhotoPreviewUrlRef.current);
+      localPhotoPreviewUrlRef.current = null;
+    }
   }
 
   async function handlePhotoUpload(
@@ -160,15 +199,36 @@ export default function WorkerProfilePage(): React.ReactElement {
         onStage: setPhotoStage,
       });
       setPhotoStage("saving");
-      const persist = await updateProfilePhoto({
-        photoKey: result.key,
-        photoUrl: result.publicUrl,
-      });
-      if (!persist.success) {
-        throw new Error(persist.error || PROFILE_PHOTO_ERRORS.uploadFailed);
+
+      if (result.status === "rejected") {
+        clearLocalPhotoPreview();
+        setPhotoPendingReview(false);
+        setPhotoUrl(profile?.photoUrl ?? null);
+        setPhotoError(result.message || PHOTO_POLICY_COPY.rejected);
+        return;
       }
-      setPhotoUrl(result.publicUrl);
-      showSuccess("Photo updated");
+
+      if (isApprovedPublicPhotoUpload(result)) {
+        const persist = await updateProfilePhoto({
+          photoKey: result.photoKey,
+          photoUrl: result.publicUrl,
+        });
+        if (!persist.success) {
+          throw new Error(persist.error || PROFILE_PHOTO_ERRORS.uploadFailed);
+        }
+        clearLocalPhotoPreview();
+        setPhotoPendingReview(false);
+        setPhotoUrl(result.publicUrl);
+        showSuccess("Photo updated");
+        return;
+      }
+
+      setPhotoPendingReview(true);
+      const localPreview = replaceLocalPhotoPreview(file);
+      if (localPreview) {
+        setPhotoUrl(localPreview);
+      }
+      showSuccess("Photo submitted for review");
     } catch (error) {
       setPhotoError(
         error instanceof Error
@@ -344,7 +404,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                       onClick={handleChoosePhoto}
                       disabled={saving === "photo"}
                     >
-                      {photoUrl ? "Change Photo" : "Upload Photo"}
+                      {photoUrl || photoPendingReview ? "Change Photo" : "Upload Photo"}
                     </Button>
                     {photoStage ? (
                       <p
@@ -352,6 +412,11 @@ export default function WorkerProfilePage(): React.ReactElement {
                         aria-live="polite"
                       >
                         {PROFILE_PHOTO_STATUS[photoStage]}
+                      </p>
+                    ) : null}
+                    {photoPendingReview && saving !== "photo" ? (
+                      <p className="text-charcoal-300 text-sm mt-2">
+                        {PHOTO_POLICY_COPY.pending}
                       </p>
                     ) : null}
                     <p className="text-charcoal-500 text-xs mt-2">
