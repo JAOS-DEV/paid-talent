@@ -174,3 +174,38 @@ export function stopMediaStream(stream: MediaStream | null): void {
     track.stop();
   }
 }
+
+export function detachLivePreviewElement(
+  video: HTMLVideoElement | null
+): void {
+  if (!video) {
+    return;
+  }
+
+  try {
+    video.pause();
+  } catch {
+    // Some test environments implement pause as a stub.
+  }
+
+  video.srcObject = null;
+  video.removeAttribute("src");
+}
+
+export function bindRecordedPlaybackElement(
+  video: HTMLVideoElement | null,
+  objectUrl: string
+): void {
+  if (!video) {
+    return;
+  }
+
+  video.srcObject = null;
+  video.muted = false;
+  video.defaultMuted = false;
+  video.playsInline = true;
+  video.setAttribute("playsinline", "true");
+  video.setAttribute("src", objectUrl);
+  video.src = objectUrl;
+  video.load();
+}

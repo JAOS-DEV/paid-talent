@@ -87,6 +87,20 @@ describe("worker verification flow security (source)", () => {
     expect(pageSource).not.toContain("getPublicUrl");
   });
 
+  it("uses a separate playback video with no live stream after recording", () => {
+    expect(recorderSource).toContain("LivePreviewVideo");
+    expect(recorderSource).toContain("RecordedPlaybackVideo");
+    expect(recorderSource).toContain("detachLivePreviewElement");
+    expect(recorderSource).toContain("bindRecordedPlaybackElement");
+    expect(recorderSource).toContain("stopMediaStream");
+    expect(recorderSource).toContain("onReacquireCamera");
+    expect(recorderSource).toContain('data-testid="liveness-playback"');
+    expect(recorderSource).toContain('data-testid="liveness-live-preview"');
+    expect(livenessSource).toContain("video.srcObject = null");
+    expect(pageSource).toContain("handleReacquireCamera");
+    expect(pageSource).toContain("getUserMedia");
+  });
+
   it("allows camera and microphone on the verification page", () => {
     const config = fs.readFileSync(
       path.join(process.cwd(), "next.config.ts"),

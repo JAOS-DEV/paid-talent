@@ -322,10 +322,39 @@ export default function WorkerVerificationPage(): React.ReactElement {
       const stream = await navigator.mediaDevices.getUserMedia(
         LIVE_CAMERA_CONSTRAINTS
       );
+      const previous = cameraStreamRef.current;
       cameraStreamRef.current = stream;
       setCameraStream(stream);
       setCurrentStep("recording");
+      stopMediaStream(previous);
     } catch (err) {
+      setError(
+        messageForLiveRecordingError(classifyGetUserMediaError(err))
+      );
+    }
+  }
+
+  async function handleReacquireCamera(): Promise<void> {
+    setError(null);
+
+    if (!isLiveRecordingApiAvailable()) {
+      releaseCamera();
+      setCurrentStep("video");
+      setError(UNSUPPORTED_LIVE_RECORDING_MESSAGE);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(
+        LIVE_CAMERA_CONSTRAINTS
+      );
+      const previous = cameraStreamRef.current;
+      cameraStreamRef.current = stream;
+      setCameraStream(stream);
+      stopMediaStream(previous);
+    } catch (err) {
+      releaseCamera();
+      setCurrentStep("video");
       setError(
         messageForLiveRecordingError(classifyGetUserMediaError(err))
       );
@@ -669,6 +698,9 @@ export default function WorkerVerificationPage(): React.ReactElement {
             setCurrentStep("video");
           }}
           onError={(message) => setError(message)}
+          onReacquireCamera={() => {
+            void handleReacquireCamera();
+          }}
         />
 
         {error && (
