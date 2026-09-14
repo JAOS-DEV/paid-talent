@@ -697,105 +697,85 @@ The `profile_interests.notifiedAt` field is prepared for future notification int
 
 ### Overview
 
-Manual tracking for when workers are hired and when they start working. This is a simple status progression system for private beta.
-
-**Dev owns the UX/wiring slice.** This foundation provides schema, server actions, and query helpers.
-
-### Statuses
-
-| Status | Description |
-|--------|-------------|
-| `interested` | Default state - recruiter has expressed interest |
-| `hired` | Worker has been hired (offer accepted) |
-| `started` | Worker has begun working |
-
-### Status Transitions
-
-Transitions are **forward-only** and sequential:
+Confirmed hire status is still:
 
 ```
 interested → hired → started
 ```
 
-No backwards transitions or skipping steps allowed.
+Recruiters no longer set those statuses directly. They create **confirmation requests**. The worker/talent must confirm before `hire_outcomes.status` changes.
 
-### Schema
+### Confirmed truth vs requests
 
-The `hire_outcomes` table links 1:1 to `profile_interests`:
+| Source | Meaning |
+|--------|---------|
+| `hire_outcomes.status` | Confirmed truth only (`interested` / `hired` / `started`) |
+| `hire_outcome_confirmation_requests` | Recruiter claims awaiting (or already given) worker response |
 
-| Field | Description |
-|-------|-------------|
-| `interest_id` | Foreign key to profile_interests (unique) |
-| `status` | Current hire status |
-| `hired_at` | Timestamp when marked as hired |
-| `started_at` | Timestamp when marked as started |
-| `notes` | Optional recruiter notes |
+A pending request must never be displayed or counted as hired/started.
 
-### Authorization
+Existing `hired` / `started` rows created before this feature remain valid legacy confirmed outcomes. They are not reset and do not need retroactive confirmation.
 
-Only the **recruiter who owns the interest** can update its hire outcome. Authz is checked via:
+### Recruiter requests
 
-```typescript
-import { canUpdateHireOutcome } from "@/lib/hire-outcomes";
+Allowed only when the recruiter owns the interest and the confirmed status matches:
 
-const check = canUpdateHireOutcome(
-  userId,
-  userRole,
-  interest,
-  currentStatus,
-  newStatus
-);
+- request hire when confirmed status is `interested`
+- request start when confirmed status is `hired`
 
-if (!check.authorized) {
-  // check.reason: "unauthenticated" | "wrong_role" | "not_owner" | "invalid_transition"
-}
-```
+Routes:
 
-### Server Actions
+- `POST /api/recruiter/interests/request-hire`
+- `POST /api/recruiter/interests/request-start`
 
-```typescript
-import { markAsHired, markAsStarted } from "@/app/recruiter/actions";
+There is no recruiter-accessible endpoint that writes confirmed `hired` or `started`.
 
-// Mark interest as hired
-await markAsHired(interestId, optionalNotes);
+A unique partial index allows only one pending request per interest.
 
-// Mark hired interest as started
-await markAsStarted(interestId, optionalNotes);
-```
+### Worker confirmation
 
-### Query Helpers (for Dev UX)
+Workers see an **Action required** section on the worker dashboard when they have pending requests.
+
+Routes:
+
+- `GET /api/worker/hire-confirmations/pending`
+- `POST /api/worker/hire-confirmations/[id]/confirm`
+- `POST /api/worker/hire-confirmations/[id]/reject`
+
+Ownership is derived from the session + `worker_profiles.user_id` join. Request IDs alone are not authorization.
+
+- Confirm hire: request → `confirmed`, outcome → `hired`, `hiredAt` = confirmation time
+- Reject hire: request → `rejected`, outcome stays `interested`
+- Confirm start: request → `confirmed`, outcome → `started`, `startedAt` = confirmation time
+- Reject start: request → `rejected`, outcome stays `hired`
+
+Rejected rows are kept for history. The recruiter may request again later.
+
+### Statistics
+
+`getRecruiterOutcomeStats()` and recruiter filters use confirmed `hire_outcomes.status` only.
+
+- Pending hire ≠ hired
+- Pending start = hired, ≠ started
+- Rejected requests never increment conversion stats
+
+### Availability is separate
+
+Confirming hire or start does **not** unpublish the worker, change `worker_profiles.availability`, hide the profile, or stop other recruiters expressing interest. Marketplace publication stays under existing worker settings.
+
+### Query helpers
 
 ```typescript
 import {
   getRecruiterInterestsWithOutcomes,
   getRecruiterOutcomeStats,
-  getInterestsWithHiredStatus,
-  getInterestsWithStartedStatus,
+  getPendingConfirmationRequestsForWorker,
 } from "@/lib/hire-outcomes/queries";
 
-// Get all interests with their outcomes (filterable)
 const interests = await getRecruiterInterestsWithOutcomes(userId, "hired");
-
-// Get stats for dashboard
 const stats = await getRecruiterOutcomeStats(userId);
-// { total: 10, interested: 5, hired: 3, started: 2 }
+const pending = await getPendingConfirmationRequestsForWorker(workerUserId);
 ```
-
-### Not Searchable Implications
-
-Hire outcomes are **not currently factored into search**. The `interested` / `hired` / `started` status is private to the recruiter-worker pair and does not affect:
-- Worker search results
-- Worker profile visibility
-- Top Talent ranking
-
-This is intentional for private beta. Future iterations may consider surfacing "in active hiring process" indicators.
-
-### TODO: Dev UX Slice
-
-- List view with status filter tabs (All / Interested / Hired / Started)
-- Status update buttons on interest cards
-- Dashboard stats widget
-- Notes editing modal
 
 ---
 

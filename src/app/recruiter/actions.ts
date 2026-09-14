@@ -2,25 +2,22 @@
 
 import { auth } from "@/lib/auth";
 import { db, profileInterests, hireOutcomes } from "@/lib/db";
-import type { HireOutcomeStatus } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import {
-  canUpdateHireOutcome,
-  computeTimestampsForStatusChange,
-  getEffectiveStatus,
-} from "@/lib/hire-outcomes";
+import { getEffectiveStatus } from "@/lib/hire-outcomes";
+import { requestConfirmation } from "@/lib/hire-outcomes/service";
+import { getLatestConfirmationRequestForInterest } from "@/lib/hire-outcomes/queries";
 
-const setHireOutcomeSchema = z.object({
+const requestConfirmationSchema = z.object({
   interestId: z.string().uuid(),
-  status: z.enum(["hired", "started"]),
-  notes: z.string().max(500).optional(),
 });
 
 interface ActionResult {
   success: boolean;
   error?: string;
+  alreadyPending?: boolean;
+  requestId?: string;
 }
 
 async function getAuthenticatedRecruiter(): Promise<{ userId: string } | null> {
@@ -31,105 +28,51 @@ async function getAuthenticatedRecruiter(): Promise<{ userId: string } | null> {
   return { userId: session.user.id };
 }
 
-export async function setHireOutcome(
-  data: z.infer<typeof setHireOutcomeSchema>
+async function requestOutcomeConfirmation(
+  interestId: string,
+  requestedStatus: "hired" | "started"
 ): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
   if (!recruiter) {
     return { success: false, error: "Unauthorized" };
   }
 
-  const validation = setHireOutcomeSchema.safeParse(data);
+  const validation = requestConfirmationSchema.safeParse({ interestId });
   if (!validation.success) {
     return { success: false, error: validation.error.issues[0].message };
   }
 
-  const { interestId, status, notes } = validation.data;
+  const result = await requestConfirmation({
+    recruiterUserId: recruiter.userId,
+    recruiterRole: "recruiter",
+    interestId: validation.data.interestId,
+    requestedStatus,
+  });
 
-  const [interest] = await db
-    .select()
-    .from(profileInterests)
-    .where(eq(profileInterests.id, interestId))
-    .limit(1);
-
-  if (!interest) {
-    return { success: false, error: "Interest not found" };
+  if (result.success) {
+    revalidatePath("/recruiter/dashboard");
+    revalidatePath("/recruiter/interests");
+    revalidatePath("/worker/dashboard");
   }
 
-  const [existingOutcome] = await db
-    .select()
-    .from(hireOutcomes)
-    .where(eq(hireOutcomes.interestId, interestId))
-    .limit(1);
-
-  const currentStatus = getEffectiveStatus(existingOutcome);
-
-  const authzCheck = canUpdateHireOutcome(
-    recruiter.userId,
-    "recruiter",
-    interest,
-    currentStatus,
-    status as HireOutcomeStatus
-  );
-
-  if (!authzCheck.authorized) {
-    const errorMessages: Record<typeof authzCheck.reason, string> = {
-      authorized: "",
-      unauthenticated: "Unauthorized",
-      wrong_role: "Only recruiters can update hire outcomes",
-      not_owner: "You can only update outcomes for your own interests",
-      invalid_transition: `Cannot transition from ${currentStatus} to ${status}`,
-    };
-    return { success: false, error: errorMessages[authzCheck.reason] };
-  }
-
-  const timestamps = computeTimestampsForStatusChange(existingOutcome, status as HireOutcomeStatus);
-
-  if (existingOutcome) {
-    await db
-      .update(hireOutcomes)
-      .set({
-        status: status as HireOutcomeStatus,
-        hiredAt: timestamps.hiredAt,
-        startedAt: timestamps.startedAt,
-        notes: notes ?? existingOutcome.notes,
-        updatedAt: new Date(),
-      })
-      .where(eq(hireOutcomes.id, existingOutcome.id));
-  } else {
-    await db.insert(hireOutcomes).values({
-      interestId,
-      status: status as HireOutcomeStatus,
-      hiredAt: timestamps.hiredAt,
-      startedAt: timestamps.startedAt,
-      notes: notes ?? null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-  }
-
-  console.log(
-    `[HireOutcome] Recruiter ${recruiter.userId} set interest ${interestId} to ${status}`
-  );
-
-  revalidatePath("/recruiter/dashboard");
-  revalidatePath("/recruiter/interests");
-
-  return { success: true };
+  return {
+    success: result.success,
+    error: result.error,
+    alreadyPending: result.alreadyPending,
+    requestId: result.requestId,
+  };
 }
 
-export async function markAsHired(
-  interestId: string,
-  notes?: string
+export async function requestHireConfirmation(
+  interestId: string
 ): Promise<ActionResult> {
-  return setHireOutcome({ interestId, status: "hired", notes });
+  return requestOutcomeConfirmation(interestId, "hired");
 }
 
-export async function markAsStarted(
-  interestId: string,
-  notes?: string
+export async function requestStartConfirmation(
+  interestId: string
 ): Promise<ActionResult> {
-  return setHireOutcome({ interestId, status: "started", notes });
+  return requestOutcomeConfirmation(interestId, "started");
 }
 
 export async function getInterestWithOutcome(interestId: string) {
@@ -154,9 +97,13 @@ export async function getInterestWithOutcome(interestId: string) {
     .where(eq(hireOutcomes.interestId, interestId))
     .limit(1);
 
+  const confirmationRequest =
+    await getLatestConfirmationRequestForInterest(interestId);
+
   return {
     interest,
     hireOutcome: outcome ?? null,
+    confirmationRequest,
     effectiveStatus: getEffectiveStatus(outcome),
   };
 }

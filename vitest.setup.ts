@@ -16,6 +16,8 @@ vi.mock("@/lib/db", () => ({
   profilePhotos: {},
   profileViews: {},
   profileInterests: {},
+  hireOutcomes: {},
+  hireOutcomeConfirmationRequests: {},
   subscriptions: {},
 }));
 

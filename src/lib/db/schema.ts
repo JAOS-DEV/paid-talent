@@ -11,7 +11,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 export const userRoleEnum = pgEnum("user_role", ["worker", "recruiter"]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
@@ -63,6 +63,16 @@ export const hireOutcomeStatusEnum = pgEnum("hire_outcome_status", [
   "hired",
   "started",
 ]);
+
+export const hireConfirmationRequestedStatusEnum = pgEnum(
+  "hire_confirmation_requested_status",
+  ["hired", "started"]
+);
+
+export const hireConfirmationRequestStatusEnum = pgEnum(
+  "hire_confirmation_request_status",
+  ["pending", "confirmed", "rejected", "cancelled"]
+);
 
 export const users = pgTable(
   "users",
@@ -352,6 +362,44 @@ export const hireOutcomes = pgTable(
   ]
 );
 
+export const hireOutcomeConfirmationRequests = pgTable(
+  "hire_outcome_confirmation_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    interestId: uuid("interest_id")
+      .notNull()
+      .references(() => profileInterests.id, { onDelete: "cascade" }),
+    requestedStatus: hireConfirmationRequestedStatusEnum("requested_status").notNull(),
+    requestStatus: hireConfirmationRequestStatusEnum("request_status")
+      .notNull()
+      .default("pending"),
+    requestedByRecruiterUserId: uuid("requested_by_recruiter_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    requestedAt: timestamp("requested_at", { mode: "date" }).notNull().defaultNow(),
+    respondedByWorkerUserId: uuid("responded_by_worker_user_id").references(
+      () => users.id,
+      { onDelete: "set null" }
+    ),
+    respondedAt: timestamp("responded_at", { mode: "date" }),
+    rejectionReason: text("rejection_reason"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("hire_conf_req_interest_id_idx").on(table.interestId),
+    index("hire_conf_req_request_status_idx").on(table.requestStatus),
+    index("hire_conf_req_requested_by_idx").on(table.requestedByRecruiterUserId),
+    index("hire_conf_req_pending_requested_at_idx").on(
+      table.requestStatus,
+      table.requestedAt
+    ),
+    uniqueIndex("hire_conf_req_one_pending_per_interest_uidx")
+      .on(table.interestId)
+      .where(sql`${table.requestStatus} = 'pending'`),
+  ]
+);
+
 export const subscriptions = pgTable(
   "subscriptions",
   {
@@ -514,7 +562,7 @@ export const profileViewsRelations = relations(profileViews, ({ one }) => ({
 
 export const profileInterestsRelations = relations(
   profileInterests,
-  ({ one }) => ({
+  ({ one, many }) => ({
     recruiter: one(users, {
       fields: [profileInterests.recruiterUserId],
       references: [users.id],
@@ -531,6 +579,7 @@ export const profileInterestsRelations = relations(
       fields: [profileInterests.id],
       references: [hireOutcomes.interestId],
     }),
+    confirmationRequests: many(hireOutcomeConfirmationRequests),
   })
 );
 
@@ -540,6 +589,24 @@ export const hireOutcomesRelations = relations(hireOutcomes, ({ one }) => ({
     references: [profileInterests.id],
   }),
 }));
+
+export const hireOutcomeConfirmationRequestsRelations = relations(
+  hireOutcomeConfirmationRequests,
+  ({ one }) => ({
+    interest: one(profileInterests, {
+      fields: [hireOutcomeConfirmationRequests.interestId],
+      references: [profileInterests.id],
+    }),
+    requestedByRecruiter: one(users, {
+      fields: [hireOutcomeConfirmationRequests.requestedByRecruiterUserId],
+      references: [users.id],
+    }),
+    respondedByWorker: one(users, {
+      fields: [hireOutcomeConfirmationRequests.respondedByWorkerUserId],
+      references: [users.id],
+    }),
+  })
+);
 
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   user: one(users, {
@@ -584,9 +651,17 @@ export type VerificationEvent = typeof verificationEvents.$inferSelect;
 export type NewVerificationEvent = typeof verificationEvents.$inferInsert;
 export type HireOutcome = typeof hireOutcomes.$inferSelect;
 export type NewHireOutcome = typeof hireOutcomes.$inferInsert;
+export type HireOutcomeConfirmationRequest =
+  typeof hireOutcomeConfirmationRequests.$inferSelect;
+export type NewHireOutcomeConfirmationRequest =
+  typeof hireOutcomeConfirmationRequests.$inferInsert;
 export type VerificationStatus = (typeof verificationStatusEnum.enumValues)[number];
 export type VerificationDecision = (typeof verificationDecisionEnum.enumValues)[number];
 export type VerificationMethod = (typeof verificationMethodEnum.enumValues)[number];
 export type DocType = (typeof docTypeEnum.enumValues)[number];
 export type PhotoModerationStatus = (typeof photoModerationStatusEnum.enumValues)[number];
 export type HireOutcomeStatus = (typeof hireOutcomeStatusEnum.enumValues)[number];
+export type HireConfirmationRequestedStatus =
+  (typeof hireConfirmationRequestedStatusEnum.enumValues)[number];
+export type HireConfirmationRequestStatus =
+  (typeof hireConfirmationRequestStatusEnum.enumValues)[number];
