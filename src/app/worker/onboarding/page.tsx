@@ -21,6 +21,11 @@ import {
   getNextStepId,
   getPreviousStepId,
 } from "@/lib/profile";
+import {
+  ONBOARDING_FINISH_LATER_HREF,
+  WORKER_DASHBOARD_PATH,
+  resolveOnboardingAfterProfileLoad,
+} from "@/lib/helpers/worker-dashboard-access";
 import type { WorkerProfile } from "@/lib/db/schema";
 
 export default function WorkerOnboardingPage(): React.ReactElement {
@@ -42,10 +47,11 @@ export default function WorkerOnboardingPage(): React.ReactElement {
           const completeness = getProfileCompleteness(data.profile);
           setCompletedSteps(completeness.completedSteps);
 
-          if (completeness.isComplete) {
-            router.replace("/worker/dashboard");
-          } else if (completeness.nextStep) {
-            setCurrentStep(completeness.nextStep);
+          const loadAction = resolveOnboardingAfterProfileLoad(completeness);
+          if (loadAction.action === "redirect-to-dashboard") {
+            router.replace(WORKER_DASHBOARD_PATH);
+          } else {
+            setCurrentStep(loadAction.stepId);
           }
         }
       } catch (error) {
@@ -80,7 +86,7 @@ export default function WorkerOnboardingPage(): React.ReactElement {
     if (nextStep) {
       setCurrentStep(nextStep);
     } else {
-      router.push("/worker/dashboard");
+      router.push(WORKER_DASHBOARD_PATH);
     }
   }, [currentStep, router]);
 
@@ -92,7 +98,11 @@ export default function WorkerOnboardingPage(): React.ReactElement {
   }, [currentStep]);
 
   const handleOnboardingComplete = useCallback((): void => {
-    router.push("/worker/dashboard");
+    router.push(WORKER_DASHBOARD_PATH);
+  }, [router]);
+
+  const handleFinishLater = useCallback((): void => {
+    router.push(ONBOARDING_FINISH_LATER_HREF);
   }, [router]);
 
   if (status === "loading" || loading || !session || session.user.role !== "worker") {
@@ -209,7 +219,7 @@ export default function WorkerOnboardingPage(): React.ReactElement {
 
           <div className="mt-4 text-center">
             <button
-              onClick={() => router.push("/worker/dashboard")}
+              onClick={handleFinishLater}
               className="text-charcoal-500 text-sm hover:text-charcoal-300 transition-colors"
             >
               Finish later

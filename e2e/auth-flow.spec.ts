@@ -282,6 +282,12 @@ test.describe("Auth Redirect Loop Regression (anonymous + signup intent)", () =>
     await expect(page).toHaveURL(/callbackUrl/);
   });
 
+  test("unauthenticated users should be redirected from worker onboarding to signin", async ({ page }) => {
+    await page.goto("/worker/onboarding");
+    await expect(page).toHaveURL(/auth\/signin/);
+    await expect(page).toHaveURL(/callbackUrl/);
+  });
+
   test("unauthenticated users should be redirected from recruiter routes to signin", async ({ page }) => {
     await page.goto("/recruiter/dashboard");
     await expect(page).toHaveURL(/auth\/signin/);

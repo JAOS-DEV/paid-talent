@@ -13,10 +13,8 @@ import {
   CardTitle,
 } from "@/components/ui";
 import { VerificationStatusBanner } from "@/components/verification";
-import {
-  getProfileCompleteness,
-  INCOMPLETE_PROFILE_REDIRECT_THRESHOLD,
-} from "@/lib/profile";
+import { getProfileCompleteness } from "@/lib/profile";
+import { getWorkerDashboardProfileAction } from "@/lib/helpers/worker-dashboard-access";
 import type { WorkerProfile } from "@/lib/db/schema";
 
 export default function WorkerDashboardPage(): React.ReactElement {
@@ -32,15 +30,6 @@ export default function WorkerDashboardPage(): React.ReactElement {
         if (res.ok) {
           const data = await res.json();
           setProfile(data.profile);
-
-          const completeness = getProfileCompleteness(data.profile);
-          if (
-            !completeness.isComplete &&
-            completeness.progress < INCOMPLETE_PROFILE_REDIRECT_THRESHOLD
-          ) {
-            router.replace("/worker/onboarding");
-            return;
-          }
         }
       } catch (error) {
         console.error("Failed to fetch profile:", error);
@@ -70,6 +59,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
   }
 
   const completeness = getProfileCompleteness(profile);
+  const profileAction = getWorkerDashboardProfileAction(completeness);
   const verificationStatus = profile?.verificationStatus || "unverified";
   const isPublished = profile?.isPublished || false;
 
@@ -128,17 +118,9 @@ export default function WorkerDashboardPage(): React.ReactElement {
                     />
                   </div>
                 </div>
-                <Link
-                  href={
-                    completeness.isComplete
-                      ? "/worker/profile"
-                      : "/worker/onboarding"
-                  }
-                >
+                <Link href={profileAction.href}>
                   <Button fullWidth className="mt-4">
-                    {completeness.isComplete
-                      ? "Edit Profile"
-                      : "Complete Profile"}
+                    {profileAction.label}
                   </Button>
                 </Link>
               </CardContent>
@@ -177,7 +159,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
             </Card>
           </div>
 
-          {!completeness.isComplete && (
+          {profileAction.showIncompleteTips && (
             <div className="mt-8">
               <Card padding="lg">
                 <CardHeader>
