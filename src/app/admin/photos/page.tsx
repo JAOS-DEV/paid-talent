@@ -17,7 +17,7 @@ export default async function AdminPhotosPage(): Promise<React.ReactElement> {
   const { email } = await requireAdminPage("/admin/photos");
   const { photos } = await listPendingPhotosForAdmin({
     adminEmail: email,
-    includeSignedMedia: true,
+    includeSignedMedia: false,
   });
 
   return (

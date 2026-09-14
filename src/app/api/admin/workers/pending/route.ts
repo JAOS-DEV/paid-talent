@@ -26,7 +26,7 @@ export async function GET(): Promise<NextResponse> {
 
     const { workers, count } = await listPendingWorkersForAdmin({
       adminEmail: adminCheck.email ?? "",
-      includeSignedMedia: true,
+      includeSignedMedia: false,
     });
 
     return NextResponse.json({

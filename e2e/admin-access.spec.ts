@@ -93,11 +93,11 @@ test.describe("Admin dashboard authenticated access", () => {
     );
   });
 
-  test("allowlisted admin can open the dashboard and sees Admin Dashboard navigation", async ({
+  test("allowlisted admin can open the dashboard and sees Admin navigation", async ({
     page,
   }) => {
     await signInAs(page, ADMIN_EMAIL, "/recruiter/dashboard");
-    await expect(page.getByRole("link", { name: "Admin Dashboard" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Admin", exact: true })).toBeVisible();
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByRole("heading", { name: "Admin overview" })).toBeVisible();
@@ -106,13 +106,36 @@ test.describe("Admin dashboard authenticated access", () => {
     await expect(page.getByRole("navigation", { name: "Admin" })).toContainText("Settings");
   });
 
+  test("iPhone-width recruiter-admin header does not overflow or wrap Admin Dashboard", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAs(page, ADMIN_EMAIL, "/recruiter/dashboard");
+    await expect(page.getByText("Admin Dashboard")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Admin", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+
+    await page.goto("/admin");
+    await expect(page.getByRole("heading", { name: "Admin overview" })).toBeVisible();
+    const adminOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+    );
+    expect(adminOverflow).toBeLessThanOrEqual(1);
+  });
+
   test("admin can search users and open billing settings", async ({ page }) => {
     await signInAs(page, ADMIN_EMAIL, "/admin");
     await page.goto("/admin/users?q=worker1%40example.com");
     await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
     await expect(page.getByRole("link", { name: WORKER_EMAIL })).toBeVisible();
     await page.getByRole("link", { name: WORKER_EMAIL }).click();
-    await expect(page).toHaveURL(/\/admin\/users\//);
+    await expect(page).toHaveURL(/\/admin\/users\/[0-9a-f-]{36}/, {
+      timeout: 20_000,
+    });
     await expect(page.getByText("Account moderation")).toBeVisible();
     await expect(page.getByText("Subscription / Premium access")).toBeVisible();
 
@@ -125,7 +148,7 @@ test.describe("Admin dashboard authenticated access", () => {
 
   test("normal worker cannot access admin pages or APIs", async ({ page, request }) => {
     await signInAs(page, WORKER_EMAIL, "/worker/dashboard");
-    await expect(page.getByRole("link", { name: "Admin Dashboard" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Admin", exact: true })).toHaveCount(0);
 
     const adminPage = await page.goto("/admin");
     expect(adminPage?.status()).toBe(404);

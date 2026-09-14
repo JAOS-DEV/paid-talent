@@ -31,7 +31,7 @@ function MetricCard(props: {
   }
 
   return (
-    <Link href={props.href} className="block group">
+    <Link href={props.href} prefetch={false} className="block group">
       {card}
     </Link>
   );
@@ -96,7 +96,7 @@ export default async function AdminDashboardPage(): Promise<React.ReactElement> 
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-charcoal-100">Recent activity</h2>
-          <Link href="/admin/activity" className="text-sm text-primary-300 hover:text-primary-200">
+          <Link href="/admin/activity" prefetch={false} className="text-sm text-primary-300 hover:text-primary-200">
             View all
           </Link>
         </div>

@@ -1,11 +1,29 @@
 import React from "react";
+import Link from "next/link";
 import { requireAdminPage } from "@/lib/admin/guard";
-import { listRecentAdminAuditEvents } from "@/lib/admin/activity";
+import {
+  ADMIN_ACTIVITY_PAGE_SIZE,
+  countAdminAuditEvents,
+  listRecentAdminAuditEvents,
+} from "@/lib/admin/activity";
 import { Card, CardContent } from "@/components/ui";
 
-export default async function AdminActivityPage(): Promise<React.ReactElement> {
+interface AdminActivityPageProps {
+  searchParams: Promise<{ page?: string }>;
+}
+
+export default async function AdminActivityPage({
+  searchParams,
+}: AdminActivityPageProps): Promise<React.ReactElement> {
   await requireAdminPage("/admin/activity");
-  const events = await listRecentAdminAuditEvents(100);
+  const params = await searchParams;
+  const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+  const offset = (page - 1) * ADMIN_ACTIVITY_PAGE_SIZE;
+  const [events, total] = await Promise.all([
+    listRecentAdminAuditEvents(ADMIN_ACTIVITY_PAGE_SIZE, offset),
+    countAdminAuditEvents(),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / ADMIN_ACTIVITY_PAGE_SIZE));
 
   return (
     <div className="space-y-6">
@@ -39,6 +57,31 @@ export default async function AdminActivityPage(): Promise<React.ReactElement> {
           )}
         </CardContent>
       </Card>
+      <div className="flex items-center justify-between text-sm text-charcoal-400">
+        <p>
+          Page {page} of {totalPages} · {total} events
+        </p>
+        <div className="flex gap-2">
+          {page > 1 && (
+            <Link
+              prefetch={false}
+              className="px-3 py-2 rounded-lg bg-charcoal-800"
+              href={`/admin/activity?page=${page - 1}`}
+            >
+              Previous
+            </Link>
+          )}
+          {page < totalPages && (
+            <Link
+              prefetch={false}
+              className="px-3 py-2 rounded-lg bg-charcoal-800"
+              href={`/admin/activity?page=${page + 1}`}
+            >
+              Next
+            </Link>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

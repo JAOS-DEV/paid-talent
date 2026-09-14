@@ -3,6 +3,7 @@ import { eq, desc, sql, and, gte, countDistinct } from "drizzle-orm";
 import { getProfileCompleteness } from "@/lib/profile";
 import {
   calculateCompositeScore,
+  isCompositeTopTalentScore,
   mergeV11Criteria,
   type V11RankingCriteria,
   type ScoreComponents,
@@ -261,18 +262,8 @@ class CompositeRankingProvider implements RankingProvider {
     criteria?: RankingCriteria
   ): Promise<boolean> {
     const v11Criteria = criteria as V11RankingCriteria | undefined;
-    const merged = mergeV11Criteria(v11Criteria);
-
     const score = await this.calculateScore(profileId, criteria);
-
-    const maxPossibleScore =
-      merged.weights.profileCompleteness +
-      merged.weights.uniqueViews +
-      merged.weights.interestRate +
-      merged.weights.recency;
-    const minimumTopTalentScore = maxPossibleScore * (1 - merged.topTalentThreshold);
-
-    return score >= minimumTopTalentScore;
+    return isCompositeTopTalentScore(score, v11Criteria);
   }
 
   async getRankedProfiles(
@@ -429,4 +420,9 @@ export {
   DEFAULT_SCORING_WEIGHTS,
   DEFAULT_V11_CRITERIA,
   calculateCompositeScore,
+  isCompositeTopTalentScore,
 } from "@/lib/helpers/ranking";
+export {
+  countPublishedTopTalent,
+  countTopTalentFromPublishedProfiles,
+} from "./published-top-talent";

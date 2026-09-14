@@ -41,6 +41,32 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
   );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(photo.photoUrl);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(Boolean(photo.photoUrl));
+
+  const loadMedia = useCallback(async (): Promise<void> => {
+    if (photoUrl) {
+      setReviewOpen(true);
+      return;
+    }
+    setMediaLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/photos/${photo.id}/media`);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to load photo");
+        return;
+      }
+      setPhotoUrl(data.photoUrl ?? null);
+      setReviewOpen(true);
+    } catch {
+      setError("Failed to load photo");
+    } finally {
+      setMediaLoading(false);
+    }
+  }, [photo.id, photoUrl]);
 
   const approve = useCallback(async () => {
     setSubmitting("approve");
@@ -90,16 +116,31 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
     <Card padding="lg" className="w-full">
       <CardContent className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row">
-          {photo.photoUrl ? (
+          {reviewOpen ? (
+            photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={photo.photoUrl}
+              src={photoUrl}
               alt={`Profile photo for ${photo.worker.displayName}`}
               className="w-full sm:w-48 h-48 object-cover rounded-lg border border-charcoal-700 bg-charcoal-900"
             />
-          ) : (
+            ) : (
             <div className="w-full sm:w-48 h-48 rounded-lg border border-charcoal-700 bg-charcoal-900 flex items-center justify-center text-sm text-charcoal-500 px-3 text-center">
               Preview unavailable
+            </div>
+            )
+          ) : (
+            <div className="w-full sm:w-48 h-48 rounded-lg border border-charcoal-700 bg-charcoal-900 flex items-center justify-center px-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void loadMedia()}
+                loading={mediaLoading}
+                disabled={mediaLoading}
+              >
+                Review photo
+              </Button>
             </div>
           )}
           <div className="flex-1 space-y-2">

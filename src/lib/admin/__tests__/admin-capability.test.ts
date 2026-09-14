@@ -16,7 +16,9 @@ describe("admin capability derivation", () => {
     expect(header).not.toContain("ADMIN_EMAILS");
     expect(header).not.toContain("NEXT_PUBLIC_ADMIN");
     expect(header).toContain("session?.user?.isAdmin");
-    expect(header).toContain("Admin Dashboard");
+    expect(header).toMatch(/>\s*Admin\s*</);
+    expect(header).not.toContain("Admin Dashboard");
+    expect(header).toContain("prefetch={false}");
   });
 
   it("derives session isAdmin from the allowlist helper, not a client-supplied role", () => {
@@ -51,6 +53,8 @@ describe("admin capability derivation", () => {
     expect(nav).toContain('href: "/admin/settings"');
     expect(nav).toContain("Back to app");
     expect(nav).toContain("Sign out");
+    expect(nav).toContain("prefetch={false}");
+    expect(nav).toContain("flex-wrap");
   });
 
   it("does not import ADMIN_EMAILS or the allowlist from client UI modules", () => {
