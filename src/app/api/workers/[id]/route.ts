@@ -148,12 +148,19 @@ export async function GET(
       : null;
 
     const approvedPhotos = await getApprovedPhotosForWorker(profile.id);
-    const photos: WorkerPhoto[] = approvedPhotos.map((photo) => ({
-      id: photo.id,
-      photoUrl: photo.photoUrl,
-      displayOrder: photo.displayOrder,
-      isCurrentApproved: photo.isCurrentApproved,
-    }));
+    const photos: WorkerPhoto[] = approvedPhotos.flatMap((photo) => {
+      if (!photo.photoUrl) {
+        return [];
+      }
+      return [
+        {
+          id: photo.id,
+          photoUrl: photo.photoUrl,
+          displayOrder: photo.displayOrder,
+          isCurrentApproved: photo.isCurrentApproved,
+        },
+      ];
+    });
 
     const result: WorkerProfileDetail = {
       id: profile.id,

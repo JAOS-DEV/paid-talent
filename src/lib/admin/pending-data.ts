@@ -3,14 +3,16 @@ import { eq } from "drizzle-orm";
 import {
   getSignedIdDocumentUrl,
   getSignedLivenessVideoUrl,
+  getSignedPhotoStagingUrlForAdmin,
 } from "@/lib/storage/s3";
+import { PrivateStorageConfigError } from "@/lib/storage/config";
 import { formatChallengeCodeForDisplay } from "@/lib/verification";
 
 export interface PendingPhotoItem {
   id: string;
   userId: string;
   workerProfileId: string;
-  photoUrl: string;
+  photoUrl: string | null;
   moderationReason: string | null;
   moderationConfidence: number | null;
   moderationCategories: string[] | null;
@@ -21,7 +23,10 @@ export interface PendingPhotoItem {
   };
 }
 
-export async function listPendingWorkersForAdmin(): Promise<{
+export async function listPendingWorkersForAdmin(options: {
+  adminEmail: string;
+  includeSignedMedia?: boolean;
+}): Promise<{
   workers: Array<{
     id: string;
     userId: string;
@@ -69,30 +74,37 @@ export async function listPendingWorkersForAdmin(): Promise<{
     pendingWorkers.map(async (worker) => {
       let idDocumentUrl: string | null = null;
       let livenessVideoUrl: string | null = null;
+      const includeSignedMedia = options.includeSignedMedia === true;
 
-      if (worker.idDocumentKey) {
+      if (includeSignedMedia && worker.idDocumentKey) {
         try {
           idDocumentUrl = await getSignedIdDocumentUrl(
+            options.adminEmail,
             worker.idDocumentKey,
-            900
+            300
           );
-        } catch {
-          console.warn(
-            `[Admin Pending] Could not generate URL for ID document: ${worker.idDocumentKey}`
-          );
+        } catch (error) {
+          if (!(error instanceof PrivateStorageConfigError)) {
+            console.warn(
+              "[Admin Pending] Could not generate URL for ID document"
+            );
+          }
         }
       }
 
-      if (worker.livenessVideoKey) {
+      if (includeSignedMedia && worker.livenessVideoKey) {
         try {
           livenessVideoUrl = await getSignedLivenessVideoUrl(
+            options.adminEmail,
             worker.livenessVideoKey,
-            900
+            300
           );
-        } catch {
-          console.warn(
-            `[Admin Pending] Could not generate URL for liveness video: ${worker.livenessVideoKey}`
-          );
+        } catch (error) {
+          if (!(error instanceof PrivateStorageConfigError)) {
+            console.warn(
+              "[Admin Pending] Could not generate URL for liveness video"
+            );
+          }
         }
       }
 
@@ -127,7 +139,10 @@ export async function listPendingWorkersForAdmin(): Promise<{
   return { workers, count: workers.length };
 }
 
-export async function listPendingPhotosForAdmin(): Promise<{
+export async function listPendingPhotosForAdmin(options?: {
+  adminEmail?: string;
+  includeSignedMedia?: boolean;
+}): Promise<{
   photos: PendingPhotoItem[];
   count: number;
 }> {
@@ -136,7 +151,7 @@ export async function listPendingPhotosForAdmin(): Promise<{
       id: profilePhotos.id,
       userId: profilePhotos.userId,
       workerProfileId: profilePhotos.workerProfileId,
-      photoUrl: profilePhotos.photoUrl,
+      stagingKey: profilePhotos.stagingKey,
       moderationReason: profilePhotos.moderationReason,
       moderationConfidence: profilePhotos.moderationConfidence,
       moderationCategories: profilePhotos.moderationCategories,
@@ -153,20 +168,45 @@ export async function listPendingPhotosForAdmin(): Promise<{
     .where(eq(profilePhotos.moderationStatus, "pending"))
     .orderBy(profilePhotos.createdAt);
 
-  const photos = pendingPhotos.map((photo) => ({
-    id: photo.id,
-    userId: photo.userId,
-    workerProfileId: photo.workerProfileId,
-    photoUrl: photo.photoUrl,
-    moderationReason: photo.moderationReason,
-    moderationConfidence: photo.moderationConfidence,
-    moderationCategories: photo.moderationCategories as string[] | null,
-    createdAt: photo.createdAt,
-    worker: {
-      displayName: photo.workerDisplayName,
-      email: photo.workerEmail,
-    },
-  }));
+  const includeSignedMedia = options?.includeSignedMedia === true;
+  const adminEmail = options?.adminEmail;
+
+  const photos = await Promise.all(
+    pendingPhotos.map(async (photo) => {
+      let photoUrl: string | null = null;
+
+      if (includeSignedMedia && adminEmail && photo.stagingKey) {
+        try {
+          photoUrl = await getSignedPhotoStagingUrlForAdmin(
+            adminEmail,
+            photo.stagingKey,
+            300
+          );
+        } catch (error) {
+          if (!(error instanceof PrivateStorageConfigError)) {
+            console.warn(
+              "[Admin Pending] Could not generate URL for staged profile photo"
+            );
+          }
+        }
+      }
+
+      return {
+        id: photo.id,
+        userId: photo.userId,
+        workerProfileId: photo.workerProfileId,
+        photoUrl,
+        moderationReason: photo.moderationReason,
+        moderationConfidence: photo.moderationConfidence,
+        moderationCategories: photo.moderationCategories as string[] | null,
+        createdAt: photo.createdAt,
+        worker: {
+          displayName: photo.workerDisplayName,
+          email: photo.workerEmail,
+        },
+      };
+    })
+  );
 
   return { photos, count: photos.length };
 }

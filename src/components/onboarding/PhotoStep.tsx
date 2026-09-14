@@ -1,13 +1,20 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { updateProfilePhoto } from "@/app/worker/actions";
 import {
   PROFILE_PHOTO_ACCEPT,
   PROFILE_PHOTO_ERRORS,
+  PROFILE_PHOTO_STATUS,
+  type ProfilePhotoUploadStage,
 } from "@/lib/media/profile-photo";
-import { uploadProfilePhoto } from "@/lib/media/upload-profile-photo";
+import {
+  isApprovedPublicPhotoUpload,
+  uploadProfilePhoto,
+} from "@/lib/media/upload-profile-photo";
+import { ProfilePhotoPreview } from "@/components/media/ProfilePhotoPreview";
+import { PHOTO_POLICY_COPY } from "@/lib/moderation/photo-policy";
 
 interface PhotoStepProps {
   initialPhotoUrl: string | null;
@@ -20,31 +27,105 @@ export function PhotoStep({
 }: PhotoStepProps): React.ReactElement {
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl);
   const [uploading, setUploading] = useState(false);
+  const [uploadStage, setUploadStage] =
+    useState<ProfilePhotoUploadStage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [pendingReview, setPendingReview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadingRef = useRef(false);
+  const localPreviewUrlRef = useRef<string | null>(null);
+
+  const isBusy = uploading;
+  const continueDisabled = isBusy || (!photoUrl && !pendingReview);
+  const statusText = uploadStage ? PROFILE_PHOTO_STATUS[uploadStage] : null;
+  const chooseLabel = photoUrl || pendingReview ? "Change Photo" : "Upload Photo";
+
+  useEffect(() => {
+    return () => {
+      if (
+        localPreviewUrlRef.current &&
+        typeof URL.revokeObjectURL === "function"
+      ) {
+        URL.revokeObjectURL(localPreviewUrlRef.current);
+      }
+    };
+  }, []);
+
+  function replaceLocalPreview(file: File): string | null {
+    if (typeof URL.createObjectURL !== "function") {
+      return null;
+    }
+    if (localPreviewUrlRef.current) {
+      URL.revokeObjectURL(localPreviewUrlRef.current);
+    }
+    const url = URL.createObjectURL(file);
+    localPreviewUrlRef.current = url;
+    return url;
+  }
+
+  function clearLocalPreview(): void {
+    if (localPreviewUrlRef.current && typeof URL.revokeObjectURL === "function") {
+      URL.revokeObjectURL(localPreviewUrlRef.current);
+      localPreviewUrlRef.current = null;
+    }
+  }
 
   async function handleFileSelect(
     event: React.ChangeEvent<HTMLInputElement>
   ): Promise<void> {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || uploadingRef.current) return;
 
+    uploadingRef.current = true;
     setError(null);
+    setPreviewFailed(false);
     setUploading(true);
+    setUploadStage("preparing");
 
     try {
-      const result = await uploadProfilePhoto(file);
-      setPhotoUrl(result.publicUrl);
-      await updateProfilePhoto({
-        photoKey: result.key,
-        photoUrl: result.publicUrl,
+      const result = await uploadProfilePhoto(file, {
+        onStage: setUploadStage,
       });
+      setUploadStage("saving");
+
+      if (result.status === "rejected") {
+        clearLocalPreview();
+        setPendingReview(false);
+        setPhotoUrl(initialPhotoUrl);
+        setError(result.message || PHOTO_POLICY_COPY.rejected);
+        return;
+      }
+
+      if (isApprovedPublicPhotoUpload(result)) {
+        const persist = await updateProfilePhoto({
+          photoKey: result.photoKey,
+          photoUrl: result.publicUrl,
+        });
+        if (!persist.success) {
+          throw new Error(
+            persist.error || PROFILE_PHOTO_ERRORS.uploadFailed
+          );
+        }
+        clearLocalPreview();
+        setPendingReview(false);
+        setPhotoUrl(result.publicUrl);
+        return;
+      }
+
+      setPendingReview(true);
+      const localPreview = replaceLocalPreview(file);
+      if (localPreview) {
+        setPhotoUrl(localPreview);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : PROFILE_PHOTO_ERRORS.uploadFailed
       );
     } finally {
+      uploadingRef.current = false;
       setUploading(false);
+      setUploadStage(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -52,47 +133,31 @@ export function PhotoStep({
   }
 
   function handleChoosePhoto(): void {
+    if (uploadingRef.current) return;
     fileInputRef.current?.click();
   }
 
   function handleContinue(): void {
-    if (photoUrl) {
+    if (!isBusy && (photoUrl || pendingReview)) {
       onComplete();
     }
+  }
+
+  function handlePreviewError(): void {
+    setPreviewFailed(true);
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-center">
-        <div className="relative w-32 h-32 rounded-full overflow-hidden bg-charcoal-800 border-2 border-charcoal-600 mb-4">
-          {photoUrl ? (
-            <img
-              src={photoUrl}
-              alt="Profile"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg
-                className="w-16 h-16 text-charcoal-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7 7z"
-                />
-              </svg>
-            </div>
-          )}
-          {uploading && (
-            <div className="absolute inset-0 bg-charcoal-950/70 flex items-center justify-center">
-              <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          )}
+        <div className="mb-4">
+          <ProfilePhotoPreview
+            photoUrl={photoUrl}
+            uploading={isBusy}
+            previewFailed={previewFailed}
+            onPreviewError={handlePreviewError}
+            sizeClassName="w-32 h-32"
+          />
         </div>
 
         <input
@@ -100,26 +165,45 @@ export function PhotoStep({
           type="file"
           accept={PROFILE_PHOTO_ACCEPT}
           className="hidden"
+          disabled={isBusy}
           onChange={handleFileSelect}
         />
 
         <Button
           variant="outline"
           onClick={handleChoosePhoto}
-          disabled={uploading}
+          disabled={isBusy}
         >
-          {photoUrl ? "Change Photo" : "Upload Photo"}
+          {chooseLabel}
         </Button>
+
+        {statusText ? (
+          <p className="text-charcoal-300 text-sm mt-3" aria-live="polite">
+            {statusText}
+          </p>
+        ) : null}
+
+        {pendingReview && !isBusy ? (
+          <p className="text-charcoal-300 text-sm mt-3 text-center">
+            {PHOTO_POLICY_COPY.pending}
+          </p>
+        ) : null}
 
         <p className="text-charcoal-500 text-xs mt-2">
           JPG, PNG or WebP. Max 10MB. Photos are resized on your device.
         </p>
 
-        {error && <p className="text-error text-sm mt-2">{error}</p>}
+        {previewFailed && photoUrl ? (
+          <p className="text-charcoal-300 text-sm mt-2">
+            {PROFILE_PHOTO_ERRORS.previewFailed}
+          </p>
+        ) : null}
+
+        {error ? <p className="text-error text-sm mt-2">{error}</p> : null}
       </div>
 
       <div className="pt-4">
-        <Button fullWidth onClick={handleContinue} disabled={!photoUrl}>
+        <Button fullWidth onClick={handleContinue} disabled={continueDisabled}>
           Continue
         </Button>
       </div>

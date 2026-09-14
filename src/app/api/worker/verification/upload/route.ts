@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { PrivateStorageConfigError } from "@/lib/storage/config";
 import {
   generatePresignedIdUploadUrl,
   generatePresignedLivenessVideoUploadUrl,
@@ -119,6 +120,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ error: "Invalid upload type" }, { status: 400 });
   } catch (error) {
+    if (error instanceof PrivateStorageConfigError) {
+      return NextResponse.json(
+        { error: "Verification upload is temporarily unavailable. Please try again later." },
+        { status: 503 }
+      );
+    }
     console.error("[Worker Verification Upload] Error:", error);
     return NextResponse.json(
       { error: "Failed to generate upload URL" },

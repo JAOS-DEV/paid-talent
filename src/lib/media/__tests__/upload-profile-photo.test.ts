@@ -20,7 +20,20 @@ function okResponse(): Response {
   return new Response(null, { status: 200 });
 }
 
+const STAGING_KEY = "profile-photo-staging/u1/photo.jpeg";
+const PUBLIC_KEY = "profiles/u1/photo.jpeg";
+const PUBLIC_URL = "https://cdn.example/profiles/u1/photo.jpeg";
+
 const identityPrepare = async (file: File): Promise<File> => file;
+
+function approvedConfirmBody(): Record<string, unknown> {
+  return {
+    success: true,
+    photoKey: PUBLIC_KEY,
+    url: PUBLIC_URL,
+    moderation: { status: "approved", message: "Photo approved" },
+  };
+}
 
 describe("uploadProfilePhoto", () => {
   it("gives an explicit size error before any network call", async () => {
@@ -53,7 +66,7 @@ describe("uploadProfilePhoto", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("uploads an allowed JPEG through mocked presign, storage, and confirm", async () => {
+  it("uploads an allowed JPEG to private staging then returns the approved public URL", async () => {
     const file = jpegFile();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -66,15 +79,20 @@ describe("uploadProfilePhoto", () => {
         expect(body.contentLength).toBe(file.size);
         return jsonResponse({
           uploadUrl: "https://storage.example/upload",
-          key: "profiles/u1/photo.jpeg",
-          publicUrl: "https://cdn.example/photo.jpeg",
+          key: STAGING_KEY,
         });
       }
       if (url === "https://storage.example/upload" && init?.method === "PUT") {
         return okResponse();
       }
       if (url === "/api/media/upload" && init?.method === "PUT") {
-        return jsonResponse({ success: true });
+        const body = JSON.parse(String(init.body)) as {
+          key: string;
+          publicUrl?: string;
+        };
+        expect(body.key).toBe(STAGING_KEY);
+        expect(body.publicUrl).toBeUndefined();
+        return jsonResponse(approvedConfirmBody());
       }
       throw new Error(`Unexpected fetch ${init?.method} ${url}`);
     });
@@ -85,11 +103,78 @@ describe("uploadProfilePhoto", () => {
         prepareImage: identityPrepare,
       })
     ).resolves.toEqual({
-      key: "profiles/u1/photo.jpeg",
-      publicUrl: "https://cdn.example/photo.jpeg",
+      status: "approved",
+      photoKey: PUBLIC_KEY,
+      publicUrl: PUBLIC_URL,
+      message: "Photo approved",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not treat a pending confirm as a public URL", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/media/upload" && init?.method === "POST") {
+        return jsonResponse({
+          uploadUrl: "https://storage.example/upload",
+          key: STAGING_KEY,
+        });
+      }
+      if (url === "https://storage.example/upload") {
+        return okResponse();
+      }
+      return jsonResponse({
+        success: true,
+        photoKey: null,
+        url: null,
+        moderation: {
+          status: "pending",
+          message: "Photo under review",
+        },
+      });
+    });
+
+    await expect(
+      uploadProfilePhoto(jpegFile(), {
+        fetch: fetchMock as unknown as typeof fetch,
+        prepareImage: identityPrepare,
+      })
+    ).resolves.toEqual({
+      status: "pending",
+      photoKey: null,
+      publicUrl: null,
+      message: "Photo under review",
+    });
+  });
+
+  it("reports preparing, uploading, and saving stages", async () => {
+    const file = jpegFile();
+    const stages: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/media/upload" && init?.method === "POST") {
+        return jsonResponse({
+          uploadUrl: "https://storage.example/upload",
+          key: STAGING_KEY,
+        });
+      }
+      if (url === "https://storage.example/upload" && init?.method === "PUT") {
+        return okResponse();
+      }
+      if (url === "/api/media/upload" && init?.method === "PUT") {
+        return jsonResponse(approvedConfirmBody());
+      }
+      throw new Error(`Unexpected fetch ${init?.method} ${url}`);
+    });
+
+    await uploadProfilePhoto(file, {
+      fetch: fetchMock as unknown as typeof fetch,
+      prepareImage: identityPrepare,
+      onStage: (stage) => stages.push(stage),
+    });
+
+    expect(stages).toEqual(["preparing", "uploading", "saving"]);
   });
 
   it("surfaces a useful message when presign fails", async () => {
@@ -114,8 +199,7 @@ describe("uploadProfilePhoto", () => {
       if (url === "/api/media/upload" && init?.method === "POST") {
         return jsonResponse({
           uploadUrl: "https://storage.example/upload",
-          key: "profiles/u1/photo.jpeg",
-          publicUrl: "https://cdn.example/photo.jpeg",
+          key: STAGING_KEY,
         });
       }
       if (url === "https://storage.example/upload") {
@@ -138,8 +222,7 @@ describe("uploadProfilePhoto", () => {
       if (url === "/api/media/upload" && init?.method === "POST") {
         return jsonResponse({
           uploadUrl: "https://storage.example/upload",
-          key: "profiles/u1/photo.jpeg",
-          publicUrl: "https://cdn.example/photo.jpeg",
+          key: STAGING_KEY,
         });
       }
       if (url === "https://storage.example/upload") {
@@ -181,8 +264,7 @@ describe("uploadProfilePhoto", () => {
         return Promise.resolve(
           jsonResponse({
             uploadUrl: "https://storage.example/upload",
-            key: "profiles/u1/photo.jpeg",
-            publicUrl: "https://cdn.example/photo.jpeg",
+            key: STAGING_KEY,
           })
         );
       }
@@ -190,7 +272,7 @@ describe("uploadProfilePhoto", () => {
         return Promise.resolve(okResponse());
       }
       if (url === "/api/media/upload" && init?.method === "PUT") {
-        return Promise.resolve(jsonResponse({ success: true }));
+        return Promise.resolve(jsonResponse(approvedConfirmBody()));
       }
       throw new Error(`Unexpected fetch ${init?.method} ${url}`);
     }
@@ -210,8 +292,10 @@ describe("uploadProfilePhoto", () => {
         prepareImage: identityPrepare,
       })
     ).resolves.toEqual({
-      key: "profiles/u1/photo.jpeg",
-      publicUrl: "https://cdn.example/photo.jpeg",
+      status: "approved",
+      photoKey: PUBLIC_KEY,
+      publicUrl: PUBLIC_URL,
+      message: "Photo approved",
     });
   });
 });

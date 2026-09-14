@@ -34,8 +34,15 @@ import type { WorkerProfile } from "@/lib/db/schema";
 import {
   PROFILE_PHOTO_ACCEPT,
   PROFILE_PHOTO_ERRORS,
+  PROFILE_PHOTO_STATUS,
+  type ProfilePhotoUploadStage,
 } from "@/lib/media/profile-photo";
-import { uploadProfilePhoto } from "@/lib/media/upload-profile-photo";
+import {
+  isApprovedPublicPhotoUpload,
+  uploadProfilePhoto,
+} from "@/lib/media/upload-profile-photo";
+import { ProfilePhotoPreview } from "@/components/media/ProfilePhotoPreview";
+import { PHOTO_POLICY_COPY } from "@/lib/moderation/photo-policy";
 
 export default function WorkerProfilePage(): React.ReactElement {
   const { data: session, status } = useSession();
@@ -63,6 +70,13 @@ export default function WorkerProfilePage(): React.ReactElement {
   const [whatsApp, setWhatsApp] = useState("");
   const [phone, setPhone] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoStage, setPhotoStage] = useState<ProfilePhotoUploadStage | null>(
+    null
+  );
+  const [photoPreviewFailed, setPhotoPreviewFailed] = useState(false);
+  const [photoPendingReview, setPhotoPendingReview] = useState(false);
+  const photoUploadingRef = useRef(false);
+  const localPhotoPreviewUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     async function fetchProfile(): Promise<void> {
@@ -89,6 +103,7 @@ export default function WorkerProfilePage(): React.ReactElement {
             setWhatsApp(p.whatsappNumber || "");
             setPhone(p.phoneNumber || "");
             setPhotoUrl(p.photoUrl);
+            setPhotoPreviewFailed(false);
 
             const completeness = getProfileCompleteness(p);
             if (
@@ -120,28 +135,100 @@ export default function WorkerProfilePage(): React.ReactElement {
     fetchProfile();
   }, [session, router]);
 
+  useEffect(() => {
+    return () => {
+      if (
+        localPhotoPreviewUrlRef.current &&
+        typeof URL.revokeObjectURL === "function"
+      ) {
+        URL.revokeObjectURL(localPhotoPreviewUrlRef.current);
+      }
+    };
+  }, []);
+
   function showSuccess(message: string): void {
     setSuccessMessage(message);
     setTimeout(() => setSuccessMessage(null), 3000);
+  }
+
+  function handlePhotoPreviewError(): void {
+    setPhotoPreviewFailed(true);
+  }
+
+  function handleChoosePhoto(): void {
+    if (photoUploadingRef.current) return;
+    fileInputRef.current?.click();
+  }
+
+  function replaceLocalPhotoPreview(file: File): string | null {
+    if (typeof URL.createObjectURL !== "function") {
+      return null;
+    }
+    if (localPhotoPreviewUrlRef.current) {
+      URL.revokeObjectURL(localPhotoPreviewUrlRef.current);
+    }
+    const url = URL.createObjectURL(file);
+    localPhotoPreviewUrlRef.current = url;
+    return url;
+  }
+
+  function clearLocalPhotoPreview(): void {
+    if (
+      localPhotoPreviewUrlRef.current &&
+      typeof URL.revokeObjectURL === "function"
+    ) {
+      URL.revokeObjectURL(localPhotoPreviewUrlRef.current);
+      localPhotoPreviewUrlRef.current = null;
+    }
   }
 
   async function handlePhotoUpload(
     event: React.ChangeEvent<HTMLInputElement>
   ): Promise<void> {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || photoUploadingRef.current) return;
 
+    photoUploadingRef.current = true;
     setSaving("photo");
     setPhotoError(null);
+    setPhotoPreviewFailed(false);
+    setPhotoStage("preparing");
 
     try {
-      const result = await uploadProfilePhoto(file);
-      setPhotoUrl(result.publicUrl);
-      await updateProfilePhoto({
-        photoKey: result.key,
-        photoUrl: result.publicUrl,
+      const result = await uploadProfilePhoto(file, {
+        onStage: setPhotoStage,
       });
-      showSuccess("Photo updated");
+      setPhotoStage("saving");
+
+      if (result.status === "rejected") {
+        clearLocalPhotoPreview();
+        setPhotoPendingReview(false);
+        setPhotoUrl(profile?.photoUrl ?? null);
+        setPhotoError(result.message || PHOTO_POLICY_COPY.rejected);
+        return;
+      }
+
+      if (isApprovedPublicPhotoUpload(result)) {
+        const persist = await updateProfilePhoto({
+          photoKey: result.photoKey,
+          photoUrl: result.publicUrl,
+        });
+        if (!persist.success) {
+          throw new Error(persist.error || PROFILE_PHOTO_ERRORS.uploadFailed);
+        }
+        clearLocalPhotoPreview();
+        setPhotoPendingReview(false);
+        setPhotoUrl(result.publicUrl);
+        showSuccess("Photo updated");
+        return;
+      }
+
+      setPhotoPendingReview(true);
+      const localPreview = replaceLocalPhotoPreview(file);
+      if (localPreview) {
+        setPhotoUrl(localPreview);
+      }
+      showSuccess("Photo submitted for review");
     } catch (error) {
       setPhotoError(
         error instanceof Error
@@ -149,7 +236,9 @@ export default function WorkerProfilePage(): React.ReactElement {
           : PROFILE_PHOTO_ERRORS.uploadFailed
       );
     } finally {
+      photoUploadingRef.current = false;
       setSaving(null);
+      setPhotoStage(null);
     }
   }
 
@@ -293,56 +382,54 @@ export default function WorkerProfilePage(): React.ReactElement {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center space-x-6">
-                  <div className="relative w-24 h-24 rounded-full bg-charcoal-700 flex items-center justify-center overflow-hidden">
-                    {photoUrl ? (
-                      <img
-                        src={photoUrl}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <svg
-                        className="w-12 h-12 text-charcoal-500"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                        />
-                      </svg>
-                    )}
-                    {saving === "photo" && (
-                      <div className="absolute inset-0 bg-charcoal-950/70 flex items-center justify-center">
-                        <div className="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full" />
-                      </div>
-                    )}
-                  </div>
+                  <ProfilePhotoPreview
+                    photoUrl={photoUrl}
+                    uploading={saving === "photo"}
+                    previewFailed={photoPreviewFailed}
+                    onPreviewError={handlePhotoPreviewError}
+                    sizeClassName="w-24 h-24"
+                  />
                   <div>
                     <input
                       ref={fileInputRef}
                       type="file"
                       accept={PROFILE_PHOTO_ACCEPT}
                       className="hidden"
+                      disabled={saving === "photo"}
                       onChange={handlePhotoUpload}
                     />
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={handleChoosePhoto}
                       disabled={saving === "photo"}
                     >
-                      {photoUrl ? "Change Photo" : "Upload Photo"}
+                      {photoUrl || photoPendingReview ? "Change Photo" : "Upload Photo"}
                     </Button>
+                    {photoStage ? (
+                      <p
+                        className="text-charcoal-300 text-sm mt-2"
+                        aria-live="polite"
+                      >
+                        {PROFILE_PHOTO_STATUS[photoStage]}
+                      </p>
+                    ) : null}
+                    {photoPendingReview && saving !== "photo" ? (
+                      <p className="text-charcoal-300 text-sm mt-2">
+                        {PHOTO_POLICY_COPY.pending}
+                      </p>
+                    ) : null}
                     <p className="text-charcoal-500 text-xs mt-2">
                       JPG, PNG or WebP. Max 10MB.
                     </p>
-                    {photoError && (
+                    {photoPreviewFailed && photoUrl ? (
+                      <p className="text-charcoal-300 text-sm mt-2">
+                        {PROFILE_PHOTO_ERRORS.previewFailed}
+                      </p>
+                    ) : null}
+                    {photoError ? (
                       <p className="text-error text-sm mt-2">{photoError}</p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </CardContent>

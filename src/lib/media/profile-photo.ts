@@ -27,7 +27,18 @@ export const PROFILE_PHOTO_ERRORS = {
   invalidType: "Please choose a JPG, PNG or WebP image.",
   uploadFailed: "We couldn't upload your photo. Please try again.",
   serviceUnavailable: "Photo upload service is temporarily unavailable.",
+  publicUrlUnavailable:
+    "Photo upload is temporarily unavailable. Please try again later.",
+  previewFailed: "Photo uploaded, but the preview couldn't be loaded.",
 } as const;
+
+export const PROFILE_PHOTO_STATUS = {
+  preparing: "Preparing photo…",
+  uploading: "Uploading photo…",
+  saving: "Saving photo…",
+} as const;
+
+export type ProfilePhotoUploadStage = keyof typeof PROFILE_PHOTO_STATUS;
 
 export type ProfilePhotoInspectResult =
   | { ok: true; contentType: ProfilePhotoContentType }

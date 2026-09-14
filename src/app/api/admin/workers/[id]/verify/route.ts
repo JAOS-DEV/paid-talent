@@ -12,9 +12,10 @@ import {
   VERIFICATION_RETENTION_DAYS,
 } from "@/lib/verification";
 import {
-  getIdDocumentBuffer,
-  getLivenessVideoBuffer,
+  getIdDocumentBufferForAdmin,
+  getLivenessVideoBufferForAdmin,
 } from "@/lib/storage/s3";
+import { PrivateStorageConfigError } from "@/lib/storage/config";
 import type { VerificationStatus, VerificationDecision } from "@/lib/db/schema";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 
@@ -132,11 +133,21 @@ export async function POST(
 
     if (existingProfile.idDocumentKey) {
       try {
-        const docBuffer = await getIdDocumentBuffer(
+        const docBuffer = await getIdDocumentBufferForAdmin(
+          adminCheck.email,
           existingProfile.idDocumentKey
         );
         idDocumentSha256 = computeFileSha256(docBuffer);
-      } catch {
+      } catch (error) {
+        if (error instanceof PrivateStorageConfigError) {
+          return NextResponse.json(
+            {
+              error:
+                "Verification storage is temporarily unavailable. Please try again later.",
+            },
+            { status: 503 }
+          );
+        }
         console.warn(
           "[Admin Verify Worker] Could not compute hash for ID document"
         );
@@ -145,11 +156,21 @@ export async function POST(
 
     if (existingProfile.livenessVideoKey) {
       try {
-        const videoBuffer = await getLivenessVideoBuffer(
+        const videoBuffer = await getLivenessVideoBufferForAdmin(
+          adminCheck.email,
           existingProfile.livenessVideoKey
         );
         livenessVideoSha256 = computeFileSha256(videoBuffer);
-      } catch {
+      } catch (error) {
+        if (error instanceof PrivateStorageConfigError) {
+          return NextResponse.json(
+            {
+              error:
+                "Verification storage is temporarily unavailable. Please try again later.",
+            },
+            { status: 503 }
+          );
+        }
         console.warn(
           "[Admin Verify Worker] Could not compute hash for liveness video"
         );

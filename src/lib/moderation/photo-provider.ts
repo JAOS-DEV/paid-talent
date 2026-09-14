@@ -80,7 +80,7 @@ export class AWSRekognitionProvider implements PhotoModerationProvider {
       return stub.analyzeImage(imageUrl);
     }
 
-    console.log(`[AWS Rekognition] Analyzing image: ${imageUrl}`);
+    console.log("[AWS Rekognition] Analyzing staged profile photo");
     
     const categories: PhotoContentCategory[] = [];
     let confidence = 0.9;

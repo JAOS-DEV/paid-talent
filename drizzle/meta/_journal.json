@@ -36,6 +36,13 @@
       "when": 1789359985054,
       "tag": "0004_parallel_bulldozer",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789400666943,
+      "tag": "0005_profile-photo-staging",
+      "breakpoints": true
     }
   ]
 }

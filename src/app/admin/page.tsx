@@ -5,9 +5,12 @@ import { listPendingWorkersForAdmin, listPendingPhotosForAdmin } from "@/lib/adm
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 
 export default async function AdminDashboardPage(): Promise<React.ReactElement> {
-  await requireAdminPage("/admin");
+  const { email } = await requireAdminPage("/admin");
   const [verifications, photos] = await Promise.all([
-    listPendingWorkersForAdmin(),
+    listPendingWorkersForAdmin({
+      adminEmail: email,
+      includeSignedMedia: false,
+    }),
     listPendingPhotosForAdmin(),
   ]);
   const counts = {

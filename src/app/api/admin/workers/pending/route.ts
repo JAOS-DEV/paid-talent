@@ -24,7 +24,10 @@ export async function GET(): Promise<NextResponse> {
       );
     }
 
-    const { workers, count } = await listPendingWorkersForAdmin();
+    const { workers, count } = await listPendingWorkersForAdmin({
+      adminEmail: adminCheck.email ?? "",
+      includeSignedMedia: true,
+    });
 
     return NextResponse.json({
       success: true,
