@@ -9,6 +9,8 @@ import {
   hireOutcomes,
 } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
+import { getLatestConfirmationRequestForInterest } from "@/lib/hire-outcomes/queries";
+import type { HireConfirmationRequestedStatus, HireConfirmationRequestStatus } from "@/lib/db/schema";
 import { isProfileTopTalent, recordProfileView } from "@/lib/ranking";
 import {
   canViewContactDetails,
@@ -60,6 +62,12 @@ export interface WorkerProfileDetail {
   hireOutcomeStatus?: HireOutcomeStatus;
   hiredAt?: string | null;
   startedAt?: string | null;
+  confirmationRequest?: {
+    id: string;
+    requestedStatus: HireConfirmationRequestedStatus;
+    requestStatus: HireConfirmationRequestStatus;
+    requestedAt: string;
+  } | null;
 }
 
 export async function GET(
@@ -133,6 +141,12 @@ export async function GET(
       )
       .limit(1);
 
+    const confirmationRequest = interestWithOutcome
+      ? await getLatestConfirmationRequestForInterest(
+          interestWithOutcome.interestId
+        )
+      : null;
+
     const approvedPhotos = await getApprovedPhotosForWorker(profile.id);
     const photos: WorkerPhoto[] = approvedPhotos.map((photo) => ({
       id: photo.id,
@@ -173,6 +187,14 @@ export async function GET(
         hireOutcomeStatus: interestWithOutcome.outcomeStatus ?? "interested",
         hiredAt: interestWithOutcome.hiredAt?.toISOString() ?? null,
         startedAt: interestWithOutcome.startedAt?.toISOString() ?? null,
+        confirmationRequest: confirmationRequest
+          ? {
+              id: confirmationRequest.id,
+              requestedStatus: confirmationRequest.requestedStatus,
+              requestStatus: confirmationRequest.requestStatus,
+              requestedAt: confirmationRequest.requestedAt.toISOString(),
+            }
+          : null,
       }),
     };
 

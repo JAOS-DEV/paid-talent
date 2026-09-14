@@ -1,28 +1,40 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import type { HireOutcomeStatus } from "@/lib/db/schema";
+import type {
+  HireConfirmationRequestStatus,
+  HireConfirmationRequestedStatus,
+  HireOutcomeStatus,
+} from "@/lib/db/schema";
 import { Button } from "@/components/ui";
 import {
-  getNextAllowedStatus,
-  isTerminalStatus,
-} from "@/lib/hire-outcomes";
+  getRecruiterPendingLabel,
+  getRecruiterRejectionLabel,
+  getRecruiterRequestAction,
+  getRecruiterRequestButtonLabel,
+} from "@/lib/hire-outcomes/confirmations";
+
+export interface ConfirmationRequestState {
+  requestedStatus: HireConfirmationRequestedStatus;
+  requestStatus: HireConfirmationRequestStatus;
+}
 
 interface HireOutcomeActionsProps {
   interestId: string;
   currentStatus: HireOutcomeStatus;
-  onStatusUpdated?: (newStatus: HireOutcomeStatus) => void;
+  confirmationRequest?: ConfirmationRequestState | null;
+  onRequestCreated?: (requestedStatus: HireConfirmationRequestedStatus) => void;
   compact?: boolean;
 }
 
-async function updateHireOutcome(
+async function requestConfirmation(
   interestId: string,
-  status: "hired" | "started"
+  requestedStatus: "hired" | "started"
 ): Promise<{ success: boolean; error?: string }> {
   const endpoint =
-    status === "hired"
-      ? "/api/recruiter/interests/mark-hired"
-      : "/api/recruiter/interests/mark-started";
+    requestedStatus === "hired"
+      ? "/api/recruiter/interests/request-hire"
+      : "/api/recruiter/interests/request-start";
 
   const response = await fetch(endpoint, {
     method: "POST",
@@ -33,71 +45,98 @@ async function updateHireOutcome(
   return response.json();
 }
 
+export function getHireConfirmationEndpoint(
+  requestedStatus: "hired" | "started"
+): string {
+  return requestedStatus === "hired"
+    ? "/api/recruiter/interests/request-hire"
+    : "/api/recruiter/interests/request-start";
+}
+
 export function HireOutcomeActions({
   interestId,
   currentStatus,
-  onStatusUpdated,
+  confirmationRequest = null,
+  onRequestCreated,
   compact = false,
 }: HireOutcomeActionsProps): React.ReactElement | null {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nextStatus = getNextAllowedStatus(currentStatus);
-  const isTerminal = isTerminalStatus(currentStatus);
+  const pendingRequestedStatus =
+    confirmationRequest?.requestStatus === "pending"
+      ? confirmationRequest.requestedStatus
+      : null;
+  const rejectedRequestedStatus =
+    confirmationRequest?.requestStatus === "rejected"
+      ? confirmationRequest.requestedStatus
+      : null;
 
-  const handleUpdateStatus = useCallback(async () => {
-    if (!nextStatus || nextStatus === "interested") return;
+  const action = getRecruiterRequestAction(
+    currentStatus,
+    pendingRequestedStatus
+  );
+  const buttonLabel = getRecruiterRequestButtonLabel(action);
+  const pendingLabel = getRecruiterPendingLabel(pendingRequestedStatus);
+  const rejectionLabel = getRecruiterRejectionLabel(rejectedRequestedStatus);
+
+  const handleRequest = useCallback(async () => {
+    if (!action) return;
+    const requestedStatus = action === "request-hire" ? "hired" : "started";
 
     setLoading(true);
     setError(null);
 
     try {
-      const result = await updateHireOutcome(
-        interestId,
-        nextStatus as "hired" | "started"
-      );
+      const result = await requestConfirmation(interestId, requestedStatus);
 
       if (result.success) {
-        onStatusUpdated?.(nextStatus);
+        onRequestCreated?.(requestedStatus);
       } else {
-        setError(result.error ?? "Failed to update status");
+        setError(result.error ?? "Failed to request confirmation");
       }
     } catch {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [interestId, nextStatus, onStatusUpdated]);
+  }, [action, interestId, onRequestCreated]);
 
-  if (isTerminal) {
+  if (!action && !pendingLabel && !rejectionLabel) {
     return null;
   }
 
-  const buttonLabel = nextStatus === "hired" ? "Mark Hired" : "Mark Started";
-  const buttonVariant = nextStatus === "hired" ? "gold" : "primary";
-
   return (
-    <div className={compact ? "" : "flex flex-col gap-2"}>
-      <Button
-        variant={buttonVariant}
-        size={compact ? "sm" : "md"}
-        onClick={handleUpdateStatus}
-        loading={loading}
-        disabled={loading}
-      >
-        {buttonLabel}
-      </Button>
-      {error && (
-        <p className="text-red-400 text-xs mt-1">{error}</p>
+    <div className={compact ? "flex flex-col items-end gap-1" : "flex flex-col gap-2"}>
+      {pendingLabel && (
+        <p className="text-gold-400 text-xs font-medium">{pendingLabel}</p>
       )}
+      {rejectionLabel && !pendingLabel && (
+        <p className="text-charcoal-400 text-xs">{rejectionLabel}</p>
+      )}
+      {buttonLabel && (
+        <Button
+          variant={action === "request-hire" ? "gold" : "primary"}
+          size={compact ? "sm" : "md"}
+          onClick={() => {
+            void handleRequest();
+          }}
+          loading={loading}
+          disabled={loading}
+        >
+          {buttonLabel}
+        </Button>
+      )}
+      {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
     </div>
   );
 }
 
 export function getNextActionLabel(
-  status: HireOutcomeStatus
+  status: HireOutcomeStatus,
+  pendingRequestedStatus: HireConfirmationRequestedStatus | null = null
 ): string | null {
-  const nextStatus = getNextAllowedStatus(status);
-  if (!nextStatus) return null;
-  return nextStatus === "hired" ? "Mark Hired" : "Mark Started";
+  return getRecruiterRequestButtonLabel(
+    getRecruiterRequestAction(status, pendingRequestedStatus)
+  );
 }

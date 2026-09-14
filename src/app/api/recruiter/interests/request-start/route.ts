@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { markAsStarted } from "@/app/recruiter/actions";
+import { requestStartConfirmation } from "@/app/recruiter/actions";
 import { z } from "zod";
 
 const requestSchema = z.object({
   interestId: z.string().uuid(),
-  notes: z.string().max(500).optional(),
 });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -19,11 +18,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { interestId, notes } = validation.data;
-    const result = await markAsStarted(interestId, notes);
+    const result = await requestStartConfirmation(validation.data.interestId);
 
     if (!result.success) {
-      return NextResponse.json(result, { status: 400 });
+      const status = result.error === "Unauthorized" ? 401 : 400;
+      return NextResponse.json(result, { status });
     }
 
     return NextResponse.json(result);

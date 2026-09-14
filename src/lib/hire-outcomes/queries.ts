@@ -1,7 +1,32 @@
-import { db, profileInterests, hireOutcomes, workerProfiles, users } from "@/lib/db";
-import type { HireOutcomeStatus } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import {
+  db,
+  profileInterests,
+  hireOutcomes,
+  hireOutcomeConfirmationRequests,
+  workerProfiles,
+  users,
+  recruiterProfiles,
+  recruiterOpenings,
+} from "@/lib/db";
+import type {
+  HireConfirmationRequestStatus,
+  HireConfirmationRequestedStatus,
+  HireOutcomeStatus,
+} from "@/lib/db/schema";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { HireOutcomeFilter } from "./index";
+import {
+  pickLatestConfirmationRequest,
+  resolveOpeningContext,
+  resolveVenueName,
+} from "./confirmations";
+
+export interface ConfirmationRequestSummary {
+  id: string;
+  requestedStatus: HireConfirmationRequestedStatus;
+  requestStatus: HireConfirmationRequestStatus;
+  requestedAt: Date;
+}
 
 export interface InterestWithOutcomeAndProfile {
   id: string;
@@ -17,6 +42,50 @@ export interface InterestWithOutcomeAndProfile {
     startedAt: Date | null;
     notes: string | null;
   } | null;
+  confirmationRequest: ConfirmationRequestSummary | null;
+}
+
+async function attachLatestConfirmationRequests<
+  T extends { id: string },
+>(interests: T[]): Promise<Map<string, ConfirmationRequestSummary>> {
+  const latestByInterest = new Map<string, ConfirmationRequestSummary>();
+  if (interests.length === 0) {
+    return latestByInterest;
+  }
+
+  const interestIds = interests.map((interest) => interest.id);
+  const requests = await db
+    .select({
+      id: hireOutcomeConfirmationRequests.id,
+      interestId: hireOutcomeConfirmationRequests.interestId,
+      requestedStatus: hireOutcomeConfirmationRequests.requestedStatus,
+      requestStatus: hireOutcomeConfirmationRequests.requestStatus,
+      requestedAt: hireOutcomeConfirmationRequests.requestedAt,
+    })
+    .from(hireOutcomeConfirmationRequests)
+    .where(inArray(hireOutcomeConfirmationRequests.interestId, interestIds))
+    .orderBy(desc(hireOutcomeConfirmationRequests.requestedAt));
+
+  const grouped = new Map<string, typeof requests>();
+  for (const request of requests) {
+    const existing = grouped.get(request.interestId) ?? [];
+    existing.push(request);
+    grouped.set(request.interestId, existing);
+  }
+
+  for (const [interestId, group] of grouped) {
+    const latest = pickLatestConfirmationRequest(group);
+    if (latest) {
+      latestByInterest.set(interestId, {
+        id: latest.id,
+        requestedStatus: latest.requestedStatus,
+        requestStatus: latest.requestStatus,
+        requestedAt: latest.requestedAt,
+      });
+    }
+  }
+
+  return latestByInterest;
 }
 
 export async function getRecruiterInterestsWithOutcomes(
@@ -58,6 +127,8 @@ export async function getRecruiterInterestsWithOutcomes(
     }
   }
 
+  const latestRequests = await attachLatestConfirmationRequests(filteredResults);
+
   return filteredResults.map((r) => ({
     id: r.id,
     workerProfileId: r.workerProfileId,
@@ -74,6 +145,7 @@ export async function getRecruiterInterestsWithOutcomes(
           notes: r.notes,
         }
       : null,
+    confirmationRequest: latestRequests.get(r.id) ?? null,
   }));
 }
 
@@ -146,6 +218,23 @@ export async function getHireOutcomeByInterestId(
   return outcome ?? null;
 }
 
+export async function getLatestConfirmationRequestForInterest(
+  interestId: string
+): Promise<ConfirmationRequestSummary | null> {
+  const requests = await db
+    .select({
+      id: hireOutcomeConfirmationRequests.id,
+      requestedStatus: hireOutcomeConfirmationRequests.requestedStatus,
+      requestStatus: hireOutcomeConfirmationRequests.requestStatus,
+      requestedAt: hireOutcomeConfirmationRequests.requestedAt,
+    })
+    .from(hireOutcomeConfirmationRequests)
+    .where(eq(hireOutcomeConfirmationRequests.interestId, interestId))
+    .orderBy(desc(hireOutcomeConfirmationRequests.requestedAt));
+
+  return pickLatestConfirmationRequest(requests);
+}
+
 export async function getWorkerInterestsWithOutcomes(
   workerProfileId: string
 ): Promise<
@@ -159,6 +248,7 @@ export async function getWorkerInterestsWithOutcomes(
       hiredAt: Date | null;
       startedAt: Date | null;
     } | null;
+    confirmationRequest: ConfirmationRequestSummary | null;
   }>
 > {
   const results = await db
@@ -177,6 +267,8 @@ export async function getWorkerInterestsWithOutcomes(
     .where(eq(profileInterests.workerProfileId, workerProfileId))
     .orderBy(profileInterests.createdAt);
 
+  const latestRequests = await attachLatestConfirmationRequests(results);
+
   return results.map((r) => ({
     id: r.id,
     recruiterName: r.recruiterName,
@@ -189,5 +281,65 @@ export async function getWorkerInterestsWithOutcomes(
           startedAt: r.startedAt,
         }
       : null,
+    confirmationRequest: latestRequests.get(r.id) ?? null,
+  }));
+}
+
+export interface WorkerPendingConfirmation {
+  id: string;
+  interestId: string;
+  requestedStatus: HireConfirmationRequestedStatus;
+  requestedAt: Date;
+  venueName: string;
+  openingContext: string | null;
+}
+
+export async function getPendingConfirmationRequestsForWorker(
+  workerUserId: string
+): Promise<WorkerPendingConfirmation[]> {
+  const results = await db
+    .select({
+      id: hireOutcomeConfirmationRequests.id,
+      interestId: hireOutcomeConfirmationRequests.interestId,
+      requestedStatus: hireOutcomeConfirmationRequests.requestedStatus,
+      requestedAt: hireOutcomeConfirmationRequests.requestedAt,
+      organizationName: recruiterProfiles.organizationName,
+      recruiterName: users.name,
+      openingRole: recruiterOpenings.role,
+      openingArea: recruiterOpenings.area,
+    })
+    .from(hireOutcomeConfirmationRequests)
+    .innerJoin(
+      profileInterests,
+      eq(hireOutcomeConfirmationRequests.interestId, profileInterests.id)
+    )
+    .innerJoin(
+      workerProfiles,
+      eq(profileInterests.workerProfileId, workerProfiles.id)
+    )
+    .innerJoin(users, eq(profileInterests.recruiterUserId, users.id))
+    .leftJoin(
+      recruiterProfiles,
+      eq(recruiterProfiles.userId, profileInterests.recruiterUserId)
+    )
+    .leftJoin(
+      recruiterOpenings,
+      eq(profileInterests.openingId, recruiterOpenings.id)
+    )
+    .where(
+      and(
+        eq(hireOutcomeConfirmationRequests.requestStatus, "pending"),
+        eq(workerProfiles.userId, workerUserId)
+      )
+    )
+    .orderBy(desc(hireOutcomeConfirmationRequests.requestedAt));
+
+  return results.map((row) => ({
+    id: row.id,
+    interestId: row.interestId,
+    requestedStatus: row.requestedStatus,
+    requestedAt: row.requestedAt,
+    venueName: resolveVenueName(row.organizationName, row.recruiterName),
+    openingContext: resolveOpeningContext(row.openingRole, row.openingArea),
   }));
 }
