@@ -258,30 +258,4 @@ export const authConfig: NextAuthConfig = {
   trustHost: true,
 };
 
-export async function createUserWithRole(
-  email: string,
-  role: UserRole,
-  dateOfBirth: Date | null,
-  name?: string
-): Promise<typeof users.$inferSelect> {
-  const now = new Date();
-  const ageVerified = dateOfBirth ? meetsMinimumAge(dateOfBirth) : false;
-
-  const [newUser] = await db
-    .insert(users)
-    .values({
-      email,
-      role,
-      name: name ?? null,
-      dateOfBirth: dateOfBirth?.toISOString().split("T")[0] ?? null,
-      ageVerified,
-      ageVerifiedAt: ageVerified ? now : null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning();
-
-  return newUser;
-}
-
 export { meetsMinimumAge };

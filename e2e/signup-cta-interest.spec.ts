@@ -85,6 +85,40 @@ test.describe("Canonical signup entry points", () => {
   });
 });
 
+test.describe("Legacy register route cannot create users", () => {
+  test("unauthenticated POST /api/auth/register cannot create a user", async ({
+    request,
+  }) => {
+    const response = await request.post("/api/auth/register", {
+      data: {
+        email: `squat-${Date.now()}@example.com`,
+        role: "worker",
+        dob: "1990-01-15",
+      },
+    });
+
+    expect(response.status()).not.toBe(200);
+    expect([400, 404, 405]).toContain(response.status());
+    const body = await response.text();
+    expect(body).not.toMatch(/"userId"\s*:/);
+    expect(body).not.toMatch(/"isNewUser"\s*:\s*true/);
+  });
+
+  test("unauthenticated GET /api/auth/register cannot create a user via query params", async ({
+    request,
+  }) => {
+    const response = await request.get(
+      "/api/auth/register?role=worker&dob=1990-01-15&email=victim@example.com",
+      { maxRedirects: 0 }
+    );
+
+    expect([400, 404, 405, 302]).toContain(response.status());
+    const body = await response.text();
+    expect(body).not.toMatch(/"userId"\s*:/);
+    expect(body).not.toMatch(/"isNewUser"\s*:\s*true/);
+  });
+});
+
 test.describe("Signup intent cannot be minted from signin query params", () => {
   async function signupIntentValue(page: Page): Promise<string | undefined> {
     const cookies = await page.context().cookies();

@@ -127,6 +127,8 @@ describe("public signup entry points", () => {
     expect(signin).not.toContain("persistSignupIntentRole");
     expect(signin).not.toContain("signup-intent-action");
     expect(signin).not.toMatch(/ageConfirmed/);
+    expect(signin).not.toContain("/api/auth/register");
+    expect(signin).not.toContain("isLegacySignupMode");
   });
 
   it("only the age-gate server action mints signup_intent_role", () => {
@@ -254,6 +256,20 @@ describe("canonical signup lifecycle (single authentication)", () => {
       action: "redirect",
       destination: "/auth/age-verification",
     });
+  });
+
+  it("hard DOB verification still writes DOB only after auth via verify-age", () => {
+    const verifyAge = readSrc("app/api/auth/verify-age/route.ts");
+    expect(verifyAge).toContain("session?.user?.id");
+    expect(verifyAge).toContain("dateOfBirth");
+    expect(verifyAge).toContain("ageVerified: true");
+    expect(verifyAge).not.toContain("email");
+
+    const registerGone = path.join(
+      process.cwd(),
+      "src/app/api/auth/register/route.ts"
+    );
+    expect(fs.existsSync(registerGone)).toBe(false);
   });
 
   it("DOB 20+ is accepted and under 20 is rejected by the shared helper", () => {

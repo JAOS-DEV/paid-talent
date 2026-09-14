@@ -63,11 +63,12 @@ src/
 | Route | Type | Description |
 |-------|------|-------------|
 | `/auth/role-select` | Page | Role selection (worker/recruiter) before signup |
-| `/auth/age-verification` | Page | 18+ age verification gate |
+| `/auth/age-gate` | Page | Pre-auth 20+ confirmation (no DOB) |
+| `/auth/age-verification` | Page | Post-auth date-of-birth verification |
 | `/auth/signin` | Page | Sign in with Google or email |
 | `/auth/error` | Page | Auth error display |
 | `/api/auth/[...nextauth]` | API | NextAuth.js handlers |
-| `/api/auth/register` | API | User registration with role & DOB |
+| `/api/auth/verify-age` | API | Authenticated DOB verification |
 
 ### Worker Routes (`/worker/*`)
 
@@ -239,22 +240,21 @@ worker_profiles
 
 ### Flow
 
-1. **Role Selection** (`/auth/role-select`)
-   - User chooses Worker or Recruiter
-   - Stored in URL params for registration
+1. **Role Selection** (`/auth/role-select`) or a role-specific CTA
+   - Worker/Recruiter chosen before authentication
+   - Role-specific public CTAs skip this and go to the age gate
 
-2. **Age Verification** (`/auth/age-verification`)
-   - Date of birth input
-   - 18+ confirmation checkbox
-   - Under-18 users are **blocked**
+2. **Pre-auth age gate** (`/auth/age-gate`)
+   - One “I confirm I am 20 or older” checkbox
+   - Sets HttpOnly `signup_intent_role` (worker/recruiter only)
 
 3. **Sign In** (`/auth/signin`)
    - Google OAuth or email magic link
-   - Role/DOB passed to registration endpoint
+   - New accounts are created only in the Auth.js `signIn` callback after verified authentication, using the signup-intent cookie
 
-4. **Registration** (`/api/auth/register`)
-   - Creates user with role & verified DOB
-   - Creates empty profile (worker or recruiter)
+4. **Post-auth DOB verification** (`/auth/age-verification` → `/api/auth/verify-age`)
+   - Requires an authenticated session
+   - Date of birth is never placed in query parameters or the signup-intent cookie
 
 ### Middleware Protection
 
