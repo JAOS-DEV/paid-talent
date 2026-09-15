@@ -59,17 +59,34 @@ describe("photo-moderation integration", () => {
       expect(MAX_PROFILE_PHOTOS).toBe(5);
     });
 
-    it("should enforce max 1 pending photo at a time", () => {
+    it("should enforce max 1 pending primary photo at a time", () => {
       const result = checkPhotoLimits(2, 1);
 
       expect(result.canUpload).toBe(false);
       expect(MAX_PENDING_PHOTOS).toBe(1);
     });
 
+    it("allows multiple pending gallery photos under the five-slot cap", () => {
+      const result = checkPhotoLimits(1, 3, {
+        purpose: "gallery",
+        isVerified: true,
+      });
+
+      expect(result.canUpload).toBe(true);
+    });
+
     it("should allow upload when under both limits", () => {
       const result = checkPhotoLimits(4, 0);
 
       expect(result.canUpload).toBe(true);
+    });
+
+    it("does not let unverified workers use gallery purpose", () => {
+      const result = checkPhotoLimits(1, 0, {
+        purpose: "gallery",
+        isVerified: false,
+      });
+      expect(result.canUpload).toBe(false);
     });
   });
 

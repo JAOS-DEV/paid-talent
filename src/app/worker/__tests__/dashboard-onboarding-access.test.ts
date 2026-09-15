@@ -57,7 +57,8 @@ describe("worker dashboard incomplete-profile redirect removal", () => {
 
   it("keeps WorkerConfirmationCard on the worker dashboard", () => {
     expect(dashboardSource).toMatch(/WorkerConfirmationCard/);
-    expect(dashboardSource).toMatch(
+    expect(dashboardSource).toMatch(/\/api\/worker\/dashboard/);
+    expect(dashboardSource).not.toMatch(
       /\/api\/worker\/hire-confirmations\/pending/
     );
   });

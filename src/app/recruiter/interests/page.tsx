@@ -11,39 +11,16 @@ import {
   Card,
   CardContent,
 } from "@/components/ui";
-import {
-  HireOutcomeStatusBadge,
-  HireOutcomeActions,
-} from "@/components/hire-outcomes";
+import { RecruiterInterestCard } from "@/components/recruiter";
+import type { RecruiterInterestCardData } from "@/components/recruiter";
 import type {
-  HireConfirmationRequestStatus,
   HireConfirmationRequestedStatus,
   HireOutcomeStatus,
 } from "@/lib/db/schema";
 
 type FilterTab = "all" | HireOutcomeStatus;
 
-interface InterestWithOutcome {
-  id: string;
-  workerProfileId: string;
-  workerName: string;
-  workerPhoto: string | null;
-  message: string | null;
-  createdAt: string;
-  hireOutcome: {
-    id: string;
-    status: HireOutcomeStatus;
-    hiredAt: string | null;
-    startedAt: string | null;
-    notes: string | null;
-  } | null;
-  confirmationRequest: {
-    id: string;
-    requestedStatus: HireConfirmationRequestedStatus;
-    requestStatus: HireConfirmationRequestStatus;
-    requestedAt: string;
-  } | null;
-}
+type InterestWithOutcome = RecruiterInterestCardData;
 
 interface OutcomeStats {
   total: number;
@@ -58,119 +35,6 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "hired", label: "Hired" },
   { key: "started", label: "Started" },
 ];
-
-function getEffectiveStatus(
-  interest: InterestWithOutcome
-): HireOutcomeStatus {
-  return interest.hireOutcome?.status ?? "interested";
-}
-
-function InterestCard({
-  interest,
-  onRequestCreated,
-}: {
-  interest: InterestWithOutcome;
-  onRequestCreated: (
-    interestId: string,
-    requestedStatus: HireConfirmationRequestedStatus
-  ) => void;
-}): React.ReactElement {
-  const effectiveStatus = getEffectiveStatus(interest);
-  const createdDate = new Date(interest.createdAt).toLocaleDateString();
-
-  const handleRequestCreated = useCallback(
-    (requestedStatus: HireConfirmationRequestedStatus) => {
-      onRequestCreated(interest.id, requestedStatus);
-    },
-    [interest.id, onRequestCreated]
-  );
-
-  return (
-    <div data-testid="interest-card" data-worker-name={interest.workerName}>
-    <Card padding="md" className="hover:border-charcoal-600 transition-colors">
-      <CardContent>
-        <div className="flex items-start gap-4">
-          <Link href={`/recruiter/profile/${interest.workerProfileId}`}>
-            {interest.workerPhoto ? (
-              <img
-                src={interest.workerPhoto}
-                alt={interest.workerName}
-                className="w-16 h-16 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-charcoal-700 flex-shrink-0 flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-charcoal-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                  />
-                </svg>
-              </div>
-            )}
-          </Link>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <Link
-                href={`/recruiter/profile/${interest.workerProfileId}`}
-                className="text-charcoal-100 font-medium hover:text-primary-400 truncate"
-              >
-                {interest.workerName}
-              </Link>
-              <HireOutcomeStatusBadge status={effectiveStatus} />
-            </div>
-
-            <p className="text-charcoal-500 text-sm mb-2">
-              Interested on {createdDate}
-            </p>
-
-            {interest.message && (
-              <p className="text-charcoal-400 text-sm line-clamp-2 mb-3">
-                {interest.message}
-              </p>
-            )}
-
-            {interest.hireOutcome?.hiredAt && (
-              <p className="text-charcoal-500 text-xs">
-                Hired:{" "}
-                {new Date(interest.hireOutcome.hiredAt).toLocaleDateString()}
-              </p>
-            )}
-            {interest.hireOutcome?.startedAt && (
-              <p className="text-charcoal-500 text-xs">
-                Started:{" "}
-                {new Date(interest.hireOutcome.startedAt).toLocaleDateString()}
-              </p>
-            )}
-          </div>
-
-          <div className="flex-shrink-0 flex flex-col items-end gap-2">
-            <HireOutcomeActions
-              interestId={interest.id}
-              currentStatus={effectiveStatus}
-              confirmationRequest={interest.confirmationRequest}
-              onRequestCreated={handleRequestCreated}
-              compact
-            />
-            <Link href={`/recruiter/profile/${interest.workerProfileId}`}>
-              <Button variant="outline" size="sm">
-                View Profile
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-    </div>
-  );
-}
 
 function StatsBar({ stats }: { stats: OutcomeStats }): React.ReactElement {
   return (
@@ -226,11 +90,8 @@ function RecruiterInterestsContent(): React.ReactElement {
   );
 
   const loadInterests = useCallback(async () => {
+    const filterParam = activeFilter === "all" ? "" : `?filter=${activeFilter}`;
     try {
-      setLoading(true);
-      setError(null);
-
-      const filterParam = activeFilter === "all" ? "" : `?filter=${activeFilter}`;
       const [interestsRes, statsRes] = await Promise.all([
         fetch(`/api/recruiter/interests${filterParam}`),
         fetch("/api/recruiter/interests/stats"),
@@ -239,6 +100,7 @@ function RecruiterInterestsContent(): React.ReactElement {
       if (interestsRes.ok) {
         const data = await interestsRes.json();
         setInterests(data.interests);
+        setError(null);
       } else {
         setError("Failed to load interests");
       }
@@ -255,10 +117,51 @@ function RecruiterInterestsContent(): React.ReactElement {
   }, [activeFilter]);
 
   useEffect(() => {
-    if (status === "authenticated") {
-      void loadInterests();
+    if (status !== "authenticated") {
+      return;
     }
-  }, [status, loadInterests]);
+
+    let cancelled = false;
+    const filterParam = activeFilter === "all" ? "" : `?filter=${activeFilter}`;
+
+    async function run(): Promise<void> {
+      try {
+        const [interestsRes, statsRes] = await Promise.all([
+          fetch(`/api/recruiter/interests${filterParam}`),
+          fetch("/api/recruiter/interests/stats"),
+        ]);
+        if (cancelled) return;
+
+        if (interestsRes.ok) {
+          const data = await interestsRes.json();
+          if (cancelled) return;
+          setInterests(data.interests);
+          setError(null);
+        } else {
+          setError("Failed to load interests");
+        }
+
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          if (cancelled) return;
+          setStats(data.stats);
+        }
+      } catch {
+        if (!cancelled) {
+          setError("Network error. Please try again.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, activeFilter]);
 
   const handleRequestCreated = useCallback(
     (interestId: string, requestedStatus: HireConfirmationRequestedStatus) => {
@@ -297,7 +200,7 @@ function RecruiterInterestsContent(): React.ReactElement {
       <Header />
 
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
           <div className="mb-6">
             <Link
               href="/recruiter/dashboard"
@@ -395,7 +298,7 @@ function RecruiterInterestsContent(): React.ReactElement {
           ) : (
             <div className="space-y-4">
               {interests.map((interest) => (
-                <InterestCard
+                <RecruiterInterestCard
                   key={interest.id}
                   interest={interest}
                   onRequestCreated={handleRequestCreated}

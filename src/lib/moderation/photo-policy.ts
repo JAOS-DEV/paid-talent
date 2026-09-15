@@ -1,7 +1,20 @@
 import type { PhotoModerationStatus } from "@/lib/db/schema";
 
 export const MAX_PROFILE_PHOTOS = 5;
+/** Conservative cap for competing PRIMARY verification-photo submissions. */
 export const MAX_PENDING_PHOTOS = 1;
+
+export function occupiedPhotoSlotCount(
+  approvedCount: number,
+  pendingCount: number
+): number {
+  return Math.max(0, approvedCount) + Math.max(0, pendingCount);
+}
+
+export type PhotoUploadPurpose = "primary" | "gallery";
+
+export const GALLERY_UNVERIFIED_REASON =
+  "Additional photos are available after identity verification is approved.";
 
 export const PHOTO_POLICY_COPY = {
   helper:
@@ -109,11 +122,29 @@ export interface PhotoLimitCheck {
   currentPendingCount: number;
 }
 
+export interface PhotoLimitOptions {
+  isVerified?: boolean;
+  purpose?: PhotoUploadPurpose;
+}
+
 export function checkPhotoLimits(
   approvedCount: number,
-  pendingCount: number
+  pendingCount: number,
+  options: PhotoLimitOptions = {}
 ): PhotoLimitCheck {
-  if (pendingCount >= MAX_PENDING_PHOTOS) {
+  const purpose = options.purpose ?? "primary";
+  const isVerified = options.isVerified === true;
+
+  if (purpose === "gallery" && !isVerified) {
+    return {
+      canUpload: false,
+      reason: GALLERY_UNVERIFIED_REASON,
+      currentApprovedCount: approvedCount,
+      currentPendingCount: pendingCount,
+    };
+  }
+
+  if (purpose === "primary" && pendingCount >= MAX_PENDING_PHOTOS) {
     return {
       canUpload: false,
       reason: PHOTO_POLICY_COPY.pending,
@@ -122,7 +153,8 @@ export function checkPhotoLimits(
     };
   }
 
-  if (approvedCount >= MAX_PROFILE_PHOTOS) {
+  const slotCount = occupiedPhotoSlotCount(approvedCount, pendingCount);
+  if (slotCount >= MAX_PROFILE_PHOTOS || approvedCount >= MAX_PROFILE_PHOTOS) {
     return {
       canUpload: false,
       reason: `Maximum of ${MAX_PROFILE_PHOTOS} profile photos allowed`,

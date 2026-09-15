@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { WorkerProfile } from "@/lib/db/schema";
 
 const replace = vi.fn();
@@ -38,12 +38,17 @@ vi.mock("@/components/hire-outcomes", () => ({
   WorkerConfirmationCard: ({
     venueName,
     requestedStatus,
+    onResponded,
   }: {
     venueName: string;
     requestedStatus: string;
+    onResponded?: (action: "confirm" | "reject") => void;
   }): React.ReactElement => (
     <div data-testid="hire-confirmation-card">
       {venueName} {requestedStatus}
+      <button type="button" onClick={() => onResponded?.("confirm")}>
+        Dismiss confirmation
+      </button>
     </div>
   ),
 }));
@@ -113,20 +118,59 @@ function mockDashboardFetches(options: {
     venueName: string;
     openingContext: string | null;
   }>;
+  stats?: {
+    profileViewsLast30Days?: number;
+    uniqueRecruiterViewersLast30Days?: number;
+    profileViewEventsLast30Days?: number;
+    interestReceivedCount?: number;
+  };
+  recentInterests?: Array<{
+    id: string;
+    venueName: string;
+    openingContext: string | null;
+    message: string | null;
+    createdAt: string;
+  }>;
 }): void {
   vi.stubGlobal(
     "fetch",
     vi.fn().mockImplementation(async (url: string) => {
-      if (String(url).includes("/api/worker/hire-confirmations/pending")) {
+      if (String(url).includes("/api/worker/dashboard")) {
+        const unique =
+          options.stats?.uniqueRecruiterViewersLast30Days ??
+          options.stats?.profileViewsLast30Days ??
+          0;
         return {
           ok: true,
-          json: async () => ({ requests: options.pending ?? [] }),
+          json: async () => ({
+            profile: options.profile ?? null,
+            stats: {
+              profileViewsLast30Days: unique,
+              profileViewEventsLast30Days:
+                options.stats?.profileViewEventsLast30Days ?? unique,
+              uniqueRecruiterViewersLast30Days: unique,
+              interestReceivedCount: options.stats?.interestReceivedCount ?? 0,
+            },
+            recentInterests: options.recentInterests ?? [],
+            interestReceivedCount: options.stats?.interestReceivedCount ?? 0,
+            pendingConfirmations: options.pending ?? [],
+            photoSlots: {
+              approvedCount: 0,
+              pendingCount: 0,
+              slotCount: 0,
+              maxSlots: 5,
+              remainingSlots: 5,
+              canAddGalleryPhoto: false,
+            },
+            verificationStatus: options.profile?.verificationStatus ?? "unverified",
+            isPublished: options.profile?.isPublished ?? false,
+          }),
         };
       }
 
       return {
-        ok: true,
-        json: async () => ({ profile: options.profile ?? null }),
+        ok: false,
+        json: async () => ({ error: "unexpected" }),
       };
     })
   );
@@ -193,6 +237,47 @@ describe("WorkerDashboardPage", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it("renders database-backed dashboard stats instead of hardcoded zeroes", async () => {
+    mockWorkerSession();
+    mockDashboardFetches({
+      profile: createMockProfile({
+        photoUrl: "https://example.com/photo.jpg",
+        displayName: "Ada",
+        jobRoles: ["Bartender"],
+        experienceYears: 3,
+        languages: ["English"],
+        bio: "Experienced bartender",
+        location: "Bangkok",
+        availability: "Full-time",
+      }),
+      stats: {
+        uniqueRecruiterViewersLast30Days: 2,
+        profileViewEventsLast30Days: 4,
+        interestReceivedCount: 1,
+      },
+      recentInterests: [
+        {
+          id: "int-1",
+          venueName: "Sky Bar",
+          openingContext: "Bartender — Central Pattaya",
+          message: "Are you free this weekend?",
+          createdAt: "2026-03-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByText("Unique recruiters in the last 30 days")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("Recruiters interested in you")).toBeInTheDocument();
+    expect(screen.getByText("Sky Bar")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /view profile/i })).toHaveAttribute(
+      "href",
+      "/worker/profile/preview"
+    );
+  });
+
   it("renders WorkerConfirmationCard when a hire confirmation is pending", async () => {
     mockWorkerSession();
     mockDashboardFetches({
@@ -217,6 +302,156 @@ describe("WorkerDashboardPage", () => {
     );
     expect(replace).not.toHaveBeenCalledWith("/worker/onboarding");
     expect(screen.getByRole("button", { name: /complete profile/i })).toBeInTheDocument();
+  });
+
+  it("does not restore a dismissed hire confirmation from a later dashboard response", async () => {
+    mockWorkerSession();
+    mockDashboardFetches({
+      profile: createMockProfile({
+        photoUrl: "https://example.com/photo.jpg",
+      }),
+      pending: [
+        {
+          id: "conf-1",
+          requestedStatus: "started",
+          requestedAt: "2026-03-01T00:00:00.000Z",
+          venueName: "Sky Bar",
+          openingContext: "Bartender — Central Pattaya",
+        },
+      ],
+    });
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByTestId("hire-confirmation-card")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /dismiss confirmation/i }));
+    expect(screen.queryByTestId("hire-confirmation-card")).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("hire-confirmation-card")).not.toBeInTheDocument();
+    });
+  });
+
+  it("renders genuine zero stats from a successful dashboard response", async () => {
+    mockWorkerSession();
+    mockDashboardFetches({
+      profile: createMockProfile({
+        photoUrl: "https://example.com/photo.jpg",
+        displayName: "Ada",
+        jobRoles: ["Bartender"],
+        experienceYears: 3,
+        languages: ["English"],
+        bio: "Experienced bartender",
+        location: "Bangkok",
+        availability: "Full-time",
+      }),
+      stats: {
+        uniqueRecruiterViewersLast30Days: 0,
+        profileViewEventsLast30Days: 0,
+        interestReceivedCount: 0,
+      },
+    });
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByTestId("profile-views-count")).toHaveTextContent("0");
+    expect(screen.getByTestId("interest-received-count")).toHaveTextContent("0");
+    expect(screen.queryByTestId("dashboard-load-error")).not.toBeInTheDocument();
+  });
+
+  it("shows an error instead of fake zero stats when the dashboard API fails", async () => {
+    mockWorkerSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: "Failed to fetch dashboard" }),
+      })
+    );
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByTestId("dashboard-load-error")).toHaveTextContent(
+      /couldn't load your dashboard activity/i
+    );
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByTestId("profile-views-count")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("interest-received-count")).not.toBeInTheDocument();
+    expect(screen.queryByText(/0% complete/i)).not.toBeInTheDocument();
+  });
+
+  it("shows an error instead of fake zero stats when the dashboard request throws", async () => {
+    mockWorkerSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network down"))
+    );
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByTestId("dashboard-load-error")).toBeInTheDocument();
+    expect(screen.queryByTestId("profile-views-count")).not.toBeInTheDocument();
+  });
+
+  it("replaces the dashboard error with real stats after retry succeeds", async () => {
+    mockWorkerSession();
+    let failLoad = true;
+    const successPayload = {
+      ok: true,
+      json: async () => ({
+        profile: createMockProfile({
+          photoUrl: "https://example.com/photo.jpg",
+          displayName: "Ada",
+          jobRoles: ["Bartender"],
+          experienceYears: 3,
+          languages: ["English"],
+          bio: "Experienced bartender",
+          location: "Bangkok",
+          availability: "Full-time",
+        }),
+        stats: {
+          profileViewsLast30Days: 2,
+          profileViewEventsLast30Days: 4,
+          uniqueRecruiterViewersLast30Days: 2,
+          interestReceivedCount: 1,
+        },
+        recentInterests: [],
+        interestReceivedCount: 1,
+        pendingConfirmations: [],
+        photoSlots: {
+          approvedCount: 1,
+          pendingCount: 0,
+          slotCount: 1,
+          maxSlots: 5,
+          remainingSlots: 4,
+          canAddGalleryPhoto: true,
+        },
+        verificationStatus: "verified",
+        isPublished: true,
+      }),
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async () => {
+        if (failLoad) {
+          return {
+            ok: false,
+            json: async () => ({ error: "Failed to fetch dashboard" }),
+          };
+        }
+        return successPayload;
+      })
+    );
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByTestId("dashboard-load-error")).toBeInTheDocument();
+    failLoad = false;
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+
+    expect(await screen.findByTestId("profile-views-count")).toHaveTextContent("2");
+    expect(screen.getByTestId("interest-received-count")).toHaveTextContent("1");
+    expect(screen.queryByTestId("dashboard-load-error")).not.toBeInTheDocument();
   });
 
   it("does not allow a recruiter to stay on the worker dashboard", async () => {

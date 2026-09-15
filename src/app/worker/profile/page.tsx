@@ -43,6 +43,7 @@ import {
 } from "@/lib/media/upload-profile-photo";
 import { ProfilePhotoPreview } from "@/components/media/ProfilePhotoPreview";
 import { PHOTO_POLICY_COPY } from "@/lib/moderation/photo-policy";
+import { ProfilePhotoGalleryManager } from "@/components/media/ProfilePhotoGalleryManager";
 
 export default function WorkerProfilePage(): React.ReactElement {
   const { data: session, status } = useSession();
@@ -338,6 +339,7 @@ export default function WorkerProfilePage(): React.ReactElement {
             <VerificationStatusBanner
               status={verificationStatus}
               isPublished={isPublished}
+              userId={session.user.id}
             />
           </div>
 
@@ -378,7 +380,7 @@ export default function WorkerProfilePage(): React.ReactElement {
           <div className="space-y-6">
             <Card padding="lg">
               <CardHeader>
-                <CardTitle>Profile Photo</CardTitle>
+                <CardTitle>Primary photo</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center space-x-6">
@@ -432,6 +434,20 @@ export default function WorkerProfilePage(): React.ReactElement {
                     ) : null}
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card padding="lg">
+              <CardHeader>
+                <CardTitle>Profile Photos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ProfilePhotoGalleryManager
+                  isVerified={
+                    verificationStatus === "verified" ||
+                    Boolean(profile?.isVerified)
+                  }
+                />
               </CardContent>
             </Card>
 

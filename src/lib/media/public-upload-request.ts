@@ -5,6 +5,8 @@ import {
   PROFILE_PHOTO_MAX_BYTES,
 } from "@/lib/media/profile-photo";
 
+export const photoUploadPurposeSchema = z.enum(["primary", "gallery"]);
+
 export const publicMediaUploadRequestSchema = z.object({
   contentType: z.enum(
     PROFILE_PHOTO_ALLOWED_TYPES as unknown as [string, ...string[]]
@@ -15,4 +17,5 @@ export const publicMediaUploadRequestSchema = z.object({
     .int()
     .positive()
     .max(PROFILE_PHOTO_MAX_BYTES, PROFILE_PHOTO_ERRORS.tooLarge),
+  purpose: photoUploadPurposeSchema.optional(),
 });

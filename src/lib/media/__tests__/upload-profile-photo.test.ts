@@ -112,6 +112,38 @@ describe("uploadProfilePhoto", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("sends gallery purpose on presign and confirm", async () => {
+    const file = jpegFile();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/media/upload" && init?.method === "POST") {
+        const body = JSON.parse(String(init.body)) as { purpose?: string };
+        expect(body.purpose).toBe("gallery");
+        return jsonResponse({
+          uploadUrl: "https://storage.example/upload",
+          key: STAGING_KEY,
+        });
+      }
+      if (url === "https://storage.example/upload" && init?.method === "PUT") {
+        return okResponse();
+      }
+      if (url === "/api/media/upload" && init?.method === "PUT") {
+        const body = JSON.parse(String(init.body)) as { purpose?: string };
+        expect(body.purpose).toBe("gallery");
+        return jsonResponse(approvedConfirmBody());
+      }
+      throw new Error(`Unexpected fetch ${init?.method} ${url}`);
+    });
+
+    await expect(
+      uploadProfilePhoto(file, {
+        fetch: fetchMock as unknown as typeof fetch,
+        prepareImage: identityPrepare,
+        purpose: "gallery",
+      })
+    ).resolves.toMatchObject({ status: "approved" });
+  });
+
   it("does not treat a pending confirm as a public URL", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);

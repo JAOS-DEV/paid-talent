@@ -8,12 +8,16 @@ import {
   recruiterProfiles,
   recruiterOpenings,
 } from "@/lib/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import {
   createInterestSchema,
   sanitizeMessage,
 } from "@/lib/helpers/interest-validation";
 import { resolveOpeningAttachment } from "@/lib/interests/opening-attachment";
+import {
+  resolveOpeningContext,
+  resolveVenueName,
+} from "@/lib/hire-outcomes/confirmations";
 import {
   deniedActiveUserResponse,
   requireActiveAppUser,
@@ -192,21 +196,46 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ interests: [] });
     }
 
-    const interests = await db
-      .select({
-        id: profileInterests.id,
-        recruiterName: users.name,
-        message: profileInterests.message,
-        openingId: profileInterests.openingId,
-        notifiedAt: profileInterests.notifiedAt,
-        createdAt: profileInterests.createdAt,
-      })
-      .from(profileInterests)
-      .innerJoin(users, eq(profileInterests.recruiterUserId, users.id))
-      .where(eq(profileInterests.workerProfileId, profile.id))
-      .orderBy(profileInterests.createdAt);
+      const interests = await db
+        .select({
+          id: profileInterests.id,
+          venueNameOrg: recruiterProfiles.organizationName,
+          recruiterName: users.name,
+          message: profileInterests.message,
+          openingRole: recruiterOpenings.role,
+          openingArea: recruiterOpenings.area,
+          notifiedAt: profileInterests.notifiedAt,
+          createdAt: profileInterests.createdAt,
+        })
+        .from(profileInterests)
+        .innerJoin(users, eq(profileInterests.recruiterUserId, users.id))
+        .leftJoin(
+          recruiterProfiles,
+          eq(recruiterProfiles.userId, profileInterests.recruiterUserId)
+        )
+        .leftJoin(
+          recruiterOpenings,
+          eq(profileInterests.openingId, recruiterOpenings.id)
+        )
+        .where(eq(profileInterests.workerProfileId, profile.id))
+        .orderBy(desc(profileInterests.createdAt));
 
-    return NextResponse.json({ interests });
+      return NextResponse.json({
+        interests: interests.map((interest) => ({
+          id: interest.id,
+          venueName: resolveVenueName(
+            interest.venueNameOrg,
+            interest.recruiterName
+          ),
+          openingContext: resolveOpeningContext(
+            interest.openingRole,
+            interest.openingArea
+          ),
+          message: interest.message,
+          notifiedAt: interest.notifiedAt,
+          createdAt: interest.createdAt,
+        })),
+      });
   } catch (error) {
     console.error("[Interest] Error fetching interests:", error);
     return NextResponse.json(
