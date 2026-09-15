@@ -18,7 +18,7 @@ export interface RankedWorkerProfile {
   location: string | null;
   area: string | null;
   jobRoles: string[];
-  availability: string | null;
+  availability: string[];
   isTopTalent: boolean;
   rankScore: number;
   viewCount: number;
@@ -149,7 +149,7 @@ class ViewBasedRankingProvider implements RankingProvider {
       location: profile.location,
       area: profile.area,
       jobRoles: (profile.jobRoles as string[]) ?? [],
-      availability: profile.availability,
+      availability: profile.availability ?? [],
       isTopTalent:
         viewCount >= (minViews ?? 5) && viewCount >= cutoffScore,
       rankScore: viewCount,
@@ -357,7 +357,7 @@ class CompositeRankingProvider implements RankingProvider {
       location: profile.location,
       area: profile.area,
       jobRoles: (profile.jobRoles as string[]) ?? [],
-      availability: profile.availability,
+      availability: profile.availability ?? [],
       isTopTalent: components.totalScore >= topTalentCutoff,
       rankScore: components.totalScore,
       viewCount,

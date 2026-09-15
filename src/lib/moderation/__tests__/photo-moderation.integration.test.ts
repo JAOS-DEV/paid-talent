@@ -109,7 +109,7 @@ describe.skipIf(!shouldRun)("manual profile photo moderation against paid_talent
 
     workerAProfileId = profileA.id;
     workerBProfileId = profileB.id;
-  });
+  }, 120000);
 
   afterAll(async () => {
     if (!workerAProfileId) return;

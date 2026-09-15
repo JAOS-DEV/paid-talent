@@ -7,7 +7,7 @@ const vitestCli = path.join(repoRoot, "node_modules", "vitest", "vitest.mjs");
 
 const child = spawn(
   process.execPath,
-  [vitestCli, "run", "src/lib/db/__tests__/docker-postgres.integration.test.ts"],
+  [vitestCli, "run", "src/lib/db/__tests__/docker-postgres.integration.test.ts", "src/lib/profile/__tests__/availability.integration.test.ts"],
   {
     cwd: repoRoot,
     stdio: "inherit",

@@ -57,7 +57,7 @@ async function insertWorker(userId: string, displayName: string) {
     .values({
       userId,
       displayName,
-      availability: "Full-time",
+      availability: ["Full-time"],
       isPublished: true,
       location: "Pattaya",
       area: "Central Pattaya",
@@ -234,7 +234,8 @@ async function main(): Promise<void> {
   );
   assert(
     "confirm hire does not change availability",
-    publishedAfterHire.availability === publishedBefore.availability
+    JSON.stringify(publishedAfterHire.availability) ===
+      JSON.stringify(publishedBefore.availability)
   );
 
   // --- reject hire ---
@@ -310,7 +311,8 @@ async function main(): Promise<void> {
   );
   assert(
     "confirm start does not change availability",
-    publishedAfterStart.availability === "Full-time"
+    JSON.stringify(publishedAfterStart.availability) ===
+      JSON.stringify(["Full-time"])
   );
 
   // --- reject start ---

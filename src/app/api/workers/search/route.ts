@@ -23,7 +23,7 @@ export interface SearchWorkerResult {
   area: string | null;
   bio: string | null;
   jobRoles: string[];
-  availability: string | null;
+  availability: string[];
   experienceYears: number | null;
   languages: string[];
   isVerified: boolean;
@@ -83,7 +83,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     if (filters.availability) {
-      conditions.push(ilike(workerProfiles.availability, `%${filters.availability}%`));
+      conditions.push(
+        sql`${workerProfiles.availability}::jsonb ? ${filters.availability}`
+      );
     }
 
     const profiles = await db
@@ -121,7 +123,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         area: profile.area,
         bio: profile.bio,
         jobRoles: (profile.jobRoles as string[]) ?? [],
-        availability: profile.availability,
+        availability: profile.availability ?? [],
         experienceYears: profile.experienceYears,
         languages: (profile.languages as string[]) ?? [],
         isVerified: profile.verificationStatus === "verified",

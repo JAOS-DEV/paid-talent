@@ -28,7 +28,7 @@ export interface PublicWorkerProfileView {
   experience: string | null;
   experienceYears: number | null;
   languages: string[];
-  availability: string | null;
+  availability: string[];
   expectedPayMin: number | null;
   expectedPayMax: number | null;
   payCurrency: string | null;
@@ -89,7 +89,7 @@ export function buildPublicWorkerProfileView(input: {
   experience: string | null;
   experienceYears: number | null;
   languages: string[] | null;
-  availability: string | null;
+  availability: string[] | null;
   expectedPayMin: number | null;
   expectedPayMax: number | null;
   payCurrency: string | null;
@@ -110,7 +110,7 @@ export function buildPublicWorkerProfileView(input: {
     experience: input.experience,
     experienceYears: input.experienceYears,
     languages: input.languages ?? [],
-    availability: input.availability,
+    availability: input.availability ?? [],
     expectedPayMin: input.expectedPayMin,
     expectedPayMax: input.expectedPayMax,
     payCurrency: input.payCurrency,

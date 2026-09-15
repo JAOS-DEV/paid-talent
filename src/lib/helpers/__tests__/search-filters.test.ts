@@ -118,7 +118,7 @@ describe("search-filters helpers", () => {
       description: "Experienced bartender in Bangkok nightlife",
       jobRoles: ["Bartender", "Server"],
       area: "Bangkok",
-      availability: "Full-time",
+      availability: ["Full-time"],
       isVerified: true,
     };
 
@@ -191,12 +191,24 @@ describe("search-filters helpers", () => {
       expect(matchesSearchCriteria(baseProfile, criteria)).toBe(false);
     });
 
-    it("should match by availability (partial, case insensitive)", () => {
+    it("should match by availability when the array contains the selected option", () => {
       const criteria: SearchFilterCriteria = {
-        availability: "full",
+        availability: "Full-time",
         verifiedOnly: false,
       };
       expect(matchesSearchCriteria(baseProfile, criteria)).toBe(true);
+    });
+
+    it("should match one availability member of a multi-value profile", () => {
+      const profile = {
+        ...baseProfile,
+        availability: ["Full-time", "Part-time", "On-call"],
+      };
+      const criteria: SearchFilterCriteria = {
+        availability: "Part-time",
+        verifiedOnly: false,
+      };
+      expect(matchesSearchCriteria(profile, criteria)).toBe(true);
     });
 
     it("should not match wrong availability", () => {
@@ -252,8 +264,8 @@ describe("search-filters helpers", () => {
       expect(matchesSearchCriteria(profile, criteria)).toBe(false);
     });
 
-    it("should handle profile with null availability", () => {
-      const profile = { ...baseProfile, availability: null };
+    it("should handle profile with empty availability", () => {
+      const profile = { ...baseProfile, availability: [] };
       const criteria: SearchFilterCriteria = {
         availability: "Full-time",
         verifiedOnly: false,

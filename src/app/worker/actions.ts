@@ -4,7 +4,6 @@ import { db, workerProfiles } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { validateProfileText } from "@/lib/helpers/text-filter";
 import { PROFILE_PHOTO_ERRORS } from "@/lib/media/profile-photo";
 import { isPersistablePublicMediaUrl } from "@/lib/media/public-url";
 import { assertOwnedPublicProfilePhotoKey } from "@/lib/storage/keys";
@@ -12,6 +11,14 @@ import {
   actionAuthError,
   requireActiveWorker,
 } from "@/lib/auth/require-active-user";
+import {
+  parseProfileBio,
+  parseProfileContact,
+  parseProfileExperience,
+  parseProfileLocation,
+  parseProfileName,
+  parseProfileRoles,
+} from "@/lib/profile/worker-profile-input";
 
 const photoSchema = z.object({
   photoKey: z.string().min(1),
@@ -23,40 +30,8 @@ const photoSchema = z.object({
     }),
 });
 
-const nameSchema = z.object({
-  displayName: z.string().min(2, "Name must be at least 2 characters"),
-});
-
-const rolesSchema = z.object({
-  jobRoles: z.array(z.string()).min(1, "Select at least one role"),
-});
-
-const experienceSchema = z.object({
-  experience: z.string().optional(),
-  experienceYears: z.coerce.number().min(0).max(50).optional(),
-});
-
 const languagesSchema = z.object({
   languages: z.array(z.string()).min(1, "Select at least one language"),
-});
-
-const bioSchema = z.object({
-  bio: z.string().min(10, "Bio must be at least 10 characters"),
-});
-
-const locationSchema = z.object({
-  location: z.string().min(2, "Location is required"),
-  area: z.string().optional(),
-  availability: z.string().min(1, "Availability is required"),
-  expectedPayMin: z.coerce.number().min(0).optional(),
-  expectedPayMax: z.coerce.number().min(0).optional(),
-  payCurrency: z.string().default("USD"),
-});
-
-const contactSchema = z.object({
-  lineId: z.string().optional(),
-  whatsappNumber: z.string().optional(),
-  phoneNumber: z.string().optional(),
 });
 
 interface ActionResult {
@@ -110,21 +85,16 @@ export async function updateProfilePhoto(
 }
 
 export async function updateProfileName(
-  data: z.infer<typeof nameSchema>
+  data: unknown
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
   if (!worker.ok) {
     return { success: false, error: worker.error };
   }
 
-  const validation = nameSchema.safeParse(data);
-  if (!validation.success) {
-    return { success: false, error: validation.error.issues[0].message };
-  }
-
-  const textError = validateProfileText(validation.data.displayName);
-  if (textError) {
-    return { success: false, error: textError.message };
+  const validation = parseProfileName(data);
+  if (!validation.ok) {
+    return { success: false, error: validation.error };
   }
 
   await db
@@ -142,16 +112,16 @@ export async function updateProfileName(
 }
 
 export async function updateProfileRoles(
-  data: z.infer<typeof rolesSchema>
+  data: unknown
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
   if (!worker.ok) {
     return { success: false, error: worker.error };
   }
 
-  const validation = rolesSchema.safeParse(data);
-  if (!validation.success) {
-    return { success: false, error: validation.error.issues[0].message };
+  const validation = parseProfileRoles(data);
+  if (!validation.ok) {
+    return { success: false, error: validation.error };
   }
 
   await db
@@ -169,30 +139,23 @@ export async function updateProfileRoles(
 }
 
 export async function updateProfileExperience(
-  data: z.infer<typeof experienceSchema>
+  data: unknown
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
   if (!worker.ok) {
     return { success: false, error: worker.error };
   }
 
-  const validation = experienceSchema.safeParse(data);
-  if (!validation.success) {
-    return { success: false, error: validation.error.issues[0].message };
-  }
-
-  if (validation.data.experience) {
-    const textError = validateProfileText(validation.data.experience);
-    if (textError) {
-      return { success: false, error: textError.message };
-    }
+  const validation = parseProfileExperience(data);
+  if (!validation.ok) {
+    return { success: false, error: validation.error };
   }
 
   await db
     .update(workerProfiles)
     .set({
-      experience: validation.data.experience ?? null,
-      experienceYears: validation.data.experienceYears ?? null,
+      experience: validation.data.experience,
+      experienceYears: validation.data.experienceYears,
       updatedAt: new Date(),
     })
     .where(eq(workerProfiles.userId, worker.userId));
@@ -231,21 +194,16 @@ export async function updateProfileLanguages(
 }
 
 export async function updateProfileBio(
-  data: z.infer<typeof bioSchema>
+  data: unknown
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
   if (!worker.ok) {
     return { success: false, error: worker.error };
   }
 
-  const validation = bioSchema.safeParse(data);
-  if (!validation.success) {
-    return { success: false, error: validation.error.issues[0].message };
-  }
-
-  const textError = validateProfileText(validation.data.bio);
-  if (textError) {
-    return { success: false, error: textError.message };
+  const validation = parseProfileBio(data);
+  if (!validation.ok) {
+    return { success: false, error: validation.error };
   }
 
   await db
@@ -263,38 +221,26 @@ export async function updateProfileBio(
 }
 
 export async function updateProfileLocation(
-  data: z.infer<typeof locationSchema>
+  data: unknown
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
   if (!worker.ok) {
     return { success: false, error: worker.error };
   }
 
-  const validation = locationSchema.safeParse(data);
-  if (!validation.success) {
-    return { success: false, error: validation.error.issues[0].message };
-  }
-
-  const locationError = validateProfileText(validation.data.location);
-  if (locationError) {
-    return { success: false, error: locationError.message };
-  }
-
-  if (validation.data.area) {
-    const areaError = validateProfileText(validation.data.area);
-    if (areaError) {
-      return { success: false, error: areaError.message };
-    }
+  const validation = parseProfileLocation(data);
+  if (!validation.ok) {
+    return { success: false, error: validation.error };
   }
 
   await db
     .update(workerProfiles)
     .set({
       location: validation.data.location,
-      area: validation.data.area ?? null,
+      area: validation.data.area,
       availability: validation.data.availability,
-      expectedPayMin: validation.data.expectedPayMin ?? null,
-      expectedPayMax: validation.data.expectedPayMax ?? null,
+      expectedPayMin: validation.data.expectedPayMin,
+      expectedPayMax: validation.data.expectedPayMax,
       payCurrency: validation.data.payCurrency,
       updatedAt: new Date(),
     })
@@ -306,25 +252,127 @@ export async function updateProfileLocation(
   return { success: true };
 }
 
-export async function updateProfileContact(
-  data: z.infer<typeof contactSchema>
+export async function updateProfileBasicInfo(
+  data: unknown
 ): Promise<ActionResult> {
   const worker = await getAuthenticatedWorker();
   if (!worker.ok) {
     return { success: false, error: worker.error };
   }
 
-  const validation = contactSchema.safeParse(data);
-  if (!validation.success) {
-    return { success: false, error: validation.error.issues[0].message };
+  const name = parseProfileName(
+    data && typeof data === "object"
+      ? { displayName: (data as { displayName?: unknown }).displayName }
+      : data
+  );
+  if (!name.ok) {
+    return { success: false, error: name.error };
+  }
+
+  const location = parseProfileLocation(data);
+  if (!location.ok) {
+    return { success: false, error: location.error };
   }
 
   await db
     .update(workerProfiles)
     .set({
-      lineId: validation.data.lineId || null,
-      whatsappNumber: validation.data.whatsappNumber || null,
-      phoneNumber: validation.data.phoneNumber || null,
+      displayName: name.data.displayName,
+      location: location.data.location,
+      area: location.data.area,
+      availability: location.data.availability,
+      expectedPayMin: location.data.expectedPayMin,
+      expectedPayMax: location.data.expectedPayMax,
+      payCurrency: location.data.payCurrency,
+      updatedAt: new Date(),
+    })
+    .where(eq(workerProfiles.userId, worker.userId));
+
+  revalidatePath("/worker/profile");
+  revalidatePath("/worker/onboarding");
+
+  return { success: true };
+}
+
+export async function updateProfileWorkDetails(
+  data: unknown
+): Promise<ActionResult> {
+  const worker = await getAuthenticatedWorker();
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
+  }
+
+  const payload =
+    data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+
+  const roles = parseProfileRoles({
+    jobRoles: payload.jobRoles,
+    customJobRole: payload.customJobRole,
+  });
+  if (!roles.ok) {
+    return { success: false, error: roles.error };
+  }
+
+  const experience = parseProfileExperience({
+    experience: payload.experience,
+    experienceYears: payload.experienceYears,
+  });
+  if (!experience.ok) {
+    return { success: false, error: experience.error };
+  }
+
+  const languages = languagesSchema.safeParse({
+    languages: payload.languages,
+  });
+  if (!languages.success) {
+    return {
+      success: false,
+      error: languages.error.issues[0]?.message ?? "Select at least one language",
+    };
+  }
+
+  const bio = parseProfileBio({ bio: payload.bio });
+  if (!bio.ok) {
+    return { success: false, error: bio.error };
+  }
+
+  await db
+    .update(workerProfiles)
+    .set({
+      jobRoles: roles.data.jobRoles,
+      experience: experience.data.experience,
+      experienceYears: experience.data.experienceYears,
+      languages: languages.data.languages,
+      bio: bio.data.bio,
+      updatedAt: new Date(),
+    })
+    .where(eq(workerProfiles.userId, worker.userId));
+
+  revalidatePath("/worker/profile");
+  revalidatePath("/worker/onboarding");
+
+  return { success: true };
+}
+
+export async function updateProfileContact(
+  data: unknown
+): Promise<ActionResult> {
+  const worker = await getAuthenticatedWorker();
+  if (!worker.ok) {
+    return { success: false, error: worker.error };
+  }
+
+  const validation = parseProfileContact(data);
+  if (!validation.ok) {
+    return { success: false, error: validation.error };
+  }
+
+  await db
+    .update(workerProfiles)
+    .set({
+      lineId: validation.data.lineId,
+      whatsappNumber: validation.data.whatsappNumber,
+      phoneNumber: validation.data.phoneNumber,
       updatedAt: new Date(),
     })
     .where(eq(workerProfiles.userId, worker.userId));

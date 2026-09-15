@@ -53,7 +53,7 @@ export interface WorkerDashboardProfile {
   photoUrl: string | null;
   displayName: string;
   location: string | null;
-  availability: string | null;
+  availability: string[];
   bio: string | null;
   jobRoles: string[] | null;
   experience: string | null;

@@ -43,7 +43,7 @@ const SEED_USERS: {
     area: string;
     description: string;
     bio: string;
-    availability: string;
+    availability: string[];
     expectedPayMin: number;
     expectedPayMax: number;
     jobRoles: string[];
@@ -66,7 +66,7 @@ const SEED_USERS: {
       area: "Central Pattaya",
       description: "Experienced bartender with 5 years in hospitality",
       bio: "Passionate about mixology and customer service. Fluent in English and Thai.",
-      availability: "Full-time",
+      availability: ["Full-time"],
       expectedPayMin: 15000,
       expectedPayMax: 25000,
       jobRoles: ["Bartender", "Server"],
@@ -86,7 +86,7 @@ const SEED_USERS: {
       area: "Sukhumvit",
       description: "Professional hostess with luxury hotel experience",
       bio: "Previously worked at 5-star hotels. Multilingual with excellent presentation skills.",
-      availability: "Full-time",
+      availability: ["Full-time"],
       expectedPayMin: 20000,
       expectedPayMax: 35000,
       jobRoles: ["Hostess", "Receptionist"],
@@ -106,7 +106,7 @@ const SEED_USERS: {
       area: "Jomtien",
       description: "DJ and event host with 8 years experience",
       bio: "International DJ with residencies across Asia. Available for events and permanent positions.",
-      availability: "Part-time",
+      availability: ["Part-time"],
       expectedPayMin: 30000,
       expectedPayMax: 50000,
       jobRoles: ["DJ", "Event Host"],
@@ -126,7 +126,7 @@ const SEED_USERS: {
       area: "Silom",
       description: "Promoter and brand ambassador",
       bio: "Experienced in F&B promotions and brand activations. Strong social media presence.",
-      availability: "Full-time",
+      availability: ["Full-time"],
       expectedPayMin: 18000,
       expectedPayMax: 28000,
       jobRoles: ["Promoter", "Brand Ambassador"],
@@ -146,7 +146,7 @@ const SEED_USERS: {
       area: "Walking Street",
       description: "Security and floor manager",
       bio: "10 years in nightlife security. Trained in conflict resolution and first aid.",
-      availability: "Full-time",
+      availability: ["Full-time"],
       expectedPayMin: 22000,
       expectedPayMax: 32000,
       jobRoles: ["Security", "Floor Manager"],
@@ -166,7 +166,7 @@ const SEED_USERS: {
       area: "Thonglor",
       description: "Waitress and sommelier in training",
       bio: "2 years in fine dining. Currently pursuing WSET certification.",
-      availability: "Full-time",
+      availability: ["Full-time"],
       expectedPayMin: 16000,
       expectedPayMax: 24000,
       jobRoles: ["Server", "Sommelier"],
@@ -186,7 +186,7 @@ const SEED_USERS: {
       area: "Beach Road",
       description: "Pool attendant and lifeguard",
       bio: "Certified lifeguard with CPR training. Great with tourists.",
-      availability: "Part-time",
+      availability: ["Part-time"],
       expectedPayMin: 12000,
       expectedPayMax: 18000,
       jobRoles: ["Pool Attendant", "Lifeguard"],
@@ -206,7 +206,7 @@ const SEED_USERS: {
       area: "Asoke",
       description: "Karaoke host and entertainer",
       bio: "Professional singer with karaoke hosting experience. Energetic and engaging.",
-      availability: "Part-time",
+      availability: ["Part-time"],
       expectedPayMin: 15000,
       expectedPayMax: 25000,
       jobRoles: ["Host", "Entertainer"],

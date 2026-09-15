@@ -68,10 +68,10 @@ function createMockProfile(
     area: null,
     description: null,
     bio: null,
-    availability: null,
+    availability: [],
     expectedPayMin: null,
     expectedPayMax: null,
-    payCurrency: "USD",
+    payCurrency: "THB",
     jobRoles: [],
     experience: null,
     experienceYears: null,
@@ -228,7 +228,7 @@ describe("WorkerDashboardPage", () => {
         languages: ["English"],
         bio: "Experienced bartender",
         location: "Bangkok",
-        availability: "Full-time",
+        availability: ["Full-time"],
       }),
     });
 
@@ -251,7 +251,7 @@ describe("WorkerDashboardPage", () => {
         languages: ["English"],
         bio: "Experienced bartender",
         location: "Bangkok",
-        availability: "Full-time",
+        availability: ["Full-time"],
       }),
       stats: {
         uniqueRecruiterViewersLast30Days: 2,
@@ -346,7 +346,7 @@ describe("WorkerDashboardPage", () => {
         languages: ["English"],
         bio: "Experienced bartender",
         location: "Bangkok",
-        availability: "Full-time",
+        availability: ["Full-time"],
       }),
       stats: {
         uniqueRecruiterViewersLast30Days: 0,
@@ -410,7 +410,7 @@ describe("WorkerDashboardPage", () => {
           languages: ["English"],
           bio: "Experienced bartender",
           location: "Bangkok",
-          availability: "Full-time",
+          availability: ["Full-time"],
         }),
         stats: {
           profileViewsLast30Days: 2,

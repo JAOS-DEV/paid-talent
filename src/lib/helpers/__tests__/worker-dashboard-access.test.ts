@@ -37,10 +37,10 @@ function createMockProfile(
     area: null,
     description: null,
     bio: null,
-    availability: null,
+    availability: [],
     expectedPayMin: null,
     expectedPayMax: null,
-    payCurrency: "USD",
+    payCurrency: "THB",
     jobRoles: [],
     experience: null,
     experienceYears: null,
@@ -158,7 +158,7 @@ describe("worker dashboard access", () => {
           languages: ["English"],
           bio: "Experienced bartender",
           location: "Bangkok",
-          availability: "Full-time",
+          availability: ["Full-time"],
         })
       );
 

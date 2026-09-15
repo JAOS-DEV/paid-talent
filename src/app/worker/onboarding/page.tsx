@@ -204,7 +204,7 @@ export default function WorkerOnboardingPage(): React.ReactElement {
           <LocationStep
             initialLocation={profile?.location ?? null}
             initialArea={profile?.area ?? null}
-            initialAvailability={profile?.availability ?? null}
+            initialAvailability={profile?.availability ?? []}
             initialPayMin={profile?.expectedPayMin ?? null}
             initialPayMax={profile?.expectedPayMax ?? null}
             initialPayCurrency={profile?.payCurrency ?? null}

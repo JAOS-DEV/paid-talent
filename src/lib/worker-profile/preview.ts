@@ -42,7 +42,7 @@ export async function getOwnWorkerPreview(
     experience: profile.experience,
     experienceYears: profile.experienceYears,
     languages: profile.languages,
-    availability: profile.availability,
+    availability: profile.availability ?? [],
     expectedPayMin: profile.expectedPayMin,
     expectedPayMax: profile.expectedPayMax,
     payCurrency: profile.payCurrency,

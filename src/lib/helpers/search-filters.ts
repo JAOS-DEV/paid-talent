@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { availabilityMatchesFilter } from "@/lib/profile/availability";
 
 export const searchParamsSchema = z.object({
   query: z.string().optional(),
@@ -51,7 +52,7 @@ export interface WorkerProfile {
   description: string | null;
   jobRoles: string[];
   area: string | null;
-  availability: string | null;
+  availability: string[] | null;
   isVerified: boolean;
 }
 
@@ -93,9 +94,7 @@ export function matchesSearchCriteria(
   }
 
   if (criteria.availability) {
-    const availMatch =
-      profile.availability?.toLowerCase().includes(criteria.availability.toLowerCase()) ?? false;
-    if (!availMatch) {
+    if (!availabilityMatchesFilter(profile.availability, criteria.availability)) {
       return false;
     }
   }

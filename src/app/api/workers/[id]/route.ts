@@ -48,7 +48,7 @@ export interface WorkerProfileDetail {
   experience: string | null;
   experienceYears: number | null;
   languages: string[];
-  availability: string | null;
+  availability: string[];
   expectedPayMin: number | null;
   expectedPayMax: number | null;
   payCurrency: string | null;
@@ -168,7 +168,7 @@ export async function GET(
       experience: workerProfile.experience,
       experienceYears: workerProfile.experienceYears,
       languages: (workerProfile.languages as string[]) ?? [],
-      availability: workerProfile.availability,
+      availability: workerProfile.availability ?? [],
       expectedPayMin: workerProfile.expectedPayMin,
       expectedPayMax: workerProfile.expectedPayMax,
       payCurrency: workerProfile.payCurrency,

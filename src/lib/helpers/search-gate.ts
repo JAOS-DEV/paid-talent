@@ -1,4 +1,5 @@
 import { isSearchableWorker } from "@/lib/verification";
+import { availabilityMatchesFilter } from "@/lib/profile/availability";
 import type { WorkerProfile } from "@/lib/db/schema";
 
 export interface SearchableWorkerProfile extends WorkerProfile {
@@ -53,7 +54,10 @@ export function applyWorkerSearchFilters<T extends WorkerProfile>(
       }
     }
 
-    if (filters.availability && profile.availability !== filters.availability) {
+    if (
+      filters.availability &&
+      !availabilityMatchesFilter(profile.availability, filters.availability)
+    ) {
       return false;
     }
 

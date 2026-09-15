@@ -199,23 +199,52 @@ export function getPreviousStepId(currentStepId: string): string | null {
   return ONBOARDING_STEPS[currentIndex - 1].id;
 }
 
-export const JOB_ROLE_OPTIONS = [
-  "Bartender",
-  "Server",
-  "Host/Hostess",
-  "Barista",
-  "Cook",
-  "Chef",
-  "Dishwasher",
-  "Busser",
-  "Food Runner",
-  "Manager",
-  "Cashier",
-  "Delivery Driver",
-  "Caterer",
-  "Event Staff",
-  "Other",
-];
+export {
+  JOB_ROLE_OPTIONS,
+  OTHER_JOB_ROLE,
+  PREDEFINED_JOB_ROLES,
+  splitStoredJobRoles,
+  toPersistedJobRoles,
+  normalizeAndValidateJobRoles,
+} from "./job-roles";
+export {
+  AVAILABILITY_OPTIONS,
+  MAX_AVAILABILITY_SELECTIONS,
+  availabilityMatchesFilter,
+  hasAvailability,
+  migrateScalarAvailability,
+  normalizeAndValidateAvailability,
+  normalizeAvailability,
+} from "./availability";
+export {
+  AREA_MAX_LENGTH,
+  BIO_MAX_LENGTH,
+  BIO_MIN_LENGTH,
+  CUSTOM_JOB_ROLE_MAX_LENGTH,
+  MAX_JOB_ROLES,
+  DEFAULT_WORKER_PAY_CURRENCY,
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
+  EXPERIENCE_DESCRIPTION_MAX_LENGTH,
+  LINE_ID_MAX_LENGTH,
+  LOCATION_MAX_LENGTH,
+  PHONE_NUMBER_MAX_LENGTH,
+  WHATSAPP_MAX_LENGTH,
+  WORKER_PAY_CURRENCIES,
+  workerPayCurrencyOptions,
+} from "./limits";
+export {
+  CONTACT_CIRCUMVENTION_MESSAGE,
+  validatePublicProfileText,
+} from "./public-text";
+export {
+  parseProfileBio,
+  parseProfileContact,
+  parseProfileExperience,
+  parseProfileLocation,
+  parseProfileName,
+  parseProfileRoles,
+} from "./worker-profile-input";
 
 export const LANGUAGE_OPTIONS = [
   "English",
@@ -238,11 +267,3 @@ export const LANGUAGE_OPTIONS = [
   "Other",
 ];
 
-export const AVAILABILITY_OPTIONS = [
-  "Full-time",
-  "Part-time",
-  "Weekends only",
-  "Evenings only",
-  "Flexible",
-  "On-call",
-];

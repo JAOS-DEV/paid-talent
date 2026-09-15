@@ -153,7 +153,7 @@ export function toDashboardSafeProfile(profile: {
   photoKey: string | null;
   displayName: string;
   location: string | null;
-  availability: string | null;
+  availability: string[];
   bio: string | null;
   jobRoles: string[] | null;
   experience: string | null;
@@ -171,7 +171,7 @@ export function toDashboardSafeProfile(profile: {
     photoUrl: profile.photoUrl,
     displayName: profile.displayName,
     location: profile.location,
-    availability: profile.availability,
+    availability: profile.availability ?? [],
     bio: profile.bio,
     jobRoles: profile.jobRoles,
     experience: profile.experience,

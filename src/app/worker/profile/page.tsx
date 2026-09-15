@@ -14,21 +14,43 @@ import {
 } from "@/components/ui";
 import {
   updateProfilePhoto,
-  updateProfileName,
-  updateProfileRoles,
-  updateProfileExperience,
-  updateProfileLanguages,
-  updateProfileBio,
-  updateProfileLocation,
+  updateProfileBasicInfo,
+  updateProfileWorkDetails,
   updateProfileContact,
 } from "@/app/worker/actions";
 import {
-  JOB_ROLE_OPTIONS,
   LANGUAGE_OPTIONS,
-  AVAILABILITY_OPTIONS,
   getProfileCompleteness,
   INCOMPLETE_PROFILE_REDIRECT_THRESHOLD,
 } from "@/lib/profile";
+import {
+  splitStoredJobRoles,
+  toPersistedJobRoles,
+} from "@/lib/profile/job-roles";
+import { normalizeAvailability } from "@/lib/profile/availability";
+import {
+  AREA_MAX_LENGTH,
+  BIO_MAX_LENGTH,
+  DEFAULT_WORKER_PAY_CURRENCY,
+  DISPLAY_NAME_MAX_LENGTH,
+  EXPERIENCE_DESCRIPTION_MAX_LENGTH,
+  LINE_ID_MAX_LENGTH,
+  LOCATION_MAX_LENGTH,
+  PHONE_NUMBER_MAX_LENGTH,
+  WHATSAPP_MAX_LENGTH,
+  workerPayCurrencyOptions,
+} from "@/lib/profile/limits";
+import {
+  parseProfileBio,
+  parseProfileContact,
+  parseProfileExperience,
+  parseProfileLocation,
+  parseProfileName,
+  parseProfileRoles,
+} from "@/lib/profile/worker-profile-input";
+import { AvailabilityPicker } from "@/components/profile/AvailabilityPicker";
+import { CharacterCount } from "@/components/profile/CharacterCount";
+import { JobRolesPicker } from "@/components/profile/JobRolesPicker";
 import { VerificationStatusBanner } from "@/components/verification";
 import type { WorkerProfile } from "@/lib/db/schema";
 import {
@@ -54,20 +76,25 @@ export default function WorkerProfilePage(): React.ReactElement {
   const [saving, setSaving] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [basicError, setBasicError] = useState<string | null>(null);
+  const [workError, setWorkError] = useState<string | null>(null);
+  const [contactError, setContactError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [displayName, setDisplayName] = useState("");
   const [location, setLocation] = useState("");
   const [area, setArea] = useState("");
   const [bio, setBio] = useState("");
-  const [jobRoles, setJobRoles] = useState<string[]>([]);
+  const [predefinedRoles, setPredefinedRoles] = useState<string[]>([]);
+  const [otherRoleSelected, setOtherRoleSelected] = useState(false);
+  const [customJobRole, setCustomJobRole] = useState("");
   const [experience, setExperience] = useState("");
   const [experienceYears, setExperienceYears] = useState("");
   const [languages, setLanguages] = useState<string[]>([]);
-  const [availability, setAvailability] = useState("");
+  const [availability, setAvailability] = useState<string[]>([]);
   const [payMin, setPayMin] = useState("");
   const [payMax, setPayMax] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState(DEFAULT_WORKER_PAY_CURRENCY);
   const [lineId, setLineId] = useState("");
   const [whatsApp, setWhatsApp] = useState("");
   const [phone, setPhone] = useState("");
@@ -79,6 +106,8 @@ export default function WorkerProfilePage(): React.ReactElement {
   const [photoPendingReview, setPhotoPendingReview] = useState(false);
   const photoUploadingRef = useRef(false);
   const localPhotoPreviewUrlRef = useRef<string | null>(null);
+  const workerUserId = session?.user?.id;
+  const workerRole = session?.user?.role;
 
   useEffect(() => {
     async function fetchProfile(): Promise<void> {
@@ -103,14 +132,17 @@ export default function WorkerProfilePage(): React.ReactElement {
             setLocation(p.location || "");
             setArea(p.area || "");
             setBio(p.bio || "");
-            setJobRoles((p.jobRoles as string[]) || []);
+            const splitRoles = splitStoredJobRoles((p.jobRoles as string[]) || []);
+            setPredefinedRoles(splitRoles.predefined);
+            setOtherRoleSelected(splitRoles.otherSelected);
+            setCustomJobRole(splitRoles.customRole);
             setExperience(p.experience || "");
             setExperienceYears(p.experienceYears?.toString() || "");
             setLanguages((p.languages as string[]) || []);
-            setAvailability(p.availability || "");
+            setAvailability(normalizeAvailability(p.availability));
             setPayMin(p.expectedPayMin?.toString() || "");
             setPayMax(p.expectedPayMax?.toString() || "");
-            setCurrency(p.payCurrency || "USD");
+            setCurrency(p.payCurrency || DEFAULT_WORKER_PAY_CURRENCY);
             setLineId(p.lineId || "");
             setWhatsApp(p.whatsappNumber || "");
             setPhone(p.phoneNumber || "");
@@ -142,17 +174,17 @@ export default function WorkerProfilePage(): React.ReactElement {
       }
     }
 
-    if (!session?.user?.id) {
+    if (!workerUserId) {
       return;
     }
 
-    if (session.user.role !== "worker") {
+    if (workerRole !== "worker") {
       router.replace("/auth/signin");
       return;
     }
 
     fetchProfile();
-  }, [session, router]);
+  }, [workerUserId, workerRole, router]);
 
   useEffect(() => {
     return () => {
@@ -263,9 +295,15 @@ export default function WorkerProfilePage(): React.ReactElement {
 
   async function handleSaveBasicInfo(): Promise<void> {
     setSaving("basic");
+    setBasicError(null);
     try {
-      await updateProfileName({ displayName });
-      await updateProfileLocation({
+      const nameResult = parseProfileName({ displayName });
+      if (!nameResult.ok) {
+        setBasicError(nameResult.error);
+        return;
+      }
+
+      const locationResult = parseProfileLocation({
         location,
         area: area || undefined,
         availability,
@@ -273,9 +311,29 @@ export default function WorkerProfilePage(): React.ReactElement {
         expectedPayMax: payMax ? parseInt(payMax, 10) : undefined,
         payCurrency: currency,
       });
+      if (!locationResult.ok) {
+        setBasicError(locationResult.error);
+        return;
+      }
+
+      const saved = await updateProfileBasicInfo({
+        displayName: nameResult.data.displayName,
+        location: locationResult.data.location,
+        area: locationResult.data.area || undefined,
+        availability: locationResult.data.availability,
+        expectedPayMin: locationResult.data.expectedPayMin ?? undefined,
+        expectedPayMax: locationResult.data.expectedPayMax ?? undefined,
+        payCurrency: locationResult.data.payCurrency,
+      });
+      if (!saved.success) {
+        setBasicError(saved.error || "Failed to save basic info");
+        return;
+      }
       showSuccess("Basic info saved");
     } catch (error) {
-      console.error("Save failed:", error);
+      setBasicError(
+        error instanceof Error ? error.message : "Failed to save basic info"
+      );
     } finally {
       setSaving(null);
     }
@@ -283,19 +341,60 @@ export default function WorkerProfilePage(): React.ReactElement {
 
   async function handleSaveWorkDetails(): Promise<void> {
     setSaving("work");
+    setWorkError(null);
     try {
-      await updateProfileRoles({ jobRoles });
-      await updateProfileExperience({
+      if (otherRoleSelected && !customJobRole.trim()) {
+        setWorkError("Enter a custom role when Other is selected");
+        return;
+      }
+
+      const rolesResult = parseProfileRoles({
+        jobRoles: toPersistedJobRoles(
+          predefinedRoles,
+          otherRoleSelected,
+          customJobRole
+        ),
+        customJobRole: otherRoleSelected ? customJobRole.trim() : undefined,
+      });
+      if (!rolesResult.ok) {
+        setWorkError(rolesResult.error);
+        return;
+      }
+
+      const experienceResult = parseProfileExperience({
         experience: experience || undefined,
         experienceYears: experienceYears
           ? parseInt(experienceYears, 10)
           : undefined,
       });
-      await updateProfileLanguages({ languages });
-      await updateProfileBio({ bio });
+      if (!experienceResult.ok) {
+        setWorkError(experienceResult.error);
+        return;
+      }
+
+      const bioResult = parseProfileBio({ bio });
+      if (!bioResult.ok) {
+        setWorkError(bioResult.error);
+        return;
+      }
+
+      const saved = await updateProfileWorkDetails({
+        jobRoles: rolesResult.data.jobRoles,
+        customJobRole: otherRoleSelected ? customJobRole.trim() : undefined,
+        experience: experienceResult.data.experience || undefined,
+        experienceYears: experienceResult.data.experienceYears ?? undefined,
+        languages,
+        bio: bioResult.data.bio,
+      });
+      if (!saved.success) {
+        setWorkError(saved.error || "Failed to save work details");
+        return;
+      }
       showSuccess("Work details saved");
     } catch (error) {
-      console.error("Save failed:", error);
+      setWorkError(
+        error instanceof Error ? error.message : "Failed to save work details"
+      );
     } finally {
       setSaving(null);
     }
@@ -303,24 +402,35 @@ export default function WorkerProfilePage(): React.ReactElement {
 
   async function handleSaveContact(): Promise<void> {
     setSaving("contact");
+    setContactError(null);
     try {
-      await updateProfileContact({
+      const parsed = parseProfileContact({
         lineId: lineId || undefined,
         whatsappNumber: whatsApp || undefined,
         phoneNumber: phone || undefined,
       });
+      if (!parsed.ok) {
+        setContactError(parsed.error);
+        return;
+      }
+
+      const result = await updateProfileContact({
+        lineId: parsed.data.lineId || undefined,
+        whatsappNumber: parsed.data.whatsappNumber || undefined,
+        phoneNumber: parsed.data.phoneNumber || undefined,
+      });
+      if (!result.success) {
+        setContactError(result.error || "Failed to save contact info");
+        return;
+      }
       showSuccess("Contact info saved");
     } catch (error) {
-      console.error("Save failed:", error);
+      setContactError(
+        error instanceof Error ? error.message : "Failed to save contact info"
+      );
     } finally {
       setSaving(null);
     }
-  }
-
-  function toggleRole(role: string): void {
-    setJobRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
-    );
   }
 
   function toggleLanguage(lang: string): void {
@@ -490,45 +600,40 @@ export default function WorkerProfilePage(): React.ReactElement {
                   label="Display Name"
                   placeholder="How you want to be called"
                   value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  onChange={(e) => {
+                    setDisplayName(e.target.value);
+                    setBasicError(null);
+                  }}
+                  maxLength={DISPLAY_NAME_MAX_LENGTH}
                 />
                 <Input
                   label="Location"
                   placeholder="City, Country"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e) => {
+                    setLocation(e.target.value);
+                    setBasicError(null);
+                  }}
+                  maxLength={LOCATION_MAX_LENGTH}
                 />
                 <Input
                   label="Area"
                   placeholder="Your primary work area"
                   value={area}
-                  onChange={(e) => setArea(e.target.value)}
+                  onChange={(e) => {
+                    setArea(e.target.value);
+                    setBasicError(null);
+                  }}
+                  maxLength={AREA_MAX_LENGTH}
                 />
 
-                <div>
-                  <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-                    Availability
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {AVAILABILITY_OPTIONS.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setAvailability(option)}
-                        className={`
-                          px-3 py-1.5 rounded-full text-sm font-medium transition-colors
-                          ${
-                            availability === option
-                              ? "bg-primary-600 text-white"
-                              : "bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700"
-                          }
-                        `}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <AvailabilityPicker
+                  value={availability}
+                  onChange={(next) => {
+                    setAvailability(next);
+                    setBasicError(null);
+                  }}
+                />
 
                 <div>
                   <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
@@ -540,11 +645,11 @@ export default function WorkerProfilePage(): React.ReactElement {
                       onChange={(e) => setCurrency(e.target.value)}
                       className="px-3 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     >
-                      <option value="USD">USD</option>
-                      <option value="THB">THB</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="JPY">JPY</option>
+                      {workerPayCurrencyOptions(currency).map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
                     </select>
                     <Input
                       type="number"
@@ -563,6 +668,10 @@ export default function WorkerProfilePage(): React.ReactElement {
                     />
                   </div>
                 </div>
+
+                {basicError ? (
+                  <p className="text-error text-sm">{basicError}</p>
+                ) : null}
 
                 <div className="pt-2">
                   <Button
@@ -584,25 +693,23 @@ export default function WorkerProfilePage(): React.ReactElement {
                   <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
                     Job Roles
                   </label>
-                  <div className="flex flex-wrap gap-2">
-                    {JOB_ROLE_OPTIONS.map((role) => (
-                      <button
-                        key={role}
-                        type="button"
-                        onClick={() => toggleRole(role)}
-                        className={`
-                          px-3 py-1.5 rounded-full text-sm font-medium transition-colors
-                          ${
-                            jobRoles.includes(role)
-                              ? "bg-primary-600 text-white"
-                              : "bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700"
-                          }
-                        `}
-                      >
-                        {role}
-                      </button>
-                    ))}
-                  </div>
+                  <JobRolesPicker
+                    predefined={predefinedRoles}
+                    otherSelected={otherRoleSelected}
+                    customRole={customJobRole}
+                    onPredefinedChange={(roles) => {
+                      setPredefinedRoles(roles);
+                      setWorkError(null);
+                    }}
+                    onOtherSelectedChange={(selected) => {
+                      setOtherRoleSelected(selected);
+                      setWorkError(null);
+                    }}
+                    onCustomRoleChange={(value) => {
+                      setCustomJobRole(value);
+                      setWorkError(null);
+                    }}
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -623,8 +730,18 @@ export default function WorkerProfilePage(): React.ReactElement {
                     className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[80px]"
                     placeholder="Brief description of your work history..."
                     value={experience}
-                    onChange={(e) => setExperience(e.target.value)}
+                    maxLength={EXPERIENCE_DESCRIPTION_MAX_LENGTH}
+                    onChange={(e) => {
+                      setExperience(e.target.value);
+                      setWorkError(null);
+                    }}
                   />
+                  <div className="flex justify-end mt-1">
+                    <CharacterCount
+                      current={experience.length}
+                      max={EXPERIENCE_DESCRIPTION_MAX_LENGTH}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -660,13 +777,20 @@ export default function WorkerProfilePage(): React.ReactElement {
                     className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[100px]"
                     placeholder="Tell recruiters about yourself..."
                     value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    maxLength={500}
+                    onChange={(e) => {
+                      setBio(e.target.value);
+                      setWorkError(null);
+                    }}
+                    maxLength={BIO_MAX_LENGTH}
                   />
-                  <p className="text-charcoal-500 text-xs mt-1">
-                    {bio.length}/500 characters
-                  </p>
+                  <div className="flex justify-end mt-1">
+                    <CharacterCount current={bio.length} max={BIO_MAX_LENGTH} />
+                  </div>
                 </div>
+
+                {workError ? (
+                  <p className="text-error text-sm">{workError}</p>
+                ) : null}
 
                 <div className="pt-2">
                   <Button
@@ -692,20 +816,35 @@ export default function WorkerProfilePage(): React.ReactElement {
                   label="LINE ID"
                   placeholder="Your LINE ID (optional)"
                   value={lineId}
-                  onChange={(e) => setLineId(e.target.value)}
+                  maxLength={LINE_ID_MAX_LENGTH}
+                  onChange={(e) => {
+                    setLineId(e.target.value);
+                    setContactError(null);
+                  }}
                 />
                 <Input
                   label="WhatsApp"
                   placeholder="Your WhatsApp number (optional)"
                   value={whatsApp}
-                  onChange={(e) => setWhatsApp(e.target.value)}
+                  maxLength={WHATSAPP_MAX_LENGTH}
+                  onChange={(e) => {
+                    setWhatsApp(e.target.value);
+                    setContactError(null);
+                  }}
                 />
                 <Input
                   label="Phone"
                   placeholder="Your phone number (optional)"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  maxLength={PHONE_NUMBER_MAX_LENGTH}
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    setContactError(null);
+                  }}
                 />
+                {contactError ? (
+                  <p className="text-error text-sm">{contactError}</p>
+                ) : null}
                 <div className="pt-2">
                   <Button
                     onClick={handleSaveContact}
