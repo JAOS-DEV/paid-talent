@@ -49,6 +49,7 @@ export default function WorkerProfilePage(): React.ReactElement {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [profile, setProfile] = useState<WorkerProfile | null>(null);
+  const [hasSubmittedPhoto, setHasSubmittedPhoto] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -88,6 +89,16 @@ export default function WorkerProfilePage(): React.ReactElement {
           const p = data.profile as WorkerProfile | null;
           if (p) {
             setProfile(p);
+            setHasSubmittedPhoto(
+              Boolean(data.photoOnboarding?.hasSubmittedPhoto) ||
+                Boolean(p.photoUrl)
+            );
+            setPhotoPendingReview(
+              Boolean(data.photoOnboarding?.hasSubmittedPhoto) && !p.photoUrl
+            );
+            if (!p.photoUrl && data.photoOnboarding?.pendingPreviewUrl) {
+              setPhotoUrl(data.photoOnboarding.pendingPreviewUrl);
+            }
             setDisplayName(p.displayName || "");
             setLocation(p.location || "");
             setArea(p.area || "");
@@ -103,10 +114,17 @@ export default function WorkerProfilePage(): React.ReactElement {
             setLineId(p.lineId || "");
             setWhatsApp(p.whatsappNumber || "");
             setPhone(p.phoneNumber || "");
-            setPhotoUrl(p.photoUrl);
+            setPhotoUrl(
+              p.photoUrl ?? data.photoOnboarding?.pendingPreviewUrl ?? null
+            );
             setPhotoPreviewFailed(false);
 
-            const completeness = getProfileCompleteness(p);
+            const completeness = getProfileCompleteness({
+              ...p,
+              hasSubmittedPhoto:
+                Boolean(data.photoOnboarding?.hasSubmittedPhoto) ||
+                Boolean(p.photoUrl),
+            });
             if (
               !completeness.isComplete &&
               completeness.progress < INCOMPLETE_PROFILE_REDIRECT_THRESHOLD
@@ -319,7 +337,9 @@ export default function WorkerProfilePage(): React.ReactElement {
     );
   }
 
-  const completeness = getProfileCompleteness(profile);
+  const completeness = getProfileCompleteness(
+    profile ? { ...profile, hasSubmittedPhoto } : null
+  );
   const verificationStatus = profile?.verificationStatus || "unverified";
   const isPublished = profile?.isPublished || false;
 
@@ -339,6 +359,9 @@ export default function WorkerProfilePage(): React.ReactElement {
             <VerificationStatusBanner
               status={verificationStatus}
               isPublished={isPublished}
+              hasApprovedPrimaryPhoto={Boolean(
+                profile?.photoKey && profile?.photoUrl
+              )}
               userId={session.user.id}
             />
           </div>
@@ -423,6 +446,9 @@ export default function WorkerProfilePage(): React.ReactElement {
                     ) : null}
                     <p className="text-charcoal-500 text-xs mt-2">
                       JPG, PNG or WebP. Max 10MB.
+                    </p>
+                    <p className="text-charcoal-500 text-xs mt-1">
+                      {PHOTO_POLICY_COPY.rules}
                     </p>
                     {photoPreviewFailed && photoUrl ? (
                       <p className="text-charcoal-300 text-sm mt-2">

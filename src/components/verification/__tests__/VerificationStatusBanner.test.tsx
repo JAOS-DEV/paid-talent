@@ -23,6 +23,7 @@ describe("VerificationStatusBanner", () => {
       <VerificationStatusBanner
         status="verified"
         isPublished
+        hasApprovedPrimaryPhoto
         userId="worker-1"
       />
     );
@@ -46,6 +47,7 @@ describe("VerificationStatusBanner", () => {
       <VerificationStatusBanner
         status="verified"
         isPublished
+        hasApprovedPrimaryPhoto
         userId="worker-2"
       />
     );
@@ -83,10 +85,27 @@ describe("VerificationStatusBanner", () => {
       <VerificationStatusBanner
         status="verified"
         isPublished={false}
+        hasApprovedPrimaryPhoto
         userId="worker-1"
       />
     );
     expect(screen.getByText("Profile Not Published")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /dismiss verified banner/i })).not.toBeInTheDocument();
+  });
+
+  it("shows photo awaiting approval when identity is verified first", () => {
+    render(
+      <VerificationStatusBanner
+        status="verified"
+        isPublished
+        hasApprovedPrimaryPhoto={false}
+        userId="worker-1"
+      />
+    );
+
+    expect(
+      screen.getByText("Identity verified — profile photo awaiting approval.")
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("verified-live-banner")).not.toBeInTheDocument();
   });
 });

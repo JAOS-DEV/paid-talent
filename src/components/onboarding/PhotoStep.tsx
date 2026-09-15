@@ -18,11 +18,13 @@ import { PHOTO_POLICY_COPY } from "@/lib/moderation/photo-policy";
 
 interface PhotoStepProps {
   initialPhotoUrl: string | null;
+  initialPendingReview?: boolean;
   onComplete: () => void;
 }
 
 export function PhotoStep({
   initialPhotoUrl,
+  initialPendingReview = false,
   onComplete,
 }: PhotoStepProps): React.ReactElement {
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl);
@@ -31,7 +33,7 @@ export function PhotoStep({
     useState<ProfilePhotoUploadStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
-  const [pendingReview, setPendingReview] = useState(false);
+  const [pendingReview, setPendingReview] = useState(initialPendingReview);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadingRef = useRef(false);
   const localPreviewUrlRef = useRef<string | null>(null);
@@ -191,6 +193,9 @@ export function PhotoStep({
 
         <p className="text-charcoal-500 text-xs mt-2">
           JPG, PNG or WebP. Max 10MB. Photos are resized on your device.
+        </p>
+        <p className="text-charcoal-500 text-xs mt-1 text-center">
+          {PHOTO_POLICY_COPY.rules}
         </p>
 
         {previewFailed && photoUrl ? (

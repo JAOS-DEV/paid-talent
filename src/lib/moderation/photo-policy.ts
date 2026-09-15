@@ -19,12 +19,19 @@ export const GALLERY_UNVERIFIED_REASON =
 export const PHOTO_POLICY_COPY = {
   helper:
     "Add a clear photo so venues recognise you. Face visible preferred.",
-  rules: "No nudes. Lingerie OK — we'll review before it goes live.",
-  pending:
-    "Photo under review — your profile stays visible with your previous photo until approved.",
+  rules: "No nudes. We'll review each photo before it goes live.",
+  pending: "This photo will appear on your profile after it is approved.",
   rejected:
     "This photo didn't meet our guidelines. Try a clear, face-forward shot without nudity.",
+  primaryLocked:
+    "Make another photo primary before removing this one.",
 } as const;
+
+/**
+ * Current MVP publication mode. Analyzer results are advisory only and must
+ * never approve, reject, or publish a profile photo.
+ */
+export const PHOTO_MODERATION_PUBLICATION_MODE = "manual" as const;
 
 export type PhotoContentCategory =
   | "explicit_nudity"
@@ -113,6 +120,23 @@ export function applyPhotoPolicy(
     reason: "Content meets guidelines",
     requiresReview: false,
   };
+}
+
+export function decidePhotoSubmission(
+  analysis: PhotoAnalysisResult
+): PhotoPolicyDecision {
+  const advisory = applyPhotoPolicy(analysis);
+
+  if (PHOTO_MODERATION_PUBLICATION_MODE === "manual") {
+    return {
+      action: "quarantine",
+      status: "pending",
+      reason: advisory.reason,
+      requiresReview: true,
+    };
+  }
+
+  return advisory;
 }
 
 export interface PhotoLimitCheck {

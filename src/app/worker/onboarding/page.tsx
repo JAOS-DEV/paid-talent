@@ -28,10 +28,19 @@ import {
 } from "@/lib/helpers/worker-dashboard-access";
 import type { WorkerProfile } from "@/lib/db/schema";
 
+interface PhotoOnboardingState {
+  hasSubmittedPhoto: boolean;
+  pendingPreviewUrl: string | null;
+}
+
 export default function WorkerOnboardingPage(): React.ReactElement {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [profile, setProfile] = useState<WorkerProfile | null>(null);
+  const [photoOnboarding, setPhotoOnboarding] = useState<PhotoOnboardingState>({
+    hasSubmittedPhoto: false,
+    pendingPreviewUrl: null,
+  });
   const [currentStep, setCurrentStep] = useState<string>("photo");
   const [loading, setLoading] = useState(true);
 
@@ -42,8 +51,24 @@ export default function WorkerOnboardingPage(): React.ReactElement {
         if (res.ok) {
           const data = await res.json();
           setProfile(data.profile);
+          setPhotoOnboarding({
+            hasSubmittedPhoto: Boolean(
+              data.profile?.hasSubmittedPhoto ||
+                data.photoOnboarding?.hasSubmittedPhoto
+            ),
+            pendingPreviewUrl: data.photoOnboarding?.pendingPreviewUrl ?? null,
+          });
 
-          const completeness = getProfileCompleteness(data.profile);
+          const completeness = getProfileCompleteness(
+            data.profile
+              ? {
+                  ...data.profile,
+                  hasSubmittedPhoto: Boolean(
+                    data.photoOnboarding?.hasSubmittedPhoto
+                  ),
+                }
+              : null
+          );
 
           const loadAction = resolveOnboardingAfterProfileLoad(completeness);
           if (loadAction.action === "redirect-to-dashboard") {
@@ -76,6 +101,13 @@ export default function WorkerOnboardingPage(): React.ReactElement {
     if (res.ok) {
       const data = await res.json();
       setProfile(data.profile);
+      setPhotoOnboarding({
+        hasSubmittedPhoto: Boolean(
+          data.profile?.hasSubmittedPhoto ||
+            data.photoOnboarding?.hasSubmittedPhoto
+        ),
+        pendingPreviewUrl: data.photoOnboarding?.pendingPreviewUrl ?? null,
+      });
     }
 
     const nextStep = getNextStepId(currentStep);
@@ -114,7 +146,15 @@ export default function WorkerOnboardingPage(): React.ReactElement {
       case "photo":
         return (
           <PhotoStep
-            initialPhotoUrl={profile?.photoUrl ?? null}
+            initialPhotoUrl={
+              profile?.photoUrl ??
+              (typeof photoOnboarding?.pendingPreviewUrl === "string"
+                ? photoOnboarding.pendingPreviewUrl
+                : null)
+            }
+            initialPendingReview={
+              !profile?.photoUrl && Boolean(photoOnboarding?.hasSubmittedPhoto)
+            }
             onComplete={handleStepComplete}
           />
         );

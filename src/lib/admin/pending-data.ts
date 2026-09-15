@@ -20,6 +20,7 @@ export interface PendingPhotoItem {
   moderationConfidence: number | null;
   moderationCategories: string[] | null;
   createdAt: Date;
+  submissionKind: "primary" | "gallery";
   worker: {
     displayName: string;
     email: string | null;
@@ -161,6 +162,8 @@ export async function listPendingPhotosForAdmin(options?: {
       createdAt: profilePhotos.createdAt,
       workerDisplayName: workerProfiles.displayName,
       workerEmail: users.email,
+      workerPhotoKey: workerProfiles.photoKey,
+      workerPhotoUrl: workerProfiles.photoUrl,
     })
     .from(profilePhotos)
     .innerJoin(
@@ -203,6 +206,9 @@ export async function listPendingPhotosForAdmin(options?: {
         moderationConfidence: photo.moderationConfidence,
         moderationCategories: photo.moderationCategories as string[] | null,
         createdAt: photo.createdAt,
+        submissionKind: (photo.workerPhotoKey && photo.workerPhotoUrl
+          ? "gallery"
+          : "primary") as PendingPhotoItem["submissionKind"],
         worker: {
           displayName: photo.workerDisplayName,
           email: photo.workerEmail,

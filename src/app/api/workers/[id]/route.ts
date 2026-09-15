@@ -16,6 +16,7 @@ import {
 } from "@/lib/helpers/contact-visibility";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 import { getApprovedPhotosForWorker } from "@/lib/moderation";
+import { isSearchableWorker } from "@/lib/verification";
 import {
   mapApprovedPhotosToPublic,
   type PublicWorkerPhoto,
@@ -104,6 +105,13 @@ export async function GET(
     }
 
     const workerProfile = profile.profile;
+    const searchability = isSearchableWorker(workerProfile);
+    if (!searchability.isSearchable) {
+      return NextResponse.json(
+        { error: "Worker profile not found" },
+        { status: 404 }
+      );
+    }
 
     await recordProfileView(workerProfile.id, actor.user.userId);
 
@@ -143,12 +151,14 @@ export async function GET(
 
     const approvedPhotos = await getApprovedPhotosForWorker(workerProfile.id);
     const photos = mapApprovedPhotosToPublic(approvedPhotos);
+    const primary =
+      photos.find((item) => item.isCurrentApproved) ?? photos[0] ?? null;
 
     const result: WorkerProfileDetail = {
       id: workerProfile.id,
       userId: workerProfile.userId,
       displayName: workerProfile.displayName,
-      photoUrl: workerProfile.photoUrl,
+      photoUrl: primary?.photoUrl ?? null,
       photos,
       location: workerProfile.location,
       area: workerProfile.area,

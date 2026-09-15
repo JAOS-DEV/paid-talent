@@ -133,6 +133,7 @@ export async function getWorkerReceivedInterests(
 
 export function toDashboardSafeProfile(profile: {
   photoUrl: string | null;
+  photoKey: string | null;
   displayName: string;
   location: string | null;
   availability: string | null;
@@ -147,6 +148,7 @@ export function toDashboardSafeProfile(profile: {
   isPublished: boolean;
   isVerified: boolean;
   verificationStatus: WorkerDashboardProfile["verificationStatus"];
+  hasSubmittedPhoto: boolean;
 }): WorkerDashboardProfile {
   return {
     photoUrl: profile.photoUrl,
@@ -164,6 +166,8 @@ export function toDashboardSafeProfile(profile: {
     isPublished: profile.isPublished,
     isVerified: profile.isVerified,
     verificationStatus: profile.verificationStatus,
+    hasSubmittedPhoto: profile.hasSubmittedPhoto,
+    hasApprovedPrimaryPhoto: Boolean(profile.photoKey && profile.photoUrl),
   };
 }
 
@@ -209,6 +213,7 @@ export async function getWorkerDashboardData(
   const [profile] = await db
     .select({
       photoUrl: workerProfiles.photoUrl,
+      photoKey: workerProfiles.photoKey,
       displayName: workerProfiles.displayName,
       location: workerProfiles.location,
       availability: workerProfiles.availability,
@@ -239,6 +244,7 @@ export async function getWorkerDashboardData(
       photoSlots: emptyPhotoSlots(false),
       verificationStatus: "unverified",
       isPublished: false,
+      hasApprovedPrimaryPhoto: false,
     };
   }
 
@@ -260,7 +266,13 @@ export async function getWorkerDashboardData(
   ]);
 
   return {
-    profile: toDashboardSafeProfile(profile),
+    profile: toDashboardSafeProfile({
+      ...profile,
+      hasSubmittedPhoto:
+        Boolean(profile.photoUrl) ||
+        photoCounts.approved > 0 ||
+        photoCounts.pending > 0,
+    }),
     stats: toDashboardStats(viewStats, interestReceivedCount),
     recentInterests,
     interestReceivedCount,
@@ -278,5 +290,6 @@ export async function getWorkerDashboardData(
     }),
     verificationStatus: profile.verificationStatus,
     isPublished: profile.isPublished,
+    hasApprovedPrimaryPhoto: Boolean(profile.photoKey && profile.photoUrl),
   };
 }

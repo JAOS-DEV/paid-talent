@@ -23,6 +23,7 @@ import {
   getSignedIdDocumentUrl,
   getSignedLivenessVideoUrl,
   getSignedPhotoStagingUrlForAdmin,
+  getSignedPhotoStagingUrlForOwner,
 } from "@/lib/storage/s3";
 import {
   getIdDocumentUploadTarget,
@@ -331,6 +332,16 @@ describe("two-bucket storage security", () => {
         "profile-photo-staging/user-1/photo.jpeg"
       )
     ).rejects.toThrow("Not allowed to access private verification media");
+  });
+
+  it("does not let another worker obtain an owner pending-photo preview", async () => {
+    stubSeparatedBuckets();
+    await expect(
+      getSignedPhotoStagingUrlForOwner(
+        "user-2",
+        "profile-photo-staging/user-1/photo.jpeg"
+      )
+    ).rejects.toThrow("PHOTO_STAGING_KEY_NOT_OWNED");
   });
 
   it("scopes photo staging preview away from identity objects", async () => {

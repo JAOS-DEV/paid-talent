@@ -14,6 +14,7 @@ export interface PendingPhoto {
   moderationConfidence: number | null;
   moderationCategories: string[] | null;
   createdAt: string;
+  submissionKind?: "primary" | "gallery";
   worker: {
     displayName: string;
     email: string | null;
@@ -156,6 +157,12 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
               <Badge variant="warning">pending</Badge>
             </div>
             <p className="text-sm text-charcoal-300">
+              <span className="text-charcoal-500">Submission: </span>
+              {photo.submissionKind === "gallery"
+                ? "Gallery photo"
+                : "Primary submission"}
+            </p>
+            <p className="text-sm text-charcoal-300">
               <span className="text-charcoal-500">Reason: </span>
               {photo.moderationReason || "—"}
             </p>
@@ -169,6 +176,12 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
                 ? photo.moderationCategories.join(", ")
                 : "—"}
             </p>
+            {photo.moderationCategories?.includes("explicit_nudity") ? (
+              <p className="text-sm text-yellow-300">
+                Analyzer flagged explicit content. This is advisory only — approve
+                or reject manually.
+              </p>
+            ) : null}
             <p className="text-sm text-charcoal-500">
               Uploaded {formatDate(photo.createdAt)}
             </p>

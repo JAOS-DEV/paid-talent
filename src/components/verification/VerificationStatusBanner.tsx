@@ -13,17 +13,33 @@ import {
 interface VerificationStatusBannerProps {
   status: VerificationStatus;
   isPublished: boolean;
+  hasApprovedPrimaryPhoto?: boolean;
   userId?: string;
   onStartVerification?: () => void;
 }
 
-function getStatusConfig(status: VerificationStatus, isPublished: boolean) {
-  if (status === "verified" && isPublished) {
+function getStatusConfig(
+  status: VerificationStatus,
+  isPublished: boolean,
+  hasApprovedPrimaryPhoto: boolean
+) {
+  if (status === "verified" && isPublished && hasApprovedPrimaryPhoto) {
     return {
       type: "success" as const,
       icon: CheckCircleIcon,
       title: "Profile Live & Verified",
       description: "Your profile is visible to recruiters and your identity has been verified.",
+      showAction: false,
+    };
+  }
+
+  if (status === "verified" && !hasApprovedPrimaryPhoto) {
+    return {
+      type: "warning" as const,
+      icon: AlertIcon,
+      title: "Identity verified — profile photo awaiting approval.",
+      description:
+        "Your identity is verified. Your profile will appear to recruiters after your profile photo is approved.",
       showAction: false,
     };
   }
@@ -153,9 +169,14 @@ const typeStyles = {
 export function VerificationStatusBanner({
   status,
   isPublished,
+  hasApprovedPrimaryPhoto = false,
   userId,
 }: VerificationStatusBannerProps): React.ReactElement {
-  const isSuccess = isVerifiedLiveSuccessState(status, isPublished);
+  const isSuccess = isVerifiedLiveSuccessState(
+    status,
+    isPublished,
+    hasApprovedPrimaryPhoto
+  );
   const [dismissedThisSession, setDismissedThisSession] = useState(false);
   const storedDismissed = useSyncExternalStore(
     subscribeBannerStorage,
@@ -183,7 +204,7 @@ export function VerificationStatusBanner({
     );
   }
 
-  const config = getStatusConfig(status, isPublished);
+  const config = getStatusConfig(status, isPublished, hasApprovedPrimaryPhoto);
   const styles = typeStyles[config.type];
   const Icon = config.icon;
 

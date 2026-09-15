@@ -34,11 +34,15 @@ export interface SearchableWorkerResult {
     | "not_verified"
     | "not_published"
     | "pending_verification"
-    | "rejected";
+    | "rejected"
+    | "photo_pending";
 }
 
 export function isSearchableWorker(
-  profile: Pick<WorkerProfile, "verificationStatus" | "isPublished"> | null
+  profile: Pick<
+    WorkerProfile,
+    "verificationStatus" | "isPublished" | "photoKey" | "photoUrl"
+  > | null
 ): SearchableWorkerResult {
   if (!profile) {
     return {
@@ -55,6 +59,13 @@ export function isSearchableWorker(
   }
 
   if (profile.verificationStatus === "verified") {
+    if (!profile.photoKey || !profile.photoUrl) {
+      return {
+        isSearchable: false,
+        reason: "photo_pending",
+      };
+    }
+
     return {
       isSearchable: true,
       reason: "verified",

@@ -4,6 +4,7 @@ import { PhotoStep } from "../PhotoStep";
 import { updateProfilePhoto } from "@/app/worker/actions";
 import { uploadProfilePhoto } from "@/lib/media/upload-profile-photo";
 import { PROFILE_PHOTO_ERRORS } from "@/lib/media/profile-photo";
+import { PHOTO_POLICY_COPY } from "@/lib/moderation/photo-policy";
 
 vi.mock("@/app/worker/actions", () => ({
   updateProfilePhoto: vi.fn(),
@@ -139,24 +140,30 @@ describe("PhotoStep upload feedback", () => {
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
   });
 
-  it("shows Photo under review for a pending upload and does not persist a public URL", async () => {
+  it("shows pending review, local preview, and Continue without a public URL", async () => {
     mockedUpload.mockResolvedValue({
       status: "pending",
       photoKey: null,
       publicUrl: null,
-      message: "Photo under review — your profile stays visible with your previous photo until approved.",
+      message: PHOTO_POLICY_COPY.pending,
     });
 
-    render(<PhotoStep initialPhotoUrl={null} onComplete={() => undefined} />);
+    const onComplete = vi.fn();
+    render(<PhotoStep initialPhotoUrl={null} onComplete={onComplete} />);
     selectPhoto();
 
     expect(
-      await screen.findByText(/Photo under review/)
+      await screen.findByText(PHOTO_POLICY_COPY.pending)
     ).toBeInTheDocument();
+    expect(screen.getByText(PHOTO_POLICY_COPY.rules)).toBeInTheDocument();
+    expect(PHOTO_POLICY_COPY.rules).not.toMatch(/Lingerie/i);
     expect(mockedPersist).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
     expect(screen.getByAltText("Profile").getAttribute("src")).toMatch(
       /^blob:/
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(onComplete).toHaveBeenCalledTimes(1);
   });
 });

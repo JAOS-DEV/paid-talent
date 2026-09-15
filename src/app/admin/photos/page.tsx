@@ -27,8 +27,8 @@ export default async function AdminPhotosPage(): Promise<React.ReactElement> {
           Photo moderation
         </h1>
         <p className="text-charcoal-400 mt-1">
-          Review quarantined profile photos. Safe and explicit cases are already
-          handled automatically by policy.
+          Review every submitted profile photo. Photos stay private until you
+          approve them.
         </p>
       </div>
       <PhotoQueue initialPhotos={serializePhotos(photos)} />

@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   applyPhotoPolicy,
+  decidePhotoSubmission,
   checkPhotoLimits,
   MAX_PROFILE_PHOTOS,
   MAX_PENDING_PHOTOS,
   PHOTO_POLICY_COPY,
+  PHOTO_MODERATION_PUBLICATION_MODE,
   type PhotoAnalysisResult,
 } from "../photo-policy";
 
@@ -319,13 +321,13 @@ describe("photo-policy", () => {
 
     it("should have designer-specified copy for rules", () => {
       expect(PHOTO_POLICY_COPY.rules).toBe(
-        "No nudes. Lingerie OK — we'll review before it goes live."
+        "No nudes. We'll review each photo before it goes live."
       );
     });
 
     it("should have designer-specified copy for pending", () => {
       expect(PHOTO_POLICY_COPY.pending).toBe(
-        "Photo under review — your profile stays visible with your previous photo until approved."
+        "This photo will appear on your profile after it is approved."
       );
     });
 
@@ -343,6 +345,28 @@ describe("photo-policy", () => {
 
     it("should have MAX_PENDING_PHOTOS set to 1", () => {
       expect(MAX_PENDING_PHOTOS).toBe(1);
+    });
+  });
+
+  describe("decidePhotoSubmission", () => {
+    it("never auto-approves safe high-confidence photos in manual mode", () => {
+      expect(PHOTO_MODERATION_PUBLICATION_MODE).toBe("manual");
+      const decision = decidePhotoSubmission({
+        categories: ["safe"],
+        confidence: 0.99,
+      });
+      expect(decision.status).toBe("pending");
+      expect(decision.requiresReview).toBe(true);
+      expect(decision.action).toBe("quarantine");
+    });
+
+    it("never auto-rejects explicit photos in manual mode", () => {
+      const decision = decidePhotoSubmission({
+        categories: ["explicit_nudity"],
+        confidence: 0.99,
+      });
+      expect(decision.status).toBe("pending");
+      expect(decision.requiresReview).toBe(true);
     });
   });
 });

@@ -11,16 +11,23 @@ import {
 import { uploadProfilePhoto } from "@/lib/media/upload-profile-photo";
 import { checkPhotoLimits, PHOTO_POLICY_COPY } from "@/lib/moderation/photo-policy";
 import type { WorkerOwnedPhoto } from "@/lib/worker-dashboard";
+import { PhotoStatusPill } from "@/components/media/PhotoStatusPill";
 
 interface ProfilePhotoGalleryManagerProps {
   isVerified: boolean;
 }
 
-function statusLabel(photo: WorkerOwnedPhoto): string {
-  if (photo.isCurrentApproved) return "Primary";
-  if (photo.moderationStatus === "pending") return "Pending review";
-  if (photo.moderationStatus === "rejected") return "Rejected";
-  return "Approved";
+function thumbnailUrl(photo: WorkerOwnedPhoto): string | null {
+  return photo.photoUrl ?? photo.previewUrl;
+}
+
+function sortForDisplay(photos: WorkerOwnedPhoto[]): WorkerOwnedPhoto[] {
+  return [...photos].sort((left, right) => {
+    if (left.isCurrentApproved !== right.isCurrentApproved) {
+      return left.isCurrentApproved ? -1 : 1;
+    }
+    return left.displayOrder - right.displayOrder;
+  });
 }
 
 export function ProfilePhotoGalleryManager({
@@ -43,7 +50,7 @@ export function ProfilePhotoGalleryManager({
       return;
     }
     const data = (await response.json()) as { photos?: WorkerOwnedPhoto[] };
-    setPhotos(data.photos ?? []);
+    setPhotos(sortForDisplay(data.photos ?? []));
     setError(null);
     setLoading(false);
   }, []);
@@ -60,7 +67,7 @@ export function ProfilePhotoGalleryManager({
       }
       const data = (await response.json()) as { photos?: WorkerOwnedPhoto[] };
       if (cancelled) return;
-      setPhotos(data.photos ?? []);
+      setPhotos(sortForDisplay(data.photos ?? []));
       setError(null);
       setLoading(false);
     }
@@ -83,6 +90,7 @@ export function ProfilePhotoGalleryManager({
     isVerified,
   });
   const canAdd = galleryLimit.canUpload && !uploading;
+  const canChoosePrimary = approvedCount > 1;
 
   async function handleUpload(
     event: React.ChangeEvent<HTMLInputElement>
@@ -146,6 +154,23 @@ export function ProfilePhotoGalleryManager({
     await loadPhotos();
   }
 
+  async function handleMakePrimary(photoId: string): Promise<void> {
+    setError(null);
+    const response = await fetch(`/api/worker/photos/${photoId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "makePrimary" }),
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setError(body?.error ?? "Failed to set primary photo");
+      return;
+    }
+    await loadPhotos();
+  }
+
   const additionalApproved = photos.filter(
     (photo) =>
       photo.moderationStatus === "approved" && !photo.isCurrentApproved
@@ -194,6 +219,7 @@ export function ProfilePhotoGalleryManager({
             : ""}. New photos stay private until they are approved.
         </p>
       )}
+      <p className="text-sm text-charcoal-400 mb-4">{PHOTO_POLICY_COPY.rules}</p>
 
       {uploadStage ? (
         <p className="text-charcoal-300 text-sm mb-3" aria-live="polite">
@@ -214,16 +240,23 @@ export function ProfilePhotoGalleryManager({
             const siblingIndex = additionalApproved.findIndex(
               (item) => item.id === photo.id
             );
+            const thumb = thumbnailUrl(photo);
+            const supportingCopy =
+              photo.moderationStatus === "rejected" && photo.moderationReason
+                ? photo.moderationReason
+                : photo.moderationStatus === "pending"
+                  ? PHOTO_POLICY_COPY.pending
+                  : PHOTO_POLICY_COPY.rules;
             return (
               <li
                 key={photo.id}
                 className="flex items-start gap-3 rounded-xl border border-charcoal-700 p-3 min-w-0"
               >
                 <div className="w-16 h-16 rounded-lg overflow-hidden bg-charcoal-800 flex-shrink-0">
-                  {photo.photoUrl ? (
+                  {thumb ? (
                     // eslint-disable-next-line @next/next/no-img-element -- CDN/R2 URLs are not next/image remotePatterns
                     <img
-                      src={photo.photoUrl}
+                      src={thumb}
                       alt=""
                       className="w-full h-full object-cover"
                     />
@@ -236,20 +269,33 @@ export function ProfilePhotoGalleryManager({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-charcoal-100 font-medium">
-                    {statusLabel(photo)}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <PhotoStatusPill photo={photo} />
+                  </div>
+                  <p
+                    className={`text-xs mt-1 break-words ${
+                      photo.moderationStatus === "rejected"
+                        ? "text-red-300"
+                        : "text-charcoal-500"
+                    }`}
+                  >
+                    {supportingCopy}
                   </p>
-                  {photo.moderationStatus === "rejected" &&
-                  photo.moderationReason ? (
-                    <p className="text-xs text-red-300 mt-1 break-words">
-                      {photo.moderationReason}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-charcoal-500 mt-1">
-                      {PHOTO_POLICY_COPY.rules}
-                    </p>
-                  )}
                   <div className="flex flex-wrap gap-2 mt-2">
+                    {canChoosePrimary &&
+                    photo.moderationStatus === "approved" &&
+                    !photo.isCurrentApproved ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-11"
+                        onClick={() => {
+                          void handleMakePrimary(photo.id);
+                        }}
+                      >
+                        Make primary
+                      </Button>
+                    ) : null}
                     {canMove && siblingIndex > 0 ? (
                       <Button
                         variant="ghost"
@@ -274,7 +320,7 @@ export function ProfilePhotoGalleryManager({
                         Move down
                       </Button>
                     ) : null}
-                    {!photo.isCurrentApproved ? (
+                    {photo.isCurrentApproved ? null : (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -285,7 +331,7 @@ export function ProfilePhotoGalleryManager({
                       >
                         Remove
                       </Button>
-                    ) : null}
+                    )}
                   </div>
                 </div>
                 <span className="sr-only">Photo {index + 1}</span>

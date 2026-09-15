@@ -56,6 +56,7 @@ describe("worker dashboard metrics helpers", () => {
   it("omits private verification storage fields from the dashboard profile DTO", () => {
     const profile = toDashboardSafeProfile({
       photoUrl: "https://cdn.example/a.jpg",
+      photoKey: "profiles/ada/a.jpg",
       displayName: "Ada",
       location: "Bangkok",
       availability: "Full-time",
@@ -70,6 +71,7 @@ describe("worker dashboard metrics helpers", () => {
       isPublished: true,
       isVerified: true,
       verificationStatus: "verified",
+      hasSubmittedPhoto: true,
     });
 
     expect(profile).not.toHaveProperty("idDocumentKey");
@@ -80,6 +82,14 @@ describe("worker dashboard metrics helpers", () => {
     expect(profile).not.toHaveProperty("verificationReviewedAt");
     expect(profile).not.toHaveProperty("verificationReviewedBy");
     expect(profile).not.toHaveProperty("photoKey");
+  });
+
+  it("does not return stagingKey from the worker media confirm response", () => {
+    const source = readFileSync(
+      path.join(process.cwd(), "src/app/api/media/upload/route.ts"),
+      "utf8"
+    );
+    expect(source).not.toContain("stagingKey: key");
   });
 
   it("does not select private verification fields in the dashboard query", () => {
