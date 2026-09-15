@@ -12,6 +12,8 @@ describe("availability", () => {
     expect(migrateScalarAvailability("")).toEqual([]);
     expect(migrateScalarAvailability("   ")).toEqual([]);
     expect(migrateScalarAvailability("Full-time")).toEqual(["Full-time"]);
+    expect(migrateScalarAvailability("Part-time")).toEqual(["Part-time"]);
+    expect(migrateScalarAvailability('["Full-time"]')).toEqual(['["Full-time"]']);
   });
 
   it("accepts multiple supported options and deduplicates them", () => {

@@ -105,6 +105,8 @@ export default function WorkerProfilePage(): React.ReactElement {
   const [photoPendingReview, setPhotoPendingReview] = useState(false);
   const photoUploadingRef = useRef(false);
   const localPhotoPreviewUrlRef = useRef<string | null>(null);
+  const workerUserId = session?.user?.id;
+  const workerRole = session?.user?.role;
 
   useEffect(() => {
     async function fetchProfile(): Promise<void> {
@@ -154,17 +156,17 @@ export default function WorkerProfilePage(): React.ReactElement {
       }
     }
 
-    if (!session?.user?.id) {
+    if (!workerUserId) {
       return;
     }
 
-    if (session.user.role !== "worker") {
+    if (workerRole !== "worker") {
       router.replace("/auth/signin");
       return;
     }
 
     fetchProfile();
-  }, [session, router]);
+  }, [workerUserId, workerRole, router]);
 
   useEffect(() => {
     return () => {
