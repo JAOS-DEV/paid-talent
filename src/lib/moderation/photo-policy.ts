@@ -1,7 +1,15 @@
 import type { PhotoModerationStatus } from "@/lib/db/schema";
 
 export const MAX_PROFILE_PHOTOS = 5;
+/** Conservative cap for competing PRIMARY verification-photo submissions. */
 export const MAX_PENDING_PHOTOS = 1;
+
+export function occupiedPhotoSlotCount(
+  approvedCount: number,
+  pendingCount: number
+): number {
+  return Math.max(0, approvedCount) + Math.max(0, pendingCount);
+}
 
 export type PhotoUploadPurpose = "primary" | "gallery";
 
@@ -136,7 +144,7 @@ export function checkPhotoLimits(
     };
   }
 
-  if (pendingCount >= MAX_PENDING_PHOTOS) {
+  if (purpose === "primary" && pendingCount >= MAX_PENDING_PHOTOS) {
     return {
       canUpload: false,
       reason: PHOTO_POLICY_COPY.pending,
@@ -145,7 +153,7 @@ export function checkPhotoLimits(
     };
   }
 
-  const slotCount = approvedCount + pendingCount;
+  const slotCount = occupiedPhotoSlotCount(approvedCount, pendingCount);
   if (slotCount >= MAX_PROFILE_PHOTOS || approvedCount >= MAX_PROFILE_PHOTOS) {
     return {
       canUpload: false,

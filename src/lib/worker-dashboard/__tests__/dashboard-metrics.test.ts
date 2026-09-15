@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "fs";
+import path from "path";
 import {
   buildPhotoSlots,
   emptyDashboardStats,
   profileViewWindowStart,
+  toDashboardSafeProfile,
   toDashboardStats,
   toSlotCount,
 } from "../index";
@@ -29,7 +32,7 @@ describe("worker dashboard metrics helpers", () => {
     expect(stats.interestReceivedCount).toBe(2);
   });
 
-  it("does not count rejected photos toward gallery slots", () => {
+    it("does not count rejected photos toward gallery slots", () => {
     expect(toSlotCount(2, 1)).toBe(3);
     const slots = buildPhotoSlots({
       approvedCount: 2,
@@ -38,7 +41,7 @@ describe("worker dashboard metrics helpers", () => {
     });
     expect(slots.slotCount).toBe(3);
     expect(slots.remainingSlots).toBe(2);
-    expect(slots.canAddGalleryPhoto).toBe(false);
+    expect(slots.canAddGalleryPhoto).toBe(true);
   });
 
   it("starts empty stats at zero instead of fabricating counts", () => {
@@ -48,5 +51,45 @@ describe("worker dashboard metrics helpers", () => {
       uniqueRecruiterViewersLast30Days: 0,
       interestReceivedCount: 0,
     });
+  });
+
+  it("omits private verification storage fields from the dashboard profile DTO", () => {
+    const profile = toDashboardSafeProfile({
+      photoUrl: "https://cdn.example/a.jpg",
+      displayName: "Ada",
+      location: "Bangkok",
+      availability: "Full-time",
+      bio: "Bartender",
+      jobRoles: ["Bartender"],
+      experience: null,
+      experienceYears: 3,
+      languages: ["English"],
+      lineId: null,
+      whatsappNumber: null,
+      phoneNumber: null,
+      isPublished: true,
+      isVerified: true,
+      verificationStatus: "verified",
+    });
+
+    expect(profile).not.toHaveProperty("idDocumentKey");
+    expect(profile).not.toHaveProperty("livenessVideoKey");
+    expect(profile).not.toHaveProperty("challengeCode");
+    expect(profile).not.toHaveProperty("challengeIssuedAt");
+    expect(profile).not.toHaveProperty("idDocumentSubmittedAt");
+    expect(profile).not.toHaveProperty("verificationReviewedAt");
+    expect(profile).not.toHaveProperty("verificationReviewedBy");
+    expect(profile).not.toHaveProperty("photoKey");
+  });
+
+  it("does not select private verification fields in the dashboard query", () => {
+    const source = readFileSync(
+      path.join(process.cwd(), "src/lib/worker-dashboard/queries.ts"),
+      "utf8"
+    );
+    expect(source).not.toContain("idDocumentKey");
+    expect(source).not.toContain("livenessVideoKey");
+    expect(source).not.toContain("challengeCode");
+    expect(source).not.toContain("verificationReviewedBy");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,9 +33,41 @@ export default function WorkerDashboardPage(): React.ReactElement {
   const router = useRouter();
   const [dashboard, setDashboard] = useState<WorkerDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const dashboardLoadGeneration = useRef(0);
   const workerUserId = session?.user?.id;
   const workerRole = session?.user?.role;
+
+  const loadDashboard = useCallback(async (generation: number): Promise<void> => {
+    try {
+      const res = await fetch("/api/worker/dashboard");
+      if (generation !== dashboardLoadGeneration.current) {
+        return;
+      }
+      if (!res.ok) {
+        setDashboard(null);
+        setLoadError(true);
+        return;
+      }
+      const data = (await res.json()) as WorkerDashboardData;
+      if (generation !== dashboardLoadGeneration.current) {
+        return;
+      }
+      setDashboard(data);
+      setLoadError(false);
+    } catch (error) {
+      console.error("Failed to fetch dashboard:", error);
+      if (generation !== dashboardLoadGeneration.current) {
+        return;
+      }
+      setDashboard(null);
+      setLoadError(true);
+    } finally {
+      if (generation === dashboardLoadGeneration.current) {
+        setLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!workerUserId) {
@@ -48,29 +80,15 @@ export default function WorkerDashboardPage(): React.ReactElement {
     }
 
     const generation = ++dashboardLoadGeneration.current;
+    void loadDashboard(generation);
+  }, [workerUserId, workerRole, router, loadDashboard]);
 
-    async function fetchDashboard(): Promise<void> {
-      try {
-        const res = await fetch("/api/worker/dashboard");
-        if (!res.ok || generation !== dashboardLoadGeneration.current) {
-          return;
-        }
-        const data = (await res.json()) as WorkerDashboardData;
-        if (generation !== dashboardLoadGeneration.current) {
-          return;
-        }
-        setDashboard(data);
-      } catch (error) {
-        console.error("Failed to fetch dashboard:", error);
-      } finally {
-        if (generation === dashboardLoadGeneration.current) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void fetchDashboard();
-  }, [workerUserId, workerRole, router]);
+  function handleRetry(): void {
+    const generation = ++dashboardLoadGeneration.current;
+    setLoading(true);
+    setLoadError(false);
+    void loadDashboard(generation);
+  }
 
   if (status === "loading" || !session) {
     return (
@@ -89,8 +107,14 @@ export default function WorkerDashboardPage(): React.ReactElement {
   }
 
   const profile = dashboard?.profile ?? null;
-  const completeness = getProfileCompleteness(profile);
-  const profileAction = getWorkerDashboardProfileAction(completeness);
+  const completeness = dashboard ? getProfileCompleteness(profile) : null;
+  const profileAction = completeness
+    ? getWorkerDashboardProfileAction(completeness)
+    : {
+        href: "/worker/profile",
+        label: "Edit Profile" as const,
+        showIncompleteTips: false,
+      };
   const verificationStatus =
     dashboard?.verificationStatus || profile?.verificationStatus || "unverified";
   const isPublished = dashboard?.isPublished || profile?.isPublished || false;
@@ -151,13 +175,13 @@ export default function WorkerDashboardPage(): React.ReactElement {
           <div className="mb-6">
             {loading && !dashboard ? (
               <div className="h-20 rounded-lg bg-charcoal-800 animate-pulse" />
-            ) : (
+            ) : dashboard ? (
               <VerificationStatusBanner
                 status={verificationStatus}
                 isPublished={isPublished}
                 userId={session.user.id}
               />
-            )}
+            ) : null}
           </div>
 
           {showPhotoCta ? (
@@ -191,7 +215,36 @@ export default function WorkerDashboardPage(): React.ReactElement {
                 <StatSkeleton />
                 <StatSkeleton />
               </>
-            ) : (
+            ) : loadError ? (
+              <Card padding="lg" className="md:col-span-2 lg:col-span-3">
+                <CardContent>
+                  <div data-testid="dashboard-load-error">
+                    <p className="text-charcoal-100 font-medium">
+                      We couldn&apos;t load your dashboard activity.
+                    </p>
+                    <p className="text-charcoal-400 text-sm mt-1">
+                      Your profile is unchanged. Try again to see views and
+                      interest.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                      <Button onClick={handleRetry}>
+                        Retry
+                      </Button>
+                      <Link href="/worker/profile">
+                        <Button variant="outline" className="w-full sm:w-auto">
+                          Edit Profile
+                        </Button>
+                      </Link>
+                      <Link href="/worker/profile/preview">
+                        <Button variant="outline" className="w-full sm:w-auto">
+                          View Profile
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : dashboard && completeness && stats ? (
               <>
                 <Card padding="lg">
                   <CardHeader>
@@ -247,13 +300,13 @@ export default function WorkerDashboardPage(): React.ReactElement {
                       className="text-4xl font-bold text-primary-400 mb-2"
                       data-testid="profile-views-count"
                     >
-                      {stats?.uniqueRecruiterViewersLast30Days ?? 0}
+                      {stats.uniqueRecruiterViewersLast30Days}
                     </div>
                     <p className="text-charcoal-400 text-sm">
                       Unique recruiters in the last 30 days
                     </p>
                     <div className="mt-4 text-sm text-charcoal-500">
-                      {stats && stats.profileViewEventsLast30Days > 0
+                      {stats.profileViewEventsLast30Days > 0
                         ? `${stats.profileViewEventsLast30Days} total view${stats.profileViewEventsLast30Days === 1 ? "" : "s"} in this window`
                         : completeness.isComplete
                           ? "Share your profile to get more views"
@@ -271,7 +324,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
                       className="text-4xl font-bold text-primary-400 mb-2"
                       data-testid="interest-received-count"
                     >
-                      {stats?.interestReceivedCount ?? 0}
+                      {stats.interestReceivedCount}
                     </div>
                     <p className="text-charcoal-400 text-sm">
                       Recruiters interested in you
@@ -282,7 +335,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
                   </CardContent>
                 </Card>
               </>
-            )}
+            ) : null}
           </div>
 
           {recentInterests.length > 0 ? (
@@ -330,7 +383,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
             </div>
           ) : null}
 
-          {profileAction.showIncompleteTips && (
+          {profileAction.showIncompleteTips && completeness ? (
             <div className="mt-8">
               <Card padding="lg">
                 <CardHeader>
@@ -367,7 +420,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
                 </CardContent>
               </Card>
             </div>
-          )}
+          ) : null}
         </div>
       </main>
 

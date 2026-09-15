@@ -280,6 +280,27 @@ describe("photo-policy", () => {
 
       expect(result.canUpload).toBe(false);
     });
+
+    it("allows four extra gallery submissions after one approved primary", () => {
+      expect(
+        checkPhotoLimits(1, 0, { purpose: "gallery", isVerified: true }).canUpload
+      ).toBe(true);
+      expect(
+        checkPhotoLimits(1, 3, { purpose: "gallery", isVerified: true }).canUpload
+      ).toBe(true);
+      expect(
+        checkPhotoLimits(1, 4, { purpose: "gallery", isVerified: true }).canUpload
+      ).toBe(false);
+    });
+
+    it("keeps the primary pending cap at one competing submission", () => {
+      const result = checkPhotoLimits(1, MAX_PENDING_PHOTOS, {
+        purpose: "primary",
+      });
+
+      expect(result.canUpload).toBe(false);
+      expect(result.reason).toBe(PHOTO_POLICY_COPY.pending);
+    });
   });
 
   describe("PHOTO_POLICY_COPY", () => {

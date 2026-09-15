@@ -31,6 +31,7 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
   let canUploadPhoto: typeof import("../../moderation/photo-moderation").canUploadPhoto;
   let getApprovedPhotosForWorker: typeof import("../../moderation/photo-moderation").getApprovedPhotosForWorker;
   let deletePhoto: typeof import("../../moderation/photo-moderation").deletePhoto;
+  let insertProfilePhotoWithSlotLock: typeof import("../../moderation/photo-moderation").insertProfilePhotoWithSlotLock;
   let checkPhotoLimits: typeof import("../../moderation/photo-policy").checkPhotoLimits;
 
   let workerAId = "";
@@ -63,6 +64,7 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
       canUploadPhoto,
       getApprovedPhotosForWorker,
       deletePhoto,
+      insertProfilePhotoWithSlotLock,
     } = await import("../../moderation/photo-moderation"));
     ({ checkPhotoLimits } = await import("../../moderation/photo-policy"));
 
@@ -185,6 +187,10 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
     expect(first.stats.interestReceivedCount).toBe(1);
     expect(first.recentInterests[0]?.venueName).toBe("Sky Bar");
     expect(first.recentInterests[0]?.message).toBe("Loved your profile");
+    expect(first.profile).not.toHaveProperty("idDocumentKey");
+    expect(first.profile).not.toHaveProperty("livenessVideoKey");
+    expect(first.profile).not.toHaveProperty("challengeCode");
+    expect(first.profile).not.toHaveProperty("verificationReviewedBy");
 
     const second = await getWorkerDashboardData(workerAId);
     expect(second.stats).toEqual(first.stats);
@@ -246,8 +252,11 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
     });
     expect(unverifiedGallery.canUpload).toBe(false);
 
-    const pendingBlocked = await canUploadPhoto(workerAProfileId, "gallery");
-    expect(pendingBlocked.canUpload).toBe(false);
+    const pendingGalleryAllowed = await canUploadPhoto(workerAProfileId, "gallery");
+    expect(pendingGalleryAllowed.canUpload).toBe(true);
+
+    const primaryWhilePending = await canUploadPhoto(workerAProfileId, "primary");
+    expect(primaryWhilePending.canUpload).toBe(false);
 
     await db
       .delete(profilePhotos)
@@ -329,5 +338,70 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
 
     const replaced = await deletePhoto(rejectedInsert[0].id, workerAId);
     expect(replaced.success).toBe(true);
+  });
+
+  it("serializes concurrent gallery submissions against the last remaining slot", async () => {
+    await db.delete(profilePhotos).where(eq(profilePhotos.workerProfileId, workerAProfileId));
+
+    await db.insert(profilePhotos).values(
+      Array.from({ length: 4 }, (_, index) => ({
+        userId: workerAId,
+        workerProfileId: workerAProfileId,
+        photoKey: `profiles/${workerAId}/slot-${index}.jpg`,
+        photoUrl: `https://cdn.example/slot-${index}.jpg`,
+        moderationStatus: "approved" as const,
+        displayOrder: index,
+        isCurrentApproved: index === 0,
+      }))
+    );
+
+    const results = await Promise.all([
+      insertProfilePhotoWithSlotLock({
+        userId: workerAId,
+        workerProfileId: workerAProfileId,
+        purpose: "gallery",
+        moderationReason: "test",
+        moderationConfidence: 90,
+        moderationCategories: ["safe"],
+        buildRow: async () => ({
+          stagingKey: `staging/${workerAId}/race-a.jpg`,
+          photoKey: null,
+          photoUrl: null,
+          moderationStatus: "pending",
+        }),
+      }),
+      insertProfilePhotoWithSlotLock({
+        userId: workerAId,
+        workerProfileId: workerAProfileId,
+        purpose: "gallery",
+        moderationReason: "test",
+        moderationConfidence: 90,
+        moderationCategories: ["safe"],
+        buildRow: async () => ({
+          stagingKey: `staging/${workerAId}/race-b.jpg`,
+          photoKey: null,
+          photoUrl: null,
+          moderationStatus: "pending",
+        }),
+      }),
+    ]);
+
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect(results.filter((result) => !result.success)).toHaveLength(1);
+
+    const [{ occupied }] = await db
+      .select({
+        occupied: sql<number>`count(*)::int`,
+      })
+      .from(profilePhotos)
+      .where(
+        and(
+          eq(profilePhotos.workerProfileId, workerAProfileId),
+          sql`${profilePhotos.moderationStatus} in ('approved', 'pending')`
+        )
+      );
+
+    expect(Number(occupied)).toBeLessThanOrEqual(5);
+    expect(Number(occupied)).toBe(5);
   });
 });

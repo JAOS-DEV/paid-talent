@@ -14,7 +14,7 @@ import {
   resolveVenueName,
 } from "@/lib/hire-outcomes/confirmations";
 import { getPhotoCountsForWorker } from "@/lib/moderation/photo-moderation";
-import { MAX_PROFILE_PHOTOS } from "@/lib/moderation/photo-policy";
+import { checkPhotoLimits, MAX_PROFILE_PHOTOS } from "@/lib/moderation/photo-policy";
 import {
   DASHBOARD_RECENT_INTEREST_LIMIT,
   emptyDashboardStats,
@@ -23,6 +23,7 @@ import {
   toSlotCount,
   type WorkerDashboardData,
   type WorkerDashboardPhotoSlots,
+  type WorkerDashboardProfile,
   type WorkerDashboardRecentInterest,
   type WorkerDashboardStats,
   type WorkerDashboardViewStats,
@@ -130,6 +131,42 @@ export async function getWorkerReceivedInterests(
   }));
 }
 
+export function toDashboardSafeProfile(profile: {
+  photoUrl: string | null;
+  displayName: string;
+  location: string | null;
+  availability: string | null;
+  bio: string | null;
+  jobRoles: string[] | null;
+  experience: string | null;
+  experienceYears: number | null;
+  languages: string[] | null;
+  lineId: string | null;
+  whatsappNumber: string | null;
+  phoneNumber: string | null;
+  isPublished: boolean;
+  isVerified: boolean;
+  verificationStatus: WorkerDashboardProfile["verificationStatus"];
+}): WorkerDashboardProfile {
+  return {
+    photoUrl: profile.photoUrl,
+    displayName: profile.displayName,
+    location: profile.location,
+    availability: profile.availability,
+    bio: profile.bio,
+    jobRoles: profile.jobRoles,
+    experience: profile.experience,
+    experienceYears: profile.experienceYears,
+    languages: profile.languages,
+    lineId: profile.lineId,
+    whatsappNumber: profile.whatsappNumber,
+    phoneNumber: profile.phoneNumber,
+    isPublished: profile.isPublished,
+    isVerified: profile.isVerified,
+    verificationStatus: profile.verificationStatus,
+  };
+}
+
 export function buildPhotoSlots(input: {
   approvedCount: number;
   pendingCount: number;
@@ -139,6 +176,10 @@ export function buildPhotoSlots(input: {
   const pendingCount = toCount(input.pendingCount);
   const slotCount = toSlotCount(approvedCount, pendingCount);
   const remainingSlots = Math.max(0, MAX_PROFILE_PHOTOS - slotCount);
+  const galleryLimit = checkPhotoLimits(approvedCount, pendingCount, {
+    purpose: "gallery",
+    isVerified: input.isVerified,
+  });
 
   return {
     approvedCount,
@@ -146,7 +187,7 @@ export function buildPhotoSlots(input: {
     slotCount,
     maxSlots: MAX_PROFILE_PHOTOS,
     remainingSlots,
-    canAddGalleryPhoto: input.isVerified && remainingSlots > 0 && pendingCount < 1,
+    canAddGalleryPhoto: galleryLimit.canUpload,
   };
 }
 
@@ -166,7 +207,24 @@ export async function getWorkerDashboardData(
   workerUserId: string
 ): Promise<WorkerDashboardData> {
   const [profile] = await db
-    .select()
+    .select({
+      photoUrl: workerProfiles.photoUrl,
+      displayName: workerProfiles.displayName,
+      location: workerProfiles.location,
+      availability: workerProfiles.availability,
+      bio: workerProfiles.bio,
+      jobRoles: workerProfiles.jobRoles,
+      experience: workerProfiles.experience,
+      experienceYears: workerProfiles.experienceYears,
+      languages: workerProfiles.languages,
+      lineId: workerProfiles.lineId,
+      whatsappNumber: workerProfiles.whatsappNumber,
+      phoneNumber: workerProfiles.phoneNumber,
+      isPublished: workerProfiles.isPublished,
+      isVerified: workerProfiles.isVerified,
+      verificationStatus: workerProfiles.verificationStatus,
+      profileId: workerProfiles.id,
+    })
     .from(workerProfiles)
     .where(eq(workerProfiles.userId, workerUserId))
     .limit(1);
@@ -194,15 +252,15 @@ export async function getWorkerDashboardData(
     pendingConfirmations,
     photoCounts,
   ] = await Promise.all([
-    getWorkerProfileViewStats(profile.id, workerUserId),
-    getWorkerInterestReceivedCount(profile.id),
-    getWorkerReceivedInterests(profile.id),
+    getWorkerProfileViewStats(profile.profileId, workerUserId),
+    getWorkerInterestReceivedCount(profile.profileId),
+    getWorkerReceivedInterests(profile.profileId),
     getPendingConfirmationRequestsForWorker(workerUserId),
-    getPhotoCountsForWorker(profile.id),
+    getPhotoCountsForWorker(profile.profileId),
   ]);
 
   return {
-    profile,
+    profile: toDashboardSafeProfile(profile),
     stats: toDashboardStats(viewStats, interestReceivedCount),
     recentInterests,
     interestReceivedCount,

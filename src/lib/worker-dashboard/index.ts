@@ -4,6 +4,7 @@ export {
   getWorkerProfileViewStats,
   getWorkerReceivedInterests,
   buildPhotoSlots,
+  toDashboardSafeProfile,
   toDashboardStats,
 } from "./queries";
 export {
@@ -18,6 +19,7 @@ export type {
   WorkerDashboardData,
   WorkerDashboardPhotoSlots,
   WorkerDashboardPendingConfirmation,
+  WorkerDashboardProfile,
   WorkerDashboardRecentInterest,
   WorkerDashboardStats,
   WorkerDashboardViewStats,

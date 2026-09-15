@@ -1,6 +1,6 @@
 import { db, profilePhotos, workerProfiles } from "@/lib/db";
 import type { PhotoModerationStatus, ProfilePhoto } from "@/lib/db/schema";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, sql } from "drizzle-orm";
 import {
   createModerationStagingSignedGet,
   deleteFile,
@@ -100,6 +100,108 @@ export async function canUploadPhoto(
   });
 }
 
+export interface InsertProfilePhotoSlotInput {
+  userId: string;
+  workerProfileId: string;
+  purpose: PhotoUploadPurpose;
+  moderationReason: string | null;
+  moderationConfidence: number | null;
+  moderationCategories: string[] | null;
+  buildRow: (limitCheck: PhotoLimitCheck) => Promise<{
+    stagingKey: string | null;
+    photoKey: string | null;
+    photoUrl: string | null;
+    moderationStatus: PhotoModerationStatus;
+  }>;
+}
+
+export async function insertProfilePhotoWithSlotLock(
+  input: InsertProfilePhotoSlotInput
+): Promise<
+  | { success: true; photo: ProfilePhoto; limitCheck: PhotoLimitCheck }
+  | { success: false; error: string; userMessage?: string }
+> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`SELECT 1 FROM worker_profiles WHERE id = ${input.workerProfileId} FOR UPDATE`
+    );
+
+    const [profile] = await tx
+      .select({
+        isVerified: workerProfiles.isVerified,
+        verificationStatus: workerProfiles.verificationStatus,
+      })
+      .from(workerProfiles)
+      .where(eq(workerProfiles.id, input.workerProfileId))
+      .limit(1);
+
+    if (!profile) {
+      return {
+        success: false,
+        error: "profile_not_found",
+        userMessage: "Worker profile not found",
+      };
+    }
+
+    const [approvedResult] = await tx
+      .select({ count: count() })
+      .from(profilePhotos)
+      .where(
+        and(
+          eq(profilePhotos.workerProfileId, input.workerProfileId),
+          eq(profilePhotos.moderationStatus, "approved")
+        )
+      );
+
+    const [pendingResult] = await tx
+      .select({ count: count() })
+      .from(profilePhotos)
+      .where(
+        and(
+          eq(profilePhotos.workerProfileId, input.workerProfileId),
+          eq(profilePhotos.moderationStatus, "pending")
+        )
+      );
+
+    const limitCheck = checkPhotoLimits(
+      approvedResult?.count ?? 0,
+      pendingResult?.count ?? 0,
+      {
+        isVerified: isWorkerIdentityVerified(profile),
+        purpose: input.purpose,
+      }
+    );
+
+    if (!limitCheck.canUpload) {
+      return {
+        success: false,
+        error: "upload_limit_reached",
+        userMessage: limitCheck.reason,
+      };
+    }
+
+    const row = await input.buildRow(limitCheck);
+
+    const [photo] = await tx
+      .insert(profilePhotos)
+      .values({
+        userId: input.userId,
+        workerProfileId: input.workerProfileId,
+        stagingKey: row.stagingKey,
+        photoKey: row.photoKey,
+        photoUrl: row.photoUrl,
+        moderationStatus: row.moderationStatus,
+        moderationReason: input.moderationReason,
+        moderationConfidence: input.moderationConfidence,
+        moderationCategories: input.moderationCategories,
+        displayOrder: limitCheck.currentApprovedCount,
+      })
+      .returning();
+
+    return { success: true, photo, limitCheck };
+  });
+}
+
 async function analyzePrivateStagingPhoto(
   stagingKey: string
 ): Promise<Awaited<ReturnType<typeof analyzeProfilePhoto>>> {
@@ -180,83 +282,86 @@ export async function submitPhotoForModeration(
   assertOwnedPhotoStagingKey(userId, stagingKey);
 
   const purpose = options.purpose ?? "primary";
-  const limitCheck = await canUploadPhoto(workerProfileId, purpose);
-
-  if (!limitCheck.canUpload) {
-    return {
-      success: false,
-      error: "upload_limit_reached",
-      userMessage: limitCheck.reason,
-    };
-  }
-
   const analysis = await analyzePrivateStagingPhoto(stagingKey);
   const decision = applyPhotoPolicy(analysis);
 
-  let promoted: { photoKey: string; photoUrl: string } | null = null;
-  if (decision.status === "approved") {
-    try {
-      promoted = await maybePromoteApprovedStaging({
-        userId,
+  const inserted = await insertProfilePhotoWithSlotLock({
+    userId,
+    workerProfileId,
+    purpose,
+    moderationReason: decision.reason,
+    moderationConfidence: Math.round(analysis.confidence * 100),
+    moderationCategories: analysis.categories,
+    buildRow: async () => {
+      let promoted: { photoKey: string; photoUrl: string } | null = null;
+      if (decision.status === "approved") {
+        try {
+          promoted = await maybePromoteApprovedStaging({
+            userId,
+            stagingKey,
+            status: decision.status,
+          });
+        } catch {
+          promoted = null;
+        }
+      }
+
+      if (decision.status === "rejected") {
+        await deleteStagingObjectQuietly(stagingKey);
+      }
+
+      const persistence = persistenceForModerationDecision(
+        decision.status,
         stagingKey,
-        status: decision.status,
-      });
-    } catch {
-      promoted = null;
-    }
+        promoted
+      );
+
+      return {
+        stagingKey: persistence.stagingKey,
+        photoKey: persistence.photoKey,
+        photoUrl: persistence.photoUrl,
+        moderationStatus: persistence.moderationStatus,
+      };
+    },
+  });
+
+  if (!inserted.success) {
+    return {
+      success: false,
+      error: inserted.error,
+      userMessage: inserted.userMessage,
+    };
   }
 
-  if (decision.status === "rejected") {
-    await deleteStagingObjectQuietly(stagingKey);
+  if (
+    inserted.photo.moderationStatus === "approved" &&
+    purpose !== "gallery"
+  ) {
+    await markFirstApprovedAsCurrent(workerProfileId, inserted.photo);
   }
 
-  const persistence = persistenceForModerationDecision(
-    decision.status,
-    stagingKey,
-    promoted
-  );
-
-  const [photo] = await db
-    .insert(profilePhotos)
-    .values({
-      userId,
-      workerProfileId,
-      stagingKey: persistence.stagingKey,
-      photoKey: persistence.photoKey,
-      photoUrl: persistence.photoUrl,
-      moderationStatus: persistence.moderationStatus,
-      moderationReason: decision.reason,
-      moderationConfidence: Math.round(analysis.confidence * 100),
-      moderationCategories: analysis.categories,
-      displayOrder: limitCheck.currentApprovedCount,
-    })
-    .returning();
-
-  if (persistence.moderationStatus === "approved" && purpose !== "gallery") {
-    await markFirstApprovedAsCurrent(workerProfileId, photo);
-  }
-
-  const userMessage = getUserMessage(persistence.moderationStatus);
+  const userMessage = getUserMessage(inserted.photo.moderationStatus);
 
   return {
     success: true,
-    photoId: photo.id,
-    status: persistence.moderationStatus,
+    photoId: inserted.photo.id,
+    status: inserted.photo.moderationStatus,
     decision: {
       ...decision,
-      status: persistence.moderationStatus,
+      status: inserted.photo.moderationStatus,
       action:
-        persistence.moderationStatus === "pending" && decision.status === "approved"
+        inserted.photo.moderationStatus === "pending" &&
+        decision.status === "approved"
           ? "quarantine"
           : decision.action,
       requiresReview:
-        persistence.moderationStatus === "pending"
+        inserted.photo.moderationStatus === "pending"
           ? true
           : decision.requiresReview,
     },
     userMessage,
-    photoKey: persistence.photoKey,
-    photoUrl: persistence.photoUrl,
+    photoKey: inserted.photo.photoKey,
+    photoUrl: inserted.photo.photoUrl,
   };
 }
 

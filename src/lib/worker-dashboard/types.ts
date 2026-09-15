@@ -2,9 +2,11 @@ import type {
   HireConfirmationRequestedStatus,
   PhotoModerationStatus,
   VerificationStatus,
-  WorkerProfile,
 } from "@/lib/db/schema";
-import { MAX_PROFILE_PHOTOS } from "@/lib/moderation/photo-policy";
+import {
+  MAX_PROFILE_PHOTOS,
+  occupiedPhotoSlotCount,
+} from "@/lib/moderation/photo-policy";
 
 export const PROFILE_VIEW_WINDOW_DAYS = 30;
 export const DASHBOARD_RECENT_INTEREST_LIMIT = 5;
@@ -47,8 +49,26 @@ export interface WorkerDashboardStats {
   interestReceivedCount: number;
 }
 
+export interface WorkerDashboardProfile {
+  photoUrl: string | null;
+  displayName: string;
+  location: string | null;
+  availability: string | null;
+  bio: string | null;
+  jobRoles: string[] | null;
+  experience: string | null;
+  experienceYears: number | null;
+  languages: string[] | null;
+  lineId: string | null;
+  whatsappNumber: string | null;
+  phoneNumber: string | null;
+  isPublished: boolean;
+  isVerified: boolean;
+  verificationStatus: VerificationStatus;
+}
+
 export interface WorkerDashboardData {
-  profile: WorkerProfile | null;
+  profile: WorkerDashboardProfile | null;
   stats: WorkerDashboardStats;
   recentInterests: WorkerDashboardRecentInterest[];
   interestReceivedCount: number;
@@ -97,5 +117,5 @@ export function profileViewWindowStart(now: Date = new Date()): Date {
 }
 
 export function toSlotCount(approvedCount: number, pendingCount: number): number {
-  return Math.max(0, approvedCount) + Math.max(0, pendingCount);
+  return occupiedPhotoSlotCount(approvedCount, pendingCount);
 }

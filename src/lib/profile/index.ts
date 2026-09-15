@@ -2,10 +2,26 @@ import type { WorkerProfile } from "@/lib/db/schema";
 
 export const INCOMPLETE_PROFILE_REDIRECT_THRESHOLD = 30;
 
+export type ProfileCompletenessSource = Pick<
+  WorkerProfile,
+  | "photoUrl"
+  | "displayName"
+  | "jobRoles"
+  | "experience"
+  | "experienceYears"
+  | "languages"
+  | "bio"
+  | "location"
+  | "availability"
+  | "lineId"
+  | "whatsappNumber"
+  | "phoneNumber"
+>;
+
 type FieldSpec =
-  | keyof WorkerProfile
-  | { any: (keyof WorkerProfile)[] }
-  | { all: (keyof WorkerProfile)[] };
+  | keyof ProfileCompletenessSource
+  | { any: (keyof ProfileCompletenessSource)[] }
+  | { all: (keyof ProfileCompletenessSource)[] };
 
 export interface OnboardingStep {
   id: string;
@@ -82,8 +98,8 @@ export interface ProfileCompleteness {
 }
 
 function isSingleFieldComplete(
-  profile: WorkerProfile,
-  field: keyof WorkerProfile
+  profile: ProfileCompletenessSource,
+  field: keyof ProfileCompletenessSource
 ): boolean {
   const value = profile[field];
   if (value === null || value === undefined) return false;
@@ -92,7 +108,10 @@ function isSingleFieldComplete(
   return true;
 }
 
-function isFieldComplete(profile: WorkerProfile, field: FieldSpec): boolean {
+function isFieldComplete(
+  profile: ProfileCompletenessSource,
+  field: FieldSpec
+): boolean {
   if (typeof field === "string") {
     return isSingleFieldComplete(profile, field);
   }
@@ -109,7 +128,7 @@ function isFieldComplete(profile: WorkerProfile, field: FieldSpec): boolean {
 }
 
 export function getProfileCompleteness(
-  profile: WorkerProfile | null
+  profile: ProfileCompletenessSource | null
 ): ProfileCompleteness {
   if (!profile) {
     return {

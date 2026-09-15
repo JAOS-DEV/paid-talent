@@ -332,6 +332,128 @@ describe("WorkerDashboardPage", () => {
     });
   });
 
+  it("renders genuine zero stats from a successful dashboard response", async () => {
+    mockWorkerSession();
+    mockDashboardFetches({
+      profile: createMockProfile({
+        photoUrl: "https://example.com/photo.jpg",
+        displayName: "Ada",
+        jobRoles: ["Bartender"],
+        experienceYears: 3,
+        languages: ["English"],
+        bio: "Experienced bartender",
+        location: "Bangkok",
+        availability: "Full-time",
+      }),
+      stats: {
+        uniqueRecruiterViewersLast30Days: 0,
+        profileViewEventsLast30Days: 0,
+        interestReceivedCount: 0,
+      },
+    });
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByTestId("profile-views-count")).toHaveTextContent("0");
+    expect(screen.getByTestId("interest-received-count")).toHaveTextContent("0");
+    expect(screen.queryByTestId("dashboard-load-error")).not.toBeInTheDocument();
+  });
+
+  it("shows an error instead of fake zero stats when the dashboard API fails", async () => {
+    mockWorkerSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: "Failed to fetch dashboard" }),
+      })
+    );
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByTestId("dashboard-load-error")).toHaveTextContent(
+      /couldn't load your dashboard activity/i
+    );
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByTestId("profile-views-count")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("interest-received-count")).not.toBeInTheDocument();
+    expect(screen.queryByText(/0% complete/i)).not.toBeInTheDocument();
+  });
+
+  it("shows an error instead of fake zero stats when the dashboard request throws", async () => {
+    mockWorkerSession();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network down"))
+    );
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByTestId("dashboard-load-error")).toBeInTheDocument();
+    expect(screen.queryByTestId("profile-views-count")).not.toBeInTheDocument();
+  });
+
+  it("replaces the dashboard error with real stats after retry succeeds", async () => {
+    mockWorkerSession();
+    let failLoad = true;
+    const successPayload = {
+      ok: true,
+      json: async () => ({
+        profile: createMockProfile({
+          photoUrl: "https://example.com/photo.jpg",
+          displayName: "Ada",
+          jobRoles: ["Bartender"],
+          experienceYears: 3,
+          languages: ["English"],
+          bio: "Experienced bartender",
+          location: "Bangkok",
+          availability: "Full-time",
+        }),
+        stats: {
+          profileViewsLast30Days: 2,
+          profileViewEventsLast30Days: 4,
+          uniqueRecruiterViewersLast30Days: 2,
+          interestReceivedCount: 1,
+        },
+        recentInterests: [],
+        interestReceivedCount: 1,
+        pendingConfirmations: [],
+        photoSlots: {
+          approvedCount: 1,
+          pendingCount: 0,
+          slotCount: 1,
+          maxSlots: 5,
+          remainingSlots: 4,
+          canAddGalleryPhoto: true,
+        },
+        verificationStatus: "verified",
+        isPublished: true,
+      }),
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async () => {
+        if (failLoad) {
+          return {
+            ok: false,
+            json: async () => ({ error: "Failed to fetch dashboard" }),
+          };
+        }
+        return successPayload;
+      })
+    );
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByTestId("dashboard-load-error")).toBeInTheDocument();
+    failLoad = false;
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+
+    expect(await screen.findByTestId("profile-views-count")).toHaveTextContent("2");
+    expect(screen.getByTestId("interest-received-count")).toHaveTextContent("1");
+    expect(screen.queryByTestId("dashboard-load-error")).not.toBeInTheDocument();
+  });
+
   it("does not allow a recruiter to stay on the worker dashboard", async () => {
     useSession.mockReturnValue({
       data: {
