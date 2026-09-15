@@ -29,24 +29,41 @@ describe("verification helpers", () => {
       const result = isSearchableWorker({
         verificationStatus: "verified",
         isPublished: false,
+        photoKey: "profiles/user/a.jpg",
+        photoUrl: "https://cdn.example/a.jpg",
       });
       expect(result.isSearchable).toBe(false);
       expect(result.reason).toBe("not_published");
     });
 
-    it("should return searchable for verified and published profile", () => {
+    it("should return searchable for verified, published, approved-photo profile", () => {
       const result = isSearchableWorker({
         verificationStatus: "verified",
         isPublished: true,
+        photoKey: "profiles/user/a.jpg",
+        photoUrl: "https://cdn.example/a.jpg",
       });
       expect(result.isSearchable).toBe(true);
       expect(result.reason).toBe("verified");
+    });
+
+    it("should return not searchable when identity is verified but photo is pending", () => {
+      const result = isSearchableWorker({
+        verificationStatus: "verified",
+        isPublished: true,
+        photoKey: null,
+        photoUrl: null,
+      });
+      expect(result.isSearchable).toBe(false);
+      expect(result.reason).toBe("photo_pending");
     });
 
     it("should return not searchable for pending verification", () => {
       const result = isSearchableWorker({
         verificationStatus: "pending",
         isPublished: true,
+        photoKey: null,
+        photoUrl: null,
       });
       expect(result.isSearchable).toBe(false);
       expect(result.reason).toBe("pending_verification");
@@ -56,6 +73,8 @@ describe("verification helpers", () => {
       const result = isSearchableWorker({
         verificationStatus: "rejected",
         isPublished: true,
+        photoKey: null,
+        photoUrl: null,
       });
       expect(result.isSearchable).toBe(false);
       expect(result.reason).toBe("rejected");
@@ -65,6 +84,8 @@ describe("verification helpers", () => {
       const result = isSearchableWorker({
         verificationStatus: "unverified",
         isPublished: true,
+        photoKey: null,
+        photoUrl: null,
       });
       expect(result.isSearchable).toBe(false);
       expect(result.reason).toBe("not_verified");

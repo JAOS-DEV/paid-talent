@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   approvedPhotoPersistence,
   canUpdateWorkerProfileFromPhoto,
+  hasApprovedPrimaryProfileImage,
   hasApprovedPublicPhoto,
   pendingPhotoPersistence,
   persistenceForModerationDecision,
@@ -103,5 +104,20 @@ describe("profile photo persistence", () => {
         photoUrl: PUBLIC_URL,
       })
     ).toBe(true);
+  });
+
+  it("requires both public photoKey and photoUrl for a live primary image", () => {
+    expect(
+      hasApprovedPrimaryProfileImage({
+        photoKey: PUBLIC_KEY,
+        photoUrl: PUBLIC_URL,
+      })
+    ).toBe(true);
+    expect(
+      hasApprovedPrimaryProfileImage({
+        photoKey: null,
+        photoUrl: PUBLIC_URL,
+      })
+    ).toBe(false);
   });
 });

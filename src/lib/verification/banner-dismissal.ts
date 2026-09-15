@@ -7,9 +7,10 @@ export function verifiedBannerStorageKey(userId: string): string {
 
 export function isVerifiedLiveSuccessState(
   status: string,
-  isPublished: boolean
+  isPublished: boolean,
+  hasApprovedPrimaryPhoto: boolean
 ): boolean {
-  return status === "verified" && isPublished;
+  return status === "verified" && isPublished && hasApprovedPrimaryPhoto;
 }
 
 export function readVerifiedBannerDismissed(userId: string): boolean {

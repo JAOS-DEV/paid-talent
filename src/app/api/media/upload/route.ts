@@ -264,14 +264,13 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
-      stagingKey: key,
       photoKey: uploadResult.photoKey ?? null,
       url: uploadResult.photoUrl ?? null,
       photoId: uploadResult.photoId,
       moderation: {
         status: uploadResult.status,
         message: uploadResult.userMessage,
-        requiresReview: uploadResult.decision?.requiresReview ?? false,
+        requiresReview: uploadResult.decision?.requiresReview ?? true,
       },
     });
   } catch (error) {

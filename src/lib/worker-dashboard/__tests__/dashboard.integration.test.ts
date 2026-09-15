@@ -32,7 +32,9 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
   let getApprovedPhotosForWorker: typeof import("../../moderation/photo-moderation").getApprovedPhotosForWorker;
   let deletePhoto: typeof import("../../moderation/photo-moderation").deletePhoto;
   let insertProfilePhotoWithSlotLock: typeof import("../../moderation/photo-moderation").insertProfilePhotoWithSlotLock;
+  let rejectPhoto: typeof import("../../moderation/photo-moderation").rejectPhoto;
   let checkPhotoLimits: typeof import("../../moderation/photo-policy").checkPhotoLimits;
+  let inferPendingPhotoSubmissionKind: typeof import("../../moderation/photo-policy").inferPendingPhotoSubmissionKind;
 
   let workerAId = "";
   let workerAProfileId = "";
@@ -65,8 +67,11 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
       getApprovedPhotosForWorker,
       deletePhoto,
       insertProfilePhotoWithSlotLock,
+      rejectPhoto,
     } = await import("../../moderation/photo-moderation"));
-    ({ checkPhotoLimits } = await import("../../moderation/photo-policy"));
+    ({ checkPhotoLimits, inferPendingPhotoSubmissionKind } = await import(
+      "../../moderation/photo-policy"
+    ));
 
     const workerA = await createUserWithRole({
       email: `dash-a-${suffix}@example.com`,
@@ -223,7 +228,69 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
     expect(after).toBe(before);
   });
 
+  it("blocks gallery uploads until identity is verified and a public primary exists", async () => {
+    await db.delete(profilePhotos).where(eq(profilePhotos.workerProfileId, workerAProfileId));
+    await db
+      .update(workerProfiles)
+      .set({ photoKey: null, photoUrl: null, updatedAt: new Date() })
+      .where(eq(workerProfiles.id, workerAProfileId));
+
+    expect((await canUploadPhoto(workerAProfileId, "gallery")).canUpload).toBe(false);
+    expect((await canUploadPhoto(workerAProfileId, "primary")).canUpload).toBe(true);
+
+    const pendingPrimary = await insertProfilePhotoWithSlotLock({
+      userId: workerAId,
+      workerProfileId: workerAProfileId,
+      purpose: "primary",
+      moderationReason: "manual review",
+      moderationConfidence: 90,
+      moderationCategories: ["safe"],
+      buildRow: async () => ({
+        stagingKey: `profile-photo-staging/${workerAId}/replacement.jpg`,
+        photoKey: null,
+        photoUrl: null,
+        moderationStatus: "pending",
+      }),
+    });
+    expect(pendingPrimary.success).toBe(true);
+    if (!pendingPrimary.success) return;
+
+    expect((await canUploadPhoto(workerAProfileId, "gallery")).canUpload).toBe(false);
+    expect(
+      inferPendingPhotoSubmissionKind({ photoKey: null, photoUrl: null })
+    ).toBe("primary");
+
+    const rejected = await rejectPhoto(
+      pendingPrimary.photo.id,
+      "admin@example.com",
+      "Please upload a clear face-forward photo."
+    );
+    expect(rejected.success).toBe(true);
+
+    expect((await canUploadPhoto(workerAProfileId, "gallery")).canUpload).toBe(false);
+    expect((await canUploadPhoto(workerAProfileId, "primary")).canUpload).toBe(true);
+
+    const replacement = await insertProfilePhotoWithSlotLock({
+      userId: workerAId,
+      workerProfileId: workerAProfileId,
+      purpose: "primary",
+      moderationReason: "manual review",
+      moderationConfidence: 90,
+      moderationCategories: ["safe"],
+      buildRow: async () => ({
+        stagingKey: `profile-photo-staging/${workerAId}/replacement-2.jpg`,
+        photoKey: null,
+        photoUrl: null,
+        moderationStatus: "pending",
+      }),
+    });
+    expect(replacement.success).toBe(true);
+
+    expect((await canUploadPhoto(workerBProfileId, "gallery")).canUpload).toBe(false);
+  });
+
   it("enforces the five-slot gallery limit and ownership on delete", async () => {
+    await db.delete(profilePhotos).where(eq(profilePhotos.workerProfileId, workerAProfileId));
     await db.insert(profilePhotos).values([
       {
         userId: workerAId,
@@ -245,6 +312,15 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
         isCurrentApproved: false,
       },
     ]);
+
+    await db
+      .update(workerProfiles)
+      .set({
+        photoKey: `profiles/${workerAId}/primary.jpg`,
+        photoUrl: "https://cdn.example/primary.jpg",
+        updatedAt: new Date(),
+      })
+      .where(eq(workerProfiles.id, workerAProfileId));
 
     const unverifiedGallery = checkPhotoLimits(1, 0, {
       purpose: "gallery",
@@ -354,6 +430,15 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
         isCurrentApproved: index === 0,
       }))
     );
+
+    await db
+      .update(workerProfiles)
+      .set({
+        photoKey: `profiles/${workerAId}/slot-0.jpg`,
+        photoUrl: "https://cdn.example/slot-0.jpg",
+        updatedAt: new Date(),
+      })
+      .where(eq(workerProfiles.id, workerAProfileId));
 
     const results = await Promise.all([
       insertProfilePhotoWithSlotLock({

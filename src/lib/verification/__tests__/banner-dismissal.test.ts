@@ -6,11 +6,12 @@ import {
 
 describe("verified banner dismissal", () => {
   it("only treats verified + published as the dismissible success state", () => {
-    expect(isVerifiedLiveSuccessState("verified", true)).toBe(true);
-    expect(isVerifiedLiveSuccessState("verified", false)).toBe(false);
-    expect(isVerifiedLiveSuccessState("pending", true)).toBe(false);
-    expect(isVerifiedLiveSuccessState("rejected", true)).toBe(false);
-    expect(isVerifiedLiveSuccessState("unverified", true)).toBe(false);
+    expect(isVerifiedLiveSuccessState("verified", true, true)).toBe(true);
+    expect(isVerifiedLiveSuccessState("verified", true, false)).toBe(false);
+    expect(isVerifiedLiveSuccessState("verified", false, true)).toBe(false);
+    expect(isVerifiedLiveSuccessState("pending", true, true)).toBe(false);
+    expect(isVerifiedLiveSuccessState("rejected", true, true)).toBe(false);
+    expect(isVerifiedLiveSuccessState("unverified", true, true)).toBe(false);
   });
 
   it("uses a user-specific localStorage key", () => {
