@@ -2,7 +2,7 @@ import React from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
-import { RecruiterProfileForm } from "@/components/recruiter";
+import { RecruiterBackLink, RecruiterProfileForm } from "@/components/recruiter";
 import { getRecruiterProfile } from "@/lib/recruiter-profile/actions";
 
 export default async function RecruiterOwnProfilePage(): Promise<React.ReactElement> {
@@ -19,8 +19,11 @@ export default async function RecruiterOwnProfilePage(): Promise<React.ReactElem
       <Header />
       <main className="flex-1 bg-charcoal-950 py-8">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-charcoal-100">
+          <div className="mb-6 min-w-0">
+            <RecruiterBackLink href="/recruiter/dashboard">
+              ← Back to Dashboard
+            </RecruiterBackLink>
+            <h1 className="text-2xl font-bold text-charcoal-100 mt-3">
               Venue Profile
             </h1>
             <p className="text-charcoal-400 mt-1">

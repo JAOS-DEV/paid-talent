@@ -54,7 +54,17 @@ export default function ProfileDetailPage({
     useState<InterestOutcomeData | null>(null);
   const [selectedOpeningId, setSelectedOpeningId] = useState("");
   const [publishedOpenings, setPublishedOpenings] = useState<
-    Pick<RecruiterOpening, "id" | "role" | "area" | "isPublished">[]
+    Pick<
+      RecruiterOpening,
+      | "id"
+      | "role"
+      | "area"
+      | "isPublished"
+      | "payMin"
+      | "payMax"
+      | "payCurrency"
+      | "payPeriod"
+    >[]
   >([]);
 
   useEffect(() => {
@@ -80,6 +90,10 @@ export default function ProfileDetailPage({
               role: o.role,
               area: o.area,
               isPublished: o.isPublished,
+              payMin: o.payMin,
+              payMax: o.payMax,
+              payCurrency: o.payCurrency,
+              payPeriod: o.payPeriod,
             }))
         );
       } catch {

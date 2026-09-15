@@ -31,12 +31,7 @@ export function OpeningCard({ opening }: OpeningCardProps): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const payLabel = formatOpeningPay({
-    payMin: opening.payMin,
-    payMax: opening.payMax,
-    payCurrency: opening.payCurrency,
-    payPeriod: opening.payPeriod,
-  });
+  const payLabel = formatOpeningPay(opening);
 
   const runPublishToggle = async (): Promise<void> => {
     setError(null);
@@ -90,7 +85,7 @@ export function OpeningCard({ opening }: OpeningCardProps): React.ReactElement {
         {payLabel ? (
           <p className="text-sm text-charcoal-200">{payLabel}</p>
         ) : (
-          <p className="text-sm text-charcoal-500">No pay range set</p>
+          <p className="text-sm text-charcoal-500">No pay set</p>
         )}
 
         {opening.notes && (

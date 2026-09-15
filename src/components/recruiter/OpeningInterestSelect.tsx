@@ -3,9 +3,22 @@
 import React from "react";
 import Link from "next/link";
 import type { RecruiterOpening } from "@/lib/db/schema";
+import { formatOpeningChoiceLabel } from "@/lib/recruiter-profile/opening-pay";
+
+type OpeningInterestChoice = Pick<
+  RecruiterOpening,
+  | "id"
+  | "role"
+  | "area"
+  | "isPublished"
+  | "payMin"
+  | "payMax"
+  | "payCurrency"
+  | "payPeriod"
+>;
 
 interface OpeningInterestSelectProps {
-  openings: Pick<RecruiterOpening, "id" | "role" | "area" | "isPublished">[];
+  openings: OpeningInterestChoice[];
   value: string;
   onChange: (openingId: string) => void;
   id?: string;
@@ -40,7 +53,7 @@ export function OpeningInterestSelect({
         <option value="">General interest</option>
         {published.map((opening) => (
           <option key={opening.id} value={opening.id}>
-            {opening.role} — {opening.area}
+            {formatOpeningChoiceLabel(opening)}
           </option>
         ))}
       </select>

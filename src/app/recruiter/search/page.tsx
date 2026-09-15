@@ -184,7 +184,17 @@ export default function SearchPage(): React.ReactElement {
   const [sentInterests, setSentInterests] = useState<Set<string>>(new Set());
   const [selectedOpeningId, setSelectedOpeningId] = useState("");
   const [publishedOpenings, setPublishedOpenings] = useState<
-    Pick<RecruiterOpening, "id" | "role" | "area" | "isPublished">[]
+    Pick<
+      RecruiterOpening,
+      | "id"
+      | "role"
+      | "area"
+      | "isPublished"
+      | "payMin"
+      | "payMax"
+      | "payCurrency"
+      | "payPeriod"
+    >[]
   >([]);
 
   const fetchWorkers = useCallback(async () => {
@@ -253,6 +263,10 @@ export default function SearchPage(): React.ReactElement {
             role: o.role,
             area: o.area,
             isPublished: o.isPublished,
+            payMin: o.payMin,
+            payMax: o.payMax,
+            payCurrency: o.payCurrency,
+            payPeriod: o.payPeriod,
           }))
       );
     } catch {

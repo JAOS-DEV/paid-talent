@@ -11,6 +11,8 @@ import {
   normalizeOptionalText,
   BLURB_MAX_LENGTH,
   OPENING_NOTES_MAX_LENGTH,
+  toOpeningPayStorage,
+  OPENING_PAY_AMOUNT_MAX,
 } from "../index";
 
 describe("recruiter opening/profile validation (behavioural)", () => {
@@ -23,20 +25,21 @@ describe("recruiter opening/profile validation (behavioural)", () => {
       expect(emptyToUndefined(0)).toBe(0);
     });
 
-    it("does not coerce empty pay fields to zero", () => {
+    it("does not coerce empty pay to zero and keeps pay optional", () => {
       const result = createOpeningSchema.safeParse({
         role: "Bartender",
         area: "Sukhumvit",
-        payMin: "",
-        payMax: "",
+        payAmount: "",
       });
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.payMin).toBeUndefined();
-        expect(result.data.payMax).toBeUndefined();
-        expect(normalizeOptionalPay(result.data.payMin)).toBeNull();
-        expect(normalizeOptionalPay(result.data.payMax)).toBeNull();
+        expect(result.data.payAmount).toBeUndefined();
+        expect(normalizeOptionalPay(result.data.payAmount)).toBeNull();
+        expect(toOpeningPayStorage(normalizeOptionalPay(result.data.payAmount))).toEqual({
+          payMin: null,
+          payMax: null,
+        });
       }
     });
 
@@ -47,21 +50,13 @@ describe("recruiter opening/profile validation (behavioural)", () => {
     });
   });
 
-  describe("pay constraints", () => {
-    it("rejects negative payMin and payMax", () => {
+  describe("single advertised pay", () => {
+    it("rejects negative pay", () => {
       expect(
         createOpeningSchema.safeParse({
           role: "Bartender",
           area: "Sukhumvit",
-          payMin: -1,
-        }).success
-      ).toBe(false);
-
-      expect(
-        createOpeningSchema.safeParse({
-          role: "Bartender",
-          area: "Sukhumvit",
-          payMax: -5,
+          payAmount: -1,
         }).success
       ).toBe(false);
     });
@@ -70,60 +65,141 @@ describe("recruiter opening/profile validation (behavioural)", () => {
       const result = createOpeningSchema.safeParse({
         role: "Intern",
         area: "Sukhumvit",
-        payMin: 0,
-        payMax: 0,
+        payAmount: 0,
       });
       expect(result.success).toBe(true);
+      if (result.success) {
+        expect(toOpeningPayStorage(result.data.payAmount ?? null)).toEqual({
+          payMin: 0,
+          payMax: null,
+        });
+      }
     });
 
-    it("rejects payMin > payMax when both exist", () => {
+    it("stores one amount as payMin with payMax null", () => {
       const result = createOpeningSchema.safeParse({
         role: "Bartender",
         area: "Sukhumvit",
-        payMin: 1000,
-        payMax: 500,
+        payAmount: 1200,
       });
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.issues[0].message).toContain(
-          "Minimum pay cannot exceed maximum pay"
-        );
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.payAmount).toBe(1200);
+        expect(toOpeningPayStorage(result.data.payAmount ?? null)).toEqual({
+          payMin: 1200,
+          payMax: null,
+        });
       }
-      expect(isPayRangeValid(1000, 500)).toBe(false);
-    });
-
-    it("allows payMin <= payMax and single-sided pay", () => {
-      expect(
-        createOpeningSchema.safeParse({
-          role: "Bartender",
-          area: "Sukhumvit",
-          payMin: 500,
-          payMax: 1000,
-        }).success
-      ).toBe(true);
-      expect(
-        createOpeningSchema.safeParse({
-          role: "Bartender",
-          area: "Sukhumvit",
-          payMin: 500,
-        }).success
-      ).toBe(true);
-      expect(isPayRangeValid(500, undefined)).toBe(true);
-      expect(isPayRangeValid(null, 1000)).toBe(true);
     });
 
     it("coerces numeric strings for form inputs", () => {
       const result = createOpeningSchema.safeParse({
         role: "Bartender",
         area: "Sukhumvit",
-        payMin: "500",
-        payMax: "1000",
+        payAmount: "500",
       });
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.payMin).toBe(500);
-        expect(result.data.payMax).toBe(1000);
+        expect(result.data.payAmount).toBe(500);
       }
+    });
+
+    it("rejects non-finite and oversized pay", () => {
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          payAmount: Number.POSITIVE_INFINITY,
+        }).success
+      ).toBe(false);
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          payAmount: OPENING_PAY_AMOUNT_MAX + 1,
+        }).success
+      ).toBe(false);
+    });
+
+    it("keeps isPayRangeValid for legacy stored rows", () => {
+      expect(isPayRangeValid(1000, 500)).toBe(false);
+      expect(isPayRangeValid(500, undefined)).toBe(true);
+      expect(isPayRangeValid(null, 1000)).toBe(true);
+    });
+  });
+
+  describe("currency and pay period", () => {
+    it("defaults new openings to THB and night", () => {
+      const result = createOpeningSchema.safeParse({
+        role: "Bartender",
+        area: "Sukhumvit",
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.payCurrency).toBe("THB");
+        expect(result.data.payPeriod).toBe("night");
+      }
+    });
+
+    it("persists allowlisted currencies including USD", () => {
+      const result = createOpeningSchema.safeParse({
+        role: "Bartender",
+        area: "Sukhumvit",
+        payCurrency: "USD",
+        payPeriod: "week",
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.payCurrency).toBe("USD");
+        expect(result.data.payPeriod).toBe("week");
+      }
+    });
+
+    it("rejects arbitrary currency strings", () => {
+      const result = createOpeningSchema.safeParse({
+        role: "Bartender",
+        area: "Sukhumvit",
+        payCurrency: "lol",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it.each([
+      "night",
+      "day",
+      "week",
+      "month",
+      "engagement",
+      "10 days",
+      "15 days",
+      "1 month",
+    ])("accepts pay period %s", (payPeriod) => {
+      const result = createOpeningSchema.safeParse({
+        role: "Bartender",
+        area: "Sukhumvit",
+        payPeriod,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.payPeriod).toBe(payPeriod);
+      }
+    });
+
+    it("rejects malformed custom period text", () => {
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          payPeriod: "<script>alert(1)</script>",
+        }).success
+      ).toBe(false);
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          payPeriod: "message me on instagram",
+        }).success
+      ).toBe(false);
     });
   });
 
@@ -147,7 +223,19 @@ describe("recruiter opening/profile validation (behavioural)", () => {
       ).toBe(false);
     });
 
-    it("enforces blurb max 240 and notes max 500", () => {
+    it("enforces role/area max 100 and notes max 500", () => {
+      expect(
+        createOpeningSchema.safeParse({
+          role: "A".repeat(101),
+          area: "Sukhumvit",
+        }).success
+      ).toBe(false);
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "A".repeat(101),
+        }).success
+      ).toBe(false);
       expect(
         updateProfileSchema.safeParse({
           organizationName: "Venue",
@@ -218,5 +306,19 @@ describe("ownership mutation invariants (documented in actions)", () => {
     expect(actionsSource).toMatch(
       /\.update\(recruiterOpenings\)[\s\S]*recruiterProfileId/
     );
+    expect(actionsSource).toContain("Opening not found or unauthorized");
+    expect(actionsSource).toContain("requireActiveRecruiter");
+  });
+
+  it("create/update persist payAmount via payMin storage plus currency and period", () => {
+    const actionsSource = readFileSync(
+      join(__dirname, "../actions.ts"),
+      "utf8"
+    );
+    expect(actionsSource).toContain("toOpeningPayStorage");
+    expect(actionsSource).toContain("payCurrency");
+    expect(actionsSource).toContain("payPeriod");
+    expect(actionsSource).toContain("hasLegacyPayRange");
+    expect(actionsSource).not.toContain("normalizeOptionalPay(payMin)");
   });
 });

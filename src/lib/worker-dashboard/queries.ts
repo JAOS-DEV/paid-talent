@@ -13,6 +13,10 @@ import {
   resolveOpeningContext,
   resolveVenueName,
 } from "@/lib/hire-outcomes/confirmations";
+import {
+  formatOpeningPay,
+  joinOpeningContextAndPay,
+} from "@/lib/recruiter-profile/opening-pay";
 import { getPhotoCountsForWorker } from "@/lib/moderation/photo-moderation";
 import { checkPhotoLimits, MAX_PROFILE_PHOTOS } from "@/lib/moderation/photo-policy";
 import {
@@ -107,6 +111,10 @@ export async function getWorkerReceivedInterests(
       recruiterName: users.name,
       openingRole: recruiterOpenings.role,
       openingArea: recruiterOpenings.area,
+      payMin: recruiterOpenings.payMin,
+      payMax: recruiterOpenings.payMax,
+      payCurrency: recruiterOpenings.payCurrency,
+      payPeriod: recruiterOpenings.payPeriod,
     })
     .from(profileInterests)
     .innerJoin(users, eq(profileInterests.recruiterUserId, users.id))
@@ -125,7 +133,15 @@ export async function getWorkerReceivedInterests(
   return rows.map((row) => ({
     id: row.id,
     venueName: resolveVenueName(row.organizationName, row.recruiterName),
-    openingContext: resolveOpeningContext(row.openingRole, row.openingArea),
+    openingContext: joinOpeningContextAndPay(
+      resolveOpeningContext(row.openingRole, row.openingArea),
+      formatOpeningPay({
+        payMin: row.payMin,
+        payMax: row.payMax,
+        payCurrency: row.payCurrency,
+        payPeriod: row.payPeriod,
+      })
+    ),
     message: row.message,
     createdAt: row.createdAt.toISOString(),
   }));

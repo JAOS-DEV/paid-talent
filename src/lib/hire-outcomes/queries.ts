@@ -20,6 +20,10 @@ import {
   resolveOpeningContext,
   resolveVenueName,
 } from "./confirmations";
+import {
+  formatOpeningPay,
+  joinOpeningContextAndPay,
+} from "@/lib/recruiter-profile/opening-pay";
 
 export interface ConfirmationRequestSummary {
   id: string;
@@ -307,6 +311,10 @@ export async function getPendingConfirmationRequestsForWorker(
       recruiterName: users.name,
       openingRole: recruiterOpenings.role,
       openingArea: recruiterOpenings.area,
+      payMin: recruiterOpenings.payMin,
+      payMax: recruiterOpenings.payMax,
+      payCurrency: recruiterOpenings.payCurrency,
+      payPeriod: recruiterOpenings.payPeriod,
     })
     .from(hireOutcomeConfirmationRequests)
     .innerJoin(
@@ -340,6 +348,14 @@ export async function getPendingConfirmationRequestsForWorker(
     requestedStatus: row.requestedStatus,
     requestedAt: row.requestedAt,
     venueName: resolveVenueName(row.organizationName, row.recruiterName),
-    openingContext: resolveOpeningContext(row.openingRole, row.openingArea),
+    openingContext: joinOpeningContextAndPay(
+      resolveOpeningContext(row.openingRole, row.openingArea),
+      formatOpeningPay({
+        payMin: row.payMin,
+        payMax: row.payMax,
+        payCurrency: row.payCurrency,
+        payPeriod: row.payPeriod,
+      })
+    ),
   }));
 }
