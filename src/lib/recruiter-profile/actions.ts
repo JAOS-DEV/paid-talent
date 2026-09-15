@@ -12,6 +12,11 @@ import {
   updateProfileSchema,
 } from "./opening-validation";
 import {
+  hasLegacyPayRange,
+  LEGACY_PAY_RANGE_MESSAGE,
+  toOpeningPayStorage,
+} from "./opening-pay";
+import {
   actionAuthError,
   requireActiveRecruiter,
 } from "@/lib/auth/require-active-user";
@@ -122,7 +127,9 @@ export async function createOpening(
     return { success: false, error: validation.error.issues[0].message };
   }
 
-  const { role, area, payMin, payMax, notes, isPublished } = validation.data;
+  const { role, area, payAmount, payCurrency, payPeriod, notes, isPublished } =
+    validation.data;
+  const payStorage = toOpeningPayStorage(normalizeOptionalPay(payAmount));
 
   const [opening] = await db
     .insert(recruiterOpenings)
@@ -130,8 +137,10 @@ export async function createOpening(
       recruiterProfileId: recruiter.recruiterProfileId,
       role,
       area,
-      payMin: normalizeOptionalPay(payMin),
-      payMax: normalizeOptionalPay(payMax),
+      payMin: payStorage.payMin,
+      payMax: payStorage.payMax,
+      payCurrency,
+      payPeriod,
       notes: normalizeOptionalText(notes),
       isPublished,
       createdAt: new Date(),
@@ -156,11 +165,15 @@ export async function updateOpening(data: unknown): Promise<ActionResult> {
     return { success: false, error: validation.error.issues[0].message };
   }
 
-  const { id, role, area, payMin, payMax, notes, isPublished } =
+  const { id, role, area, payAmount, payCurrency, payPeriod, notes, isPublished } =
     validation.data;
 
   const [existingOpening] = await db
-    .select({ id: recruiterOpenings.id })
+    .select({
+      id: recruiterOpenings.id,
+      payMin: recruiterOpenings.payMin,
+      payMax: recruiterOpenings.payMax,
+    })
     .from(recruiterOpenings)
     .where(
       and(
@@ -174,13 +187,21 @@ export async function updateOpening(data: unknown): Promise<ActionResult> {
     return { success: false, error: "Opening not found or unauthorized" };
   }
 
+  if (hasLegacyPayRange(existingOpening) && payAmount === undefined) {
+    return { success: false, error: LEGACY_PAY_RANGE_MESSAGE };
+  }
+
+  const payStorage = toOpeningPayStorage(normalizeOptionalPay(payAmount));
+
   await db
     .update(recruiterOpenings)
     .set({
       role,
       area,
-      payMin: normalizeOptionalPay(payMin),
-      payMax: normalizeOptionalPay(payMax),
+      payMin: payStorage.payMin,
+      payMax: payStorage.payMax,
+      payCurrency,
+      payPeriod,
       notes: normalizeOptionalText(notes),
       isPublished,
       updatedAt: new Date(),

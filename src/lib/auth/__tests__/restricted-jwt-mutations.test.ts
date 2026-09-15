@@ -36,7 +36,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { publishProfile } from "@/app/worker/actions";
-import { publishOpening } from "@/lib/recruiter-profile/actions";
+import { createOpening, publishOpening, updateOpening } from "@/lib/recruiter-profile/actions";
 
 const SRC_ROOT = path.join(process.cwd(), "src");
 
@@ -135,6 +135,45 @@ describe("existing JWT cannot mutate after restriction", () => {
     });
 
     await expect(publishOpening("11111111-1111-4111-8111-111111111111")).resolves.toEqual({
+      success: false,
+      error: "Account restricted",
+    });
+    expect(dbUpdate).not.toHaveBeenCalled();
+  });
+
+  it("blocks Recruiter createOpening and updateOpening after restriction", async () => {
+    auth.mockResolvedValue({
+      user: {
+        id: "recruiter-1",
+        role: "recruiter",
+        email: "recruiter@example.com",
+        ageVerified: true,
+      },
+    });
+    getUserAccountAccess.mockResolvedValue({
+      allowed: false,
+      reason: "banned",
+      email: "recruiter@example.com",
+    });
+
+    await expect(
+      createOpening({
+        role: "Bartender",
+        area: "Sukhumvit",
+        payAmount: 1200,
+      })
+    ).resolves.toEqual({
+      success: false,
+      error: "Account restricted",
+    });
+    await expect(
+      updateOpening({
+        id: "11111111-1111-4111-8111-111111111111",
+        role: "Bartender",
+        area: "Sukhumvit",
+        payAmount: 1200,
+      })
+    ).resolves.toEqual({
       success: false,
       error: "Account restricted",
     });

@@ -1,4 +1,11 @@
 import { z } from "zod";
+import {
+  canonicalizePayPeriod,
+  DEFAULT_OPENING_PAY_CURRENCY,
+  DEFAULT_OPENING_PAY_PERIOD,
+  OPENING_PAY_AMOUNT_MAX,
+  OPENING_PAY_CURRENCIES,
+} from "./opening-pay";
 
 export const BLURB_MAX_LENGTH = 240;
 export const OPENING_NOTES_MAX_LENGTH = 500;
@@ -13,7 +20,16 @@ export function emptyToUndefined(value: unknown): unknown {
 
 export const optionalNonNegativePaySchema = z.preprocess(
   emptyToUndefined,
-  z.coerce.number().min(0, "Pay must be 0 or greater").optional()
+  z.coerce
+    .number()
+    .finite("Pay must be a valid number")
+    .int("Pay must be a whole number")
+    .min(0, "Pay must be 0 or greater")
+    .max(
+      OPENING_PAY_AMOUNT_MAX,
+      `Pay must be ${OPENING_PAY_AMOUNT_MAX.toLocaleString("en-US")} or less`
+    )
+    .optional()
 );
 
 export function isPayRangeValid(
@@ -54,11 +70,34 @@ export const updateProfileSchema = z.object({
   ),
 });
 
+const openingPayCurrencySchema = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) {
+    return DEFAULT_OPENING_PAY_CURRENCY;
+  }
+  if (typeof value === "string") {
+    return value.trim().toUpperCase();
+  }
+  return value;
+}, z.enum(OPENING_PAY_CURRENCIES));
+
+const openingPayPeriodSchema = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) {
+    return DEFAULT_OPENING_PAY_PERIOD;
+  }
+  if (typeof value !== "string") {
+    return value;
+  }
+  return canonicalizePayPeriod(value) ?? value;
+}, z.string().refine((value) => canonicalizePayPeriod(value) === value, {
+  message: "Pay period is invalid",
+}));
+
 const openingFieldsSchema = z.object({
   role: z.string().trim().min(1, "Role is required").max(100),
   area: z.string().trim().min(1, "Area is required").max(100),
-  payMin: optionalNonNegativePaySchema,
-  payMax: optionalNonNegativePaySchema,
+  payAmount: optionalNonNegativePaySchema,
+  payCurrency: openingPayCurrencySchema,
+  payPeriod: openingPayPeriodSchema,
   notes: z.preprocess(
     emptyToUndefined,
     z
@@ -73,32 +112,11 @@ const openingFieldsSchema = z.object({
   isPublished: z.boolean().default(false),
 });
 
-function refinePayRange<T extends { payMin?: number; payMax?: number }>(
-  data: T,
-  ctx: z.RefinementCtx
-): void {
-  if (
-    data.payMin !== undefined &&
-    data.payMax !== undefined &&
-    data.payMin > data.payMax
-  ) {
-    ctx.addIssue({
-      code: "custom",
-      message: "Minimum pay cannot exceed maximum pay",
-      path: ["payMin"],
-    });
-  }
-}
+export const createOpeningSchema = openingFieldsSchema;
 
-export const createOpeningSchema = openingFieldsSchema.superRefine(
-  refinePayRange
-);
-
-export const updateOpeningSchema = openingFieldsSchema
-  .extend({
-    id: z.string().uuid(),
-  })
-  .superRefine(refinePayRange);
+export const updateOpeningSchema = openingFieldsSchema.extend({
+  id: z.string().uuid(),
+});
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type CreateOpeningInput = z.infer<typeof createOpeningSchema>;

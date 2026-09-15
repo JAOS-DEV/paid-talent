@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { formatOpeningPay, emptyPayToNull } from "../format-pay";
 import {
   createOpeningSchema,
@@ -36,7 +38,13 @@ function mockProfile(
 
 describe("recruiter UI helpers", () => {
   describe("formatOpeningPay", () => {
-    it("formats pay range as THB / night", () => {
+    it("formats a single advertised amount as THB / night", () => {
+      expect(
+        formatOpeningPay({ payMin: 1200, payMax: null, payPeriod: "night" })
+      ).toBe("1,200 THB / night");
+    });
+
+    it("formats a leftover legacy range until it is edited", () => {
       expect(
         formatOpeningPay({ payMin: 500, payMax: 1000 })
       ).toBe("500 – 1,000 THB / night");
@@ -107,36 +115,46 @@ describe("recruiter UI helpers", () => {
       const draft = createOpeningSchema.safeParse({
         role: "Bartender",
         area: "Sukhumvit",
-        payMin: "",
-        payMax: "",
+        payAmount: "",
       });
       expect(draft.success).toBe(true);
       if (draft.success) {
         expect(draft.data.isPublished).toBe(false);
-        expect(draft.data.payMin).toBeUndefined();
-        expect(draft.data.payMax).toBeUndefined();
+        expect(draft.data.payAmount).toBeUndefined();
+        expect(draft.data.payCurrency).toBe("THB");
+        expect(draft.data.payPeriod).toBe("night");
       }
 
       const published = createOpeningSchema.safeParse({
         role: "Hostess",
         area: "Thonglor",
-        payMin: 800,
-        payMax: 1200,
+        payAmount: 800,
+        payCurrency: "USD",
+        payPeriod: "week",
         isPublished: true,
       });
       expect(published.success).toBe(true);
       if (published.success) {
         expect(published.data.isPublished).toBe(true);
+        expect(published.data.payAmount).toBe(800);
+        expect(published.data.payCurrency).toBe("USD");
       }
     });
 
-    it("rejects invalid pay and overlong notes", () => {
+    it("rejects invalid pay, currency, period, and overlong notes", () => {
       expect(
         createOpeningSchema.safeParse({
           role: "Bartender",
           area: "Sukhumvit",
-          payMin: 1000,
-          payMax: 500,
+          payAmount: -5,
+        }).success
+      ).toBe(false);
+
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          payCurrency: "lol",
         }).success
       ).toBe(false);
 
@@ -191,5 +209,37 @@ describe("recruiter UI routes", () => {
     ];
     expect(routes).toContain("/recruiter/profile");
     expect(routes).toContain("/recruiter/openings/new");
+  });
+
+  it("adds Back to Dashboard on venue profile and openings list", () => {
+    const profileSource = readFileSync(
+      join(__dirname, "../../../app/recruiter/profile/page.tsx"),
+      "utf8"
+    );
+    const openingsSource = readFileSync(
+      join(__dirname, "../../../app/recruiter/openings/page.tsx"),
+      "utf8"
+    );
+
+    expect(profileSource).toContain('href="/recruiter/dashboard"');
+    expect(profileSource).toContain("Back to Dashboard");
+    expect(openingsSource).toContain('href="/recruiter/dashboard"');
+    expect(openingsSource).toContain("Back to Dashboard");
+  });
+
+  it("keeps Back to openings on new and edit opening pages", () => {
+    const newSource = readFileSync(
+      join(__dirname, "../../../app/recruiter/openings/new/page.tsx"),
+      "utf8"
+    );
+    const editSource = readFileSync(
+      join(__dirname, "../../../app/recruiter/openings/[id]/edit/page.tsx"),
+      "utf8"
+    );
+
+    expect(newSource).toContain('href="/recruiter/openings"');
+    expect(newSource).toContain("Back to openings");
+    expect(editSource).toContain('href="/recruiter/openings"');
+    expect(editSource).toContain("Back to openings");
   });
 });
