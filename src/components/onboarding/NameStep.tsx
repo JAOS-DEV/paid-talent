@@ -3,6 +3,10 @@
 import React, { useState } from "react";
 import { Button, Input } from "@/components/ui";
 import { updateProfileName } from "@/app/worker/actions";
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
+} from "@/lib/profile/limits";
 
 interface NameStepProps {
   initialName: string;
@@ -22,7 +26,7 @@ export function NameStep({
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
 
-    if (name.trim().length < 2) {
+    if (name.trim().length < DISPLAY_NAME_MIN_LENGTH) {
       setError("Name must be at least 2 characters");
       return;
     }
@@ -50,7 +54,11 @@ export function NameStep({
           label="Display Name"
           placeholder="How you want to be called"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setError(null);
+          }}
+          maxLength={DISPLAY_NAME_MAX_LENGTH}
           error={error ?? undefined}
           autoFocus
         />
@@ -71,7 +79,7 @@ export function NameStep({
         <Button
           type="submit"
           loading={saving}
-          disabled={name.trim().length < 2}
+          disabled={name.trim().length < DISPLAY_NAME_MIN_LENGTH}
           className="flex-1"
         >
           Continue

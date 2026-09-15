@@ -19,10 +19,10 @@ function createMockProfile(
     area: "Bangkok",
     description: null,
     bio: "Test bio",
-    availability: "Full-time",
+    availability: ["Full-time"],
     expectedPayMin: null,
     expectedPayMax: null,
-    payCurrency: "USD",
+    payCurrency: "THB",
     jobRoles: ["Bartender"],
     experience: null,
     experienceYears: null,
@@ -174,14 +174,17 @@ describe("search-gate helpers", () => {
       expect(result[0].id).toBe("1");
     });
 
-    it("should filter by availability", () => {
+    it("should filter by one availability value inside a multi-value profile", () => {
       const profiles = [
-        createMockProfile({ id: "1", availability: "Full-time" }),
-        createMockProfile({ id: "2", availability: "Part-time" }),
+        createMockProfile({
+          id: "1",
+          availability: ["Full-time", "Part-time", "On-call"],
+        }),
+        createMockProfile({ id: "2", availability: ["Flexible"] }),
       ];
 
       const result = applyWorkerSearchFilters(profiles, {
-        availability: "Full-time",
+        availability: "Part-time",
       });
 
       expect(result).toHaveLength(1);
@@ -194,19 +197,19 @@ describe("search-gate helpers", () => {
           id: "1",
           area: "Bangkok",
           jobRoles: ["Bartender"],
-          availability: "Full-time",
+          availability: ["Full-time"],
         }),
         createMockProfile({
           id: "2",
           area: "Bangkok",
           jobRoles: ["Chef"],
-          availability: "Full-time",
+          availability: ["Full-time"],
         }),
         createMockProfile({
           id: "3",
           area: "Phuket",
           jobRoles: ["Bartender"],
-          availability: "Full-time",
+          availability: ["Full-time"],
         }),
       ];
 
@@ -294,7 +297,7 @@ describe("search-gate helpers", () => {
           displayName: "Expert Bartender",
           area: "Bangkok",
           jobRoles: ["Bartender"],
-          availability: "Full-time",
+          availability: ["Full-time"],
         }),
         createMockProfile({
           id: "2",
@@ -303,7 +306,7 @@ describe("search-gate helpers", () => {
           displayName: "Senior Chef",
           area: "Bangkok",
           jobRoles: ["Chef"],
-          availability: "Full-time",
+          availability: ["Full-time"],
         }),
         createMockProfile({
           id: "3",
@@ -312,7 +315,7 @@ describe("search-gate helpers", () => {
           displayName: "Bartender Pro",
           area: "Bangkok",
           jobRoles: ["Bartender"],
-          availability: "Full-time",
+          availability: ["Full-time"],
         }),
       ];
 

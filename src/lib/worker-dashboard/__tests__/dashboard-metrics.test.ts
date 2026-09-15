@@ -58,7 +58,7 @@ describe("worker dashboard metrics helpers", () => {
       photoUrl: "https://cdn.example/a.jpg",
       displayName: "Ada",
       location: "Bangkok",
-      availability: "Full-time",
+      availability: ["Full-time"],
       bio: "Bartender",
       jobRoles: ["Bartender"],
       experience: null,

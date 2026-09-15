@@ -3,12 +3,19 @@
 import React, { useState } from "react";
 import { Button, Input } from "@/components/ui";
 import { updateProfileLocation } from "@/app/worker/actions";
-import { AVAILABILITY_OPTIONS } from "@/lib/profile";
+import { AvailabilityPicker } from "@/components/profile/AvailabilityPicker";
+import {
+  AREA_MAX_LENGTH,
+  DEFAULT_WORKER_PAY_CURRENCY,
+  LOCATION_MAX_LENGTH,
+  workerPayCurrencyOptions,
+} from "@/lib/profile/limits";
+import { normalizeAvailability } from "@/lib/profile/availability";
 
 interface LocationStepProps {
   initialLocation: string | null;
   initialArea: string | null;
-  initialAvailability: string | null;
+  initialAvailability: string[] | null;
   initialPayMin: number | null;
   initialPayMax: number | null;
   initialPayCurrency: string | null;
@@ -28,10 +35,14 @@ export function LocationStep({
 }: LocationStepProps): React.ReactElement {
   const [location, setLocation] = useState(initialLocation ?? "");
   const [area, setArea] = useState(initialArea ?? "");
-  const [availability, setAvailability] = useState(initialAvailability ?? "");
+  const [availability, setAvailability] = useState<string[]>(
+    normalizeAvailability(initialAvailability)
+  );
   const [payMin, setPayMin] = useState(initialPayMin?.toString() ?? "");
   const [payMax, setPayMax] = useState(initialPayMax?.toString() ?? "");
-  const [currency, setCurrency] = useState(initialPayCurrency ?? "USD");
+  const [currency, setCurrency] = useState(
+    initialPayCurrency || DEFAULT_WORKER_PAY_CURRENCY
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +54,7 @@ export function LocationStep({
       return;
     }
 
-    if (!availability) {
+    if (availability.length === 0) {
       setError("Availability is required");
       return;
     }
@@ -78,7 +89,11 @@ export function LocationStep({
           label="Location"
           placeholder="City, Country"
           value={location}
-          onChange={(e) => setLocation(e.target.value)}
+          onChange={(e) => {
+            setLocation(e.target.value);
+            setError(null);
+          }}
+          maxLength={LOCATION_MAX_LENGTH}
           autoFocus
         />
 
@@ -86,34 +101,21 @@ export function LocationStep({
           label="Area (optional)"
           placeholder="e.g., Downtown, Suburbs"
           value={area}
-          onChange={(e) => setArea(e.target.value)}
+          onChange={(e) => {
+            setArea(e.target.value);
+            setError(null);
+          }}
+          maxLength={AREA_MAX_LENGTH}
           helperText="Specific area or neighborhood"
         />
 
-        <div>
-          <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-            Availability
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {AVAILABILITY_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setAvailability(option)}
-                className={`
-                  px-4 py-2 rounded-full text-sm font-medium transition-colors
-                  ${
-                    availability === option
-                      ? "bg-primary-600 text-white"
-                      : "bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700"
-                  }
-                `}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        </div>
+        <AvailabilityPicker
+          value={availability}
+          onChange={(next) => {
+            setAvailability(next);
+            setError(null);
+          }}
+        />
 
         <div>
           <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
@@ -125,11 +127,11 @@ export function LocationStep({
               onChange={(e) => setCurrency(e.target.value)}
               className="px-3 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
-              <option value="USD">USD</option>
-              <option value="THB">THB</option>
-              <option value="EUR">EUR</option>
-              <option value="GBP">GBP</option>
-              <option value="JPY">JPY</option>
+              {workerPayCurrencyOptions(currency).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
             </select>
             <Input
               type="number"
@@ -167,7 +169,7 @@ export function LocationStep({
         <Button
           type="submit"
           loading={saving}
-          disabled={!location.trim() || !availability}
+          disabled={!location.trim() || availability.length === 0}
           className="flex-1"
         >
           Continue

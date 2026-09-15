@@ -3,6 +3,12 @@
 import React, { useState } from "react";
 import { Button, Input } from "@/components/ui";
 import { updateProfileExperience } from "@/app/worker/actions";
+import { CharacterCount } from "@/components/profile/CharacterCount";
+import {
+  EXPERIENCE_DESCRIPTION_MAX_LENGTH,
+  EXPERIENCE_YEARS_MAX,
+  EXPERIENCE_YEARS_MIN,
+} from "@/lib/profile/limits";
 
 interface ExperienceStepProps {
   initialExperience: string | null;
@@ -55,11 +61,14 @@ export function ExperienceStep({
         <Input
           label="Years of Experience"
           type="number"
-          min="0"
-          max="50"
+          min={EXPERIENCE_YEARS_MIN}
+          max={EXPERIENCE_YEARS_MAX}
           placeholder="e.g., 3"
           value={years}
-          onChange={(e) => setYears(e.target.value)}
+          onChange={(e) => {
+            setYears(e.target.value);
+            setError(null);
+          }}
         />
 
         <div>
@@ -70,11 +79,21 @@ export function ExperienceStep({
             className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[100px]"
             placeholder="Describe your work history briefly..."
             value={experience}
-            onChange={(e) => setExperience(e.target.value)}
+            maxLength={EXPERIENCE_DESCRIPTION_MAX_LENGTH}
+            onChange={(e) => {
+              setExperience(e.target.value);
+              setError(null);
+            }}
           />
-          <p className="text-charcoal-500 text-xs mt-1.5">
-            Mention where you&apos;ve worked and what you did
-          </p>
+          <div className="flex justify-between items-center mt-1.5">
+            <p className="text-charcoal-500 text-xs">
+              Mention where you&apos;ve worked and what you did
+            </p>
+            <CharacterCount
+              current={experience.length}
+              max={EXPERIENCE_DESCRIPTION_MAX_LENGTH}
+            />
+          </div>
         </div>
 
         {error && <p className="text-error text-sm">{error}</p>}

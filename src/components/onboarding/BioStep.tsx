@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui";
 import { updateProfileBio } from "@/app/worker/actions";
+import { CharacterCount } from "@/components/profile/CharacterCount";
+import { BIO_MAX_LENGTH, BIO_MIN_LENGTH } from "@/lib/profile/limits";
 
 interface BioStepProps {
   initialBio: string | null;
@@ -19,20 +21,11 @@ export function BioStep({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const charCount = bio.length;
-  const minChars = 10;
-  const maxChars = 500;
-
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
 
-    if (bio.trim().length < minChars) {
-      setError(`Bio must be at least ${minChars} characters`);
-      return;
-    }
-
-    if (bio.length > maxChars) {
-      setError(`Bio must be less than ${maxChars} characters`);
+    if (bio.trim().length < BIO_MIN_LENGTH) {
+      setError(`Bio must be at least ${BIO_MIN_LENGTH} characters`);
       return;
     }
 
@@ -67,25 +60,22 @@ export function BioStep({
           `}
           placeholder="Tell recruiters about yourself, your strengths, and what makes you a great hire..."
           value={bio}
-          onChange={(e) => setBio(e.target.value)}
-          maxLength={maxChars}
+          onChange={(e) => {
+            setBio(e.target.value);
+            setError(null);
+          }}
+          maxLength={BIO_MAX_LENGTH}
           autoFocus
         />
         <div className="flex justify-between items-center mt-1.5">
           <p className="text-charcoal-500 text-xs">
-            Minimum {minChars} characters
+            Minimum {BIO_MIN_LENGTH} characters
           </p>
-          <p
-            className={`text-xs ${
-              charCount > maxChars
-                ? "text-error"
-                : charCount >= minChars
-                  ? "text-charcoal-400"
-                  : "text-charcoal-500"
-            }`}
-          >
-            {charCount}/{maxChars}
-          </p>
+          <CharacterCount
+            current={bio.length}
+            max={BIO_MAX_LENGTH}
+            min={BIO_MIN_LENGTH}
+          />
         </div>
         {error && <p className="text-error text-sm mt-2">{error}</p>}
       </div>
@@ -102,7 +92,7 @@ export function BioStep({
         <Button
           type="submit"
           loading={saving}
-          disabled={bio.trim().length < minChars}
+          disabled={bio.trim().length < BIO_MIN_LENGTH}
           className="flex-1"
         >
           Continue

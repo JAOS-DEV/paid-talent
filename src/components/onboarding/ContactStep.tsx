@@ -3,6 +3,11 @@
 import React, { useState } from "react";
 import { Button, Input } from "@/components/ui";
 import { updateProfileContact, publishProfile } from "@/app/worker/actions";
+import {
+  LINE_ID_MAX_LENGTH,
+  PHONE_NUMBER_MAX_LENGTH,
+  WHATSAPP_MAX_LENGTH,
+} from "@/lib/profile/limits";
 
 interface ContactStepProps {
   initialLineId: string | null;
@@ -85,22 +90,25 @@ export function ContactStep({
           label="LINE ID"
           placeholder="Your LINE ID (optional)"
           value={lineId}
+          maxLength={LINE_ID_MAX_LENGTH}
           onChange={(e) => setLineId(e.target.value)}
         />
 
         <Input
           label="WhatsApp Number"
           type="tel"
-          placeholder="+1 234 567 8900 (optional)"
+          placeholder="+66 81 234 5678 (optional)"
           value={whatsApp}
+          maxLength={WHATSAPP_MAX_LENGTH}
           onChange={(e) => setWhatsApp(e.target.value)}
         />
 
         <Input
           label="Phone Number"
           type="tel"
-          placeholder="+1 234 567 8900 (optional)"
+          placeholder="+66 81 234 5678 (optional)"
           value={phone}
+          maxLength={PHONE_NUMBER_MAX_LENGTH}
           onChange={(e) => setPhone(e.target.value)}
         />
 

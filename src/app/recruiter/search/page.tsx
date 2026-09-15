@@ -17,6 +17,8 @@ import { AdSense } from "@/components/ads";
 import { OpeningInterestSelect } from "@/components/recruiter";
 import type { SearchWorkerResult } from "@/app/api/workers/search/route";
 import type { RecruiterOpening } from "@/lib/db/schema";
+import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
+import { AVAILABILITY_OPTIONS } from "@/lib/profile/availability";
 
 interface WorkerCardProps {
   worker: SearchWorkerResult;
@@ -91,10 +93,10 @@ function WorkerCard({
               </div>
             )}
 
-            {worker.availability && (
-              <p className="text-charcoal-500 text-sm">
-                Available: {worker.availability}
-              </p>
+            {worker.availability.length > 0 && (
+              <div className="mb-1">
+                <AvailabilityBadges values={worker.availability} />
+              </div>
             )}
           </div>
         </div>
@@ -409,10 +411,11 @@ export default function SearchPage(): React.ReactElement {
                       className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     >
                       <option value="">Any availability</option>
-                      <option value="Full-time">Full-time</option>
-                      <option value="Part-time">Part-time</option>
-                      <option value="Weekends">Weekends</option>
-                      <option value="Flexible">Flexible</option>
+                      {AVAILABILITY_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

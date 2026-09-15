@@ -11,6 +11,7 @@ import {
   Button,
 } from "@/components/ui";
 import { WorkerPhotoGallery } from "./WorkerPhotoGallery";
+import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import type { PublicWorkerProfileView } from "@/lib/worker-profile/public-profile";
 
 function LockIcon(): React.ReactElement {
@@ -145,11 +146,11 @@ export function WorkerPublicProfileView({
                 </div>
               )}
 
-              {profile.availability && (
-                <p className="text-charcoal-400 text-sm">
-                  <span className="text-charcoal-500">Availability:</span>{" "}
-                  {profile.availability}
-                </p>
+              {profile.availability.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-charcoal-500 text-sm mb-2">Availability</p>
+                  <AvailabilityBadges values={profile.availability} />
+                </div>
               )}
             </div>
           </div>
@@ -216,18 +217,18 @@ export function WorkerPublicProfileView({
             <p className="text-charcoal-300">
               {profile.expectedPayMin && profile.expectedPayMax ? (
                 <>
-                  {profile.payCurrency || "USD"}{" "}
+                  {profile.payCurrency || "THB"}{" "}
                   {profile.expectedPayMin.toLocaleString()} -{" "}
                   {profile.expectedPayMax.toLocaleString()}
                 </>
               ) : profile.expectedPayMin ? (
                 <>
-                  From {profile.payCurrency || "USD"}{" "}
+                  From {profile.payCurrency || "THB"}{" "}
                   {profile.expectedPayMin.toLocaleString()}
                 </>
               ) : (
                 <>
-                  Up to {profile.payCurrency || "USD"}{" "}
+                  Up to {profile.payCurrency || "THB"}{" "}
                   {profile.expectedPayMax?.toLocaleString()}
                 </>
               )}

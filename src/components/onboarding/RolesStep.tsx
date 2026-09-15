@@ -3,7 +3,11 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui";
 import { updateProfileRoles } from "@/app/worker/actions";
-import { JOB_ROLE_OPTIONS } from "@/lib/profile";
+import { JobRolesPicker } from "@/components/profile/JobRolesPicker";
+import {
+  splitStoredJobRoles,
+  toPersistedJobRoles,
+} from "@/lib/profile/job-roles";
 
 interface RolesStepProps {
   initialRoles: string[];
@@ -16,21 +20,28 @@ export function RolesStep({
   onComplete,
   onBack,
 }: RolesStepProps): React.ReactElement {
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(initialRoles);
+  const initial = splitStoredJobRoles(initialRoles);
+  const [predefined, setPredefined] = useState<string[]>(initial.predefined);
+  const [otherSelected, setOtherSelected] = useState(initial.otherSelected);
+  const [customRole, setCustomRole] = useState(initial.customRole);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function toggleRole(role: string): void {
-    setSelectedRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
-    );
-    setError(null);
-  }
+  const persistableRoles = toPersistedJobRoles(
+    predefined,
+    otherSelected,
+    customRole
+  );
 
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
 
-    if (selectedRoles.length === 0) {
+    if (otherSelected && !customRole.trim()) {
+      setError("Enter a custom role when Other is selected");
+      return;
+    }
+
+    if (persistableRoles.length === 0) {
       setError("Select at least one role");
       return;
     }
@@ -39,7 +50,10 @@ export function RolesStep({
     setSaving(true);
 
     try {
-      const result = await updateProfileRoles({ jobRoles: selectedRoles });
+      const result = await updateProfileRoles({
+        jobRoles: persistableRoles,
+        customJobRole: otherSelected ? customRole.trim() : undefined,
+      });
       if (!result.success) {
         throw new Error(result.error);
       }
@@ -53,31 +67,24 @@ export function RolesStep({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <p className="text-charcoal-400 text-sm mb-4">
-          Select all the roles you can fill
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {JOB_ROLE_OPTIONS.map((role) => (
-            <button
-              key={role}
-              type="button"
-              onClick={() => toggleRole(role)}
-              className={`
-                px-4 py-2 rounded-full text-sm font-medium transition-colors
-                ${
-                  selectedRoles.includes(role)
-                    ? "bg-primary-600 text-white"
-                    : "bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700"
-                }
-              `}
-            >
-              {role}
-            </button>
-          ))}
-        </div>
-        {error && <p className="text-error text-sm mt-3">{error}</p>}
-      </div>
+      <JobRolesPicker
+        predefined={predefined}
+        otherSelected={otherSelected}
+        customRole={customRole}
+        onPredefinedChange={(roles) => {
+          setPredefined(roles);
+          setError(null);
+        }}
+        onOtherSelectedChange={(selected) => {
+          setOtherSelected(selected);
+          setError(null);
+        }}
+        onCustomRoleChange={(value) => {
+          setCustomRole(value);
+          setError(null);
+        }}
+        error={error}
+      />
 
       <div className="flex gap-3 pt-4">
         <Button
@@ -91,7 +98,7 @@ export function RolesStep({
         <Button
           type="submit"
           loading={saving}
-          disabled={selectedRoles.length === 0}
+          disabled={persistableRoles.length === 0 && !otherSelected}
           className="flex-1"
         >
           Continue

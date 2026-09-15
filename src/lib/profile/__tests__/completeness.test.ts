@@ -21,10 +21,10 @@ function createMockProfile(
     area: null,
     description: null,
     bio: null,
-    availability: null,
+    availability: [],
     expectedPayMin: null,
     expectedPayMax: null,
-    payCurrency: "USD",
+    payCurrency: "THB",
     jobRoles: [],
     experience: null,
     experienceYears: null,
@@ -93,9 +93,10 @@ describe("profile completeness", () => {
     });
 
     describe("location step - requires BOTH location AND availability", () => {
-      it("should NOT mark location step complete with only location set", () => {
+      it("should NOT mark location step complete with an empty availability array", () => {
         const profile = createMockProfile({
           location: "Bangkok, Thailand",
+          availability: [],
         });
         const result = getProfileCompleteness(profile);
         expect(result.completedSteps).not.toContain("location");
@@ -103,7 +104,7 @@ describe("profile completeness", () => {
 
       it("should NOT mark location step complete with only availability set", () => {
         const profile = createMockProfile({
-          availability: "Full-time",
+          availability: ["Full-time"],
         });
         const result = getProfileCompleteness(profile);
         expect(result.completedSteps).not.toContain("location");
@@ -129,7 +130,7 @@ describe("profile completeness", () => {
       it("should mark location step complete with BOTH location AND availability", () => {
         const profile = createMockProfile({
           location: "Bangkok, Thailand",
-          availability: "Full-time",
+          availability: ["Full-time"],
         });
         const result = getProfileCompleteness(profile);
         expect(result.completedSteps).toContain("location");
@@ -138,7 +139,7 @@ describe("profile completeness", () => {
       it("should mark location step complete with location + availability (pay optional)", () => {
         const profile = createMockProfile({
           location: "Bangkok, Thailand",
-          availability: "Part-time",
+          availability: ["Part-time"],
           expectedPayMin: null,
           expectedPayMax: null,
         });
@@ -149,7 +150,7 @@ describe("profile completeness", () => {
       it("should mark location step complete with location + availability + pay", () => {
         const profile = createMockProfile({
           location: "Bangkok, Thailand",
-          availability: "Full-time",
+          availability: ["Full-time"],
           expectedPayMin: 500,
           expectedPayMax: 1000,
         });
@@ -233,7 +234,7 @@ describe("profile completeness", () => {
           languages: ["English"],
           bio: "Experienced bartender",
           location: "Bangkok",
-          availability: "Full-time",
+          availability: ["Full-time"],
           lineId: null,
           whatsappNumber: null,
           phoneNumber: null,
@@ -388,7 +389,7 @@ describe("profile completeness", () => {
           languages: ["English", "Thai"],
           bio: "Experienced bartender with 5 years in the industry",
           location: "Bangkok, Thailand",
-          availability: "Full-time",
+          availability: ["Full-time"],
         });
         const result = getProfileCompleteness(profile);
         expect(result.isComplete).toBe(true);
