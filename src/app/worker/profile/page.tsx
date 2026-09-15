@@ -426,6 +426,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                     <Button
                       variant="outline"
                       size="sm"
+                      data-testid="upload-primary-photo"
                       onClick={handleChoosePhoto}
                       disabled={saving === "photo"}
                     >
@@ -473,6 +474,9 @@ export default function WorkerProfilePage(): React.ReactElement {
                     verificationStatus === "verified" ||
                     Boolean(profile?.isVerified)
                   }
+                  hasApprovedPrimaryPhoto={Boolean(
+                    profile?.photoKey && profile?.photoUrl
+                  )}
                 />
               </CardContent>
             </Card>

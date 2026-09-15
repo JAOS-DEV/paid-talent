@@ -10,6 +10,7 @@ import {
 } from "@/lib/storage/s3";
 import { assertOwnedPhotoStagingKey } from "@/lib/storage/keys";
 import {
+  hasApprovedPrimaryProfileImage,
   hasApprovedPublicPhoto,
   pendingPhotoPersistence,
   shouldReplaceWorkerProfilePhotoOnDelete,
@@ -23,6 +24,7 @@ import {
   MAX_PENDING_PHOTOS,
   PHOTO_POLICY_COPY,
   GALLERY_UNVERIFIED_REASON,
+  GALLERY_PRIMARY_PENDING_REASON,
   type PhotoUploadPurpose,
 } from "./photo-policy";
 import { analyzeProfilePhoto } from "./photo-provider";
@@ -90,6 +92,8 @@ export async function canUploadPhoto(
     .select({
       isVerified: workerProfiles.isVerified,
       verificationStatus: workerProfiles.verificationStatus,
+      photoKey: workerProfiles.photoKey,
+      photoUrl: workerProfiles.photoUrl,
     })
     .from(workerProfiles)
     .where(eq(workerProfiles.id, workerProfileId))
@@ -98,6 +102,9 @@ export async function canUploadPhoto(
   return checkPhotoLimits(counts.approved, counts.pending, {
     isVerified: profile ? isWorkerIdentityVerified(profile) : false,
     purpose,
+    hasApprovedPrimary: profile
+      ? hasApprovedPrimaryProfileImage(profile)
+      : false,
   });
 }
 
@@ -131,6 +138,8 @@ export async function insertProfilePhotoWithSlotLock(
       .select({
         isVerified: workerProfiles.isVerified,
         verificationStatus: workerProfiles.verificationStatus,
+        photoKey: workerProfiles.photoKey,
+        photoUrl: workerProfiles.photoUrl,
       })
       .from(workerProfiles)
       .where(eq(workerProfiles.id, input.workerProfileId))
@@ -170,6 +179,7 @@ export async function insertProfilePhotoWithSlotLock(
       {
         isVerified: isWorkerIdentityVerified(profile),
         purpose: input.purpose,
+        hasApprovedPrimary: hasApprovedPrimaryProfileImage(profile),
       }
     );
 
@@ -245,6 +255,22 @@ async function deletePublicPhotoQuietly(photoKey: string | null): Promise<void> 
     await deleteFile(photoKey);
   } catch {
     console.warn("[Photo Moderation] Could not delete public profile photo");
+  }
+}
+
+export async function persistApprovedPhotoOrRollbackPublicObject(
+  persist: () => Promise<void>,
+  publicPhotoKey: string,
+  rollbackPublicObject: (
+    photoKey: string | null
+  ) => Promise<void> = deletePublicPhotoQuietly
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await persist();
+    return { success: true };
+  } catch {
+    await rollbackPublicObject(publicPhotoKey);
+    return { success: false, error: "Could not approve photo" };
   }
 }
 
@@ -338,54 +364,63 @@ export async function approvePhoto(
     return { success: false, error: "Could not promote photo to public storage" };
   }
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(profilePhotos)
-      .set({
-        moderationStatus: "approved",
-        stagingKey: null,
-        photoKey: promoted.photoKey,
-        photoUrl: promoted.photoUrl,
-        moderationReviewedAt: new Date(),
-        moderationReviewedBy: reviewedBy,
-        updatedAt: new Date(),
-      })
-      .where(eq(profilePhotos.id, photoId));
-
-    const [approvedPhoto] = await tx
-      .select()
-      .from(profilePhotos)
-      .where(eq(profilePhotos.id, photoId))
-      .limit(1);
-
-    if (approvedPhoto && hasApprovedPublicPhoto(approvedPhoto)) {
-      const [approvedCount] = await tx
-        .select({ count: count() })
-        .from(profilePhotos)
-        .where(
-          and(
-            eq(profilePhotos.workerProfileId, photo.workerProfileId),
-            eq(profilePhotos.moderationStatus, "approved")
-          )
-        );
-
-      if ((approvedCount?.count ?? 0) === 1) {
+  const persisted = await persistApprovedPhotoOrRollbackPublicObject(
+    async () => {
+      await db.transaction(async (tx) => {
         await tx
           .update(profilePhotos)
-          .set({ isCurrentApproved: true, updatedAt: new Date() })
-          .where(eq(profilePhotos.id, approvedPhoto.id));
-
-        await tx
-          .update(workerProfiles)
           .set({
-            photoKey: approvedPhoto.photoKey,
-            photoUrl: approvedPhoto.photoUrl,
+            moderationStatus: "approved",
+            stagingKey: null,
+            photoKey: promoted.photoKey,
+            photoUrl: promoted.photoUrl,
+            moderationReviewedAt: new Date(),
+            moderationReviewedBy: reviewedBy,
             updatedAt: new Date(),
           })
-          .where(eq(workerProfiles.id, photo.workerProfileId));
-      }
-    }
-  });
+          .where(eq(profilePhotos.id, photoId));
+
+        const [approvedPhoto] = await tx
+          .select()
+          .from(profilePhotos)
+          .where(eq(profilePhotos.id, photoId))
+          .limit(1);
+
+        if (approvedPhoto && hasApprovedPublicPhoto(approvedPhoto)) {
+          const [approvedCount] = await tx
+            .select({ count: count() })
+            .from(profilePhotos)
+            .where(
+              and(
+                eq(profilePhotos.workerProfileId, photo.workerProfileId),
+                eq(profilePhotos.moderationStatus, "approved")
+              )
+            );
+
+          if ((approvedCount?.count ?? 0) === 1) {
+            await tx
+              .update(profilePhotos)
+              .set({ isCurrentApproved: true, updatedAt: new Date() })
+              .where(eq(profilePhotos.id, approvedPhoto.id));
+
+            await tx
+              .update(workerProfiles)
+              .set({
+                photoKey: approvedPhoto.photoKey,
+                photoUrl: approvedPhoto.photoUrl,
+                updatedAt: new Date(),
+              })
+              .where(eq(workerProfiles.id, photo.workerProfileId));
+          }
+        }
+      });
+    },
+    promoted.photoKey
+  );
+
+  if (!persisted.success) {
+    return persisted;
+  }
 
   return { success: true };
 }
@@ -768,4 +803,5 @@ export {
   MAX_PENDING_PHOTOS,
   PHOTO_POLICY_COPY,
   GALLERY_UNVERIFIED_REASON,
+  GALLERY_PRIMARY_PENDING_REASON,
 };

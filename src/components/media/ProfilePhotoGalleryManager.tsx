@@ -9,12 +9,18 @@ import {
   type ProfilePhotoUploadStage,
 } from "@/lib/media/profile-photo";
 import { uploadProfilePhoto } from "@/lib/media/upload-profile-photo";
-import { checkPhotoLimits, PHOTO_POLICY_COPY } from "@/lib/moderation/photo-policy";
+import {
+  checkPhotoLimits,
+  GALLERY_PRIMARY_PENDING_REASON,
+  GALLERY_UNVERIFIED_REASON,
+  PHOTO_POLICY_COPY,
+} from "@/lib/moderation/photo-policy";
 import type { WorkerOwnedPhoto } from "@/lib/worker-dashboard";
 import { PhotoStatusPill } from "@/components/media/PhotoStatusPill";
 
 interface ProfilePhotoGalleryManagerProps {
   isVerified: boolean;
+  hasApprovedPrimaryPhoto?: boolean;
 }
 
 function thumbnailUrl(photo: WorkerOwnedPhoto): string | null {
@@ -32,6 +38,7 @@ function sortForDisplay(photos: WorkerOwnedPhoto[]): WorkerOwnedPhoto[] {
 
 export function ProfilePhotoGalleryManager({
   isVerified,
+  hasApprovedPrimaryPhoto = false,
 }: ProfilePhotoGalleryManagerProps): React.ReactElement {
   const [photos, setPhotos] = useState<WorkerOwnedPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,12 +92,30 @@ export function ProfilePhotoGalleryManager({
   ).length;
   const slotCount = approvedCount + pendingCount;
   const remaining = Math.max(0, 5 - slotCount);
+  const hasApprovedPrimary =
+    hasApprovedPrimaryPhoto ||
+    photos.some(
+      (photo) =>
+        photo.isCurrentApproved &&
+        photo.moderationStatus === "approved" &&
+        Boolean(photo.photoUrl)
+    );
   const galleryLimit = checkPhotoLimits(approvedCount, pendingCount, {
     purpose: "gallery",
     isVerified,
+    hasApprovedPrimary,
   });
   const canAdd = galleryLimit.canUpload && !uploading;
   const canChoosePrimary = approvedCount > 1;
+  const galleryGuidance = !isVerified
+    ? GALLERY_UNVERIFIED_REASON
+    : !hasApprovedPrimary
+      ? GALLERY_PRIMARY_PENDING_REASON
+      : `Your primary verification photo is photo 1. You can add up to four more photos for recruiters${
+          remaining > 0
+            ? `, including while others are under review (${remaining} remaining)`
+            : ""
+        }. New photos stay private until they are approved.`;
 
   async function handleUpload(
     event: React.ChangeEvent<HTMLInputElement>
@@ -187,6 +212,7 @@ export function ProfilePhotoGalleryManager({
             variant="outline"
             size="sm"
             className="min-h-11"
+            data-testid="add-gallery-photo"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
           >
@@ -205,20 +231,7 @@ export function ProfilePhotoGalleryManager({
         }}
       />
 
-      {!isVerified ? (
-        <p className="text-sm text-charcoal-400 mb-4">
-          Additional photos are available after identity verification is
-          approved.
-        </p>
-      ) : (
-        <p className="text-sm text-charcoal-400 mb-4">
-          Your primary verification photo is photo 1. You can add up to four
-          more photos for recruiters
-          {remaining > 0
-            ? `, including while others are under review (${remaining} remaining)`
-            : ""}. New photos stay private until they are approved.
-        </p>
-      )}
+      <p className="text-sm text-charcoal-400 mb-4">{galleryGuidance}</p>
       <p className="text-sm text-charcoal-400 mb-4">{PHOTO_POLICY_COPY.rules}</p>
 
       {uploadStage ? (

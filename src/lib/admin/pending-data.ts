@@ -10,6 +10,7 @@ import {
   PrivateStorageConfigError,
 } from "@/lib/storage/config";
 import { formatChallengeCodeForDisplay } from "@/lib/verification";
+import { inferPendingPhotoSubmissionKind } from "@/lib/moderation/photo-policy";
 
 export interface PendingPhotoItem {
   id: string;
@@ -206,9 +207,10 @@ export async function listPendingPhotosForAdmin(options?: {
         moderationConfidence: photo.moderationConfidence,
         moderationCategories: photo.moderationCategories as string[] | null,
         createdAt: photo.createdAt,
-        submissionKind: (photo.workerPhotoKey && photo.workerPhotoUrl
-          ? "gallery"
-          : "primary") as PendingPhotoItem["submissionKind"],
+        submissionKind: inferPendingPhotoSubmissionKind({
+          photoKey: photo.workerPhotoKey,
+          photoUrl: photo.workerPhotoUrl,
+        }),
         worker: {
           displayName: photo.workerDisplayName,
           email: photo.workerEmail,

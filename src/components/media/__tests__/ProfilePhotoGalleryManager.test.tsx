@@ -87,6 +87,54 @@ describe("ProfilePhotoGalleryManager status UX", () => {
     expect(removeButtons.length).toBeGreaterThan(0);
   });
 
+  it("hides Add photo until an approved primary exists", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          photos: [
+            photo({
+              id: "pending-primary",
+              photoUrl: null,
+              previewUrl: "https://signed.example/pending.jpg",
+              moderationStatus: "pending",
+              isCurrentApproved: false,
+            }),
+          ],
+        }),
+      })
+    );
+
+    render(
+      <ProfilePhotoGalleryManager isVerified hasApprovedPrimaryPhoto={false} />
+    );
+
+    expect(await screen.findByTestId("photo-status-pending-review")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add photo" })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Additional photos are available after your primary photo is approved."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("preserves the identity-verification message when the worker is not verified", async () => {
+    render(
+      <ProfilePhotoGalleryManager
+        isVerified={false}
+        hasApprovedPrimaryPhoto={false}
+      />
+    );
+
+    expect(
+      await screen.findByText(
+        "Additional photos are available after identity verification is approved."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add photo" })).not.toBeInTheDocument();
+  });
+
   it("asks the API to make an approved gallery photo primary", async () => {
     render(<ProfilePhotoGalleryManager isVerified />);
     const makePrimary = await screen.findByRole("button", { name: "Make primary" });

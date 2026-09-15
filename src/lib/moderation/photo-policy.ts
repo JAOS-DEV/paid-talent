@@ -1,4 +1,5 @@
 import type { PhotoModerationStatus } from "@/lib/db/schema";
+import { hasApprovedPrimaryProfileImage } from "@/lib/media/photo-persistence";
 
 export const MAX_PROFILE_PHOTOS = 5;
 /** Conservative cap for competing PRIMARY verification-photo submissions. */
@@ -15,6 +16,16 @@ export type PhotoUploadPurpose = "primary" | "gallery";
 
 export const GALLERY_UNVERIFIED_REASON =
   "Additional photos are available after identity verification is approved.";
+
+export const GALLERY_PRIMARY_PENDING_REASON =
+  "Additional photos are available after your primary photo is approved.";
+
+export function inferPendingPhotoSubmissionKind(profile: {
+  photoKey: string | null;
+  photoUrl: string | null;
+}): PhotoUploadPurpose {
+  return hasApprovedPrimaryProfileImage(profile) ? "gallery" : "primary";
+}
 
 export const PHOTO_POLICY_COPY = {
   helper:
@@ -149,6 +160,7 @@ export interface PhotoLimitCheck {
 export interface PhotoLimitOptions {
   isVerified?: boolean;
   purpose?: PhotoUploadPurpose;
+  hasApprovedPrimary?: boolean;
 }
 
 export function checkPhotoLimits(
@@ -158,11 +170,21 @@ export function checkPhotoLimits(
 ): PhotoLimitCheck {
   const purpose = options.purpose ?? "primary";
   const isVerified = options.isVerified === true;
+  const hasApprovedPrimary = options.hasApprovedPrimary === true;
 
   if (purpose === "gallery" && !isVerified) {
     return {
       canUpload: false,
       reason: GALLERY_UNVERIFIED_REASON,
+      currentApprovedCount: approvedCount,
+      currentPendingCount: pendingCount,
+    };
+  }
+
+  if (purpose === "gallery" && !hasApprovedPrimary) {
+    return {
+      canUpload: false,
+      reason: GALLERY_PRIMARY_PENDING_REASON,
       currentApprovedCount: approvedCount,
       currentPendingCount: pendingCount,
     };

@@ -38,10 +38,21 @@ describe("worker dashboard metrics helpers", () => {
       approvedCount: 2,
       pendingCount: 1,
       isVerified: true,
+      hasApprovedPrimary: true,
     });
     expect(slots.slotCount).toBe(3);
     expect(slots.remainingSlots).toBe(2);
     expect(slots.canAddGalleryPhoto).toBe(true);
+  });
+
+  it("does not allow gallery photos before an approved primary exists", () => {
+    const slots = buildPhotoSlots({
+      approvedCount: 0,
+      pendingCount: 1,
+      isVerified: true,
+      hasApprovedPrimary: false,
+    });
+    expect(slots.canAddGalleryPhoto).toBe(false);
   });
 
   it("starts empty stats at zero instead of fabricating counts", () => {

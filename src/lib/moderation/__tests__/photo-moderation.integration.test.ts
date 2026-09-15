@@ -5,6 +5,24 @@ import { localDatabaseUrl } from "../../db/local-config";
 import { parseDatabaseUrl } from "../../db/safety";
 import { migrateLocalDb, startLocalDb } from "../../../../scripts/local-db";
 
+vi.mock("@/lib/storage/s3", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage/s3")>();
+  return {
+    ...actual,
+    promoteStagedProfilePhotoToPublic: vi.fn(
+      async (userId: string, stagingKey: string) => ({
+        photoKey: `profiles/${userId}/${stagingKey.split("/").pop() ?? "photo.jpg"}`,
+        photoUrl: `https://cdn.example/profiles/${userId}/${stagingKey.split("/").pop() ?? "photo.jpg"}`,
+      })
+    ),
+    deleteFile: vi.fn(async () => undefined),
+    deleteStagedProfilePhoto: vi.fn(async () => undefined),
+    getSignedPhotoStagingUrlForOwner: vi.fn(
+      async () => "https://signed.example/owner-preview.jpg"
+    ),
+  };
+});
+
 const TEST_URL = localDatabaseUrl("test");
 const shouldRun = process.env.RUN_DOCKER_DB_TESTS === "1";
 const suffix = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -28,6 +46,10 @@ describe.skipIf(!shouldRun)("manual profile photo moderation against paid_talent
   let getPendingPhotosForReview: typeof import("../photo-moderation").getPendingPhotosForReview;
   let getApprovedPhotosForWorker: typeof import("../photo-moderation").getApprovedPhotosForWorker;
   let toOwnedPhotoDto: typeof import("../photo-moderation").toOwnedPhotoDto;
+  let approvePhoto: typeof import("../photo-moderation").approvePhoto;
+  let canUploadPhoto: typeof import("../photo-moderation").canUploadPhoto;
+  let getOwnerPendingPhotoPreview: typeof import("../photo-moderation").getOwnerPendingPhotoPreview;
+  let inferPendingPhotoSubmissionKind: typeof import("../photo-policy").inferPendingPhotoSubmissionKind;
   let isSearchableWorker: typeof import("../../verification").isSearchableWorker;
 
   let workerAId = "";
@@ -51,7 +73,11 @@ describe.skipIf(!shouldRun)("manual profile photo moderation against paid_talent
       getPendingPhotosForReview,
       getApprovedPhotosForWorker,
       toOwnedPhotoDto,
+      approvePhoto,
+      canUploadPhoto,
+      getOwnerPendingPhotoPreview,
     } = await import("../photo-moderation"));
+    ({ inferPendingPhotoSubmissionKind } = await import("../photo-policy"));
     ({ isSearchableWorker } = await import("../../verification"));
 
     const workerA = await createUserWithRole({
@@ -263,5 +289,90 @@ describe.skipIf(!shouldRun)("manual profile photo moderation against paid_talent
     expect((await setCurrentApprovedPhoto(workerAProfileId, foreign.id)).success).toBe(
       false
     );
+  });
+
+  it("approves the first pending photo as primary and later gallery photos without replacing it", async () => {
+    await db.delete(profilePhotos).where(eq(profilePhotos.workerProfileId, workerAProfileId));
+    await db
+      .update(workerProfiles)
+      .set({ photoKey: null, photoUrl: null, updatedAt: new Date() })
+      .where(eq(workerProfiles.id, workerAProfileId));
+
+    const first = await insertProfilePhotoWithSlotLock({
+      userId: workerAId,
+      workerProfileId: workerAProfileId,
+      purpose: "primary",
+      moderationReason: "manual review",
+      moderationConfidence: 90,
+      moderationCategories: ["safe"],
+      buildRow: async () => ({
+        stagingKey: `profile-photo-staging/${workerAId}/first.jpg`,
+        photoKey: null,
+        photoUrl: null,
+        moderationStatus: "pending",
+      }),
+    });
+    expect(first.success).toBe(true);
+    if (!first.success) return;
+
+    expect((await canUploadPhoto(workerAProfileId, "gallery")).canUpload).toBe(false);
+    const ownerPreview = await getOwnerPendingPhotoPreview(first.photo.id, workerAId);
+    expect("previewUrl" in ownerPreview).toBe(true);
+    const foreignPreview = await getOwnerPendingPhotoPreview(first.photo.id, workerBId);
+    expect("error" in foreignPreview).toBe(true);
+
+    const approvedFirst = await approvePhoto(first.photo.id, "admin@example.com");
+    expect(approvedFirst.success).toBe(true);
+
+    const [profileAfterFirst] = await db
+      .select()
+      .from(workerProfiles)
+      .where(eq(workerProfiles.id, workerAProfileId))
+      .limit(1);
+    expect(profileAfterFirst.photoKey).toBeTruthy();
+    expect(profileAfterFirst.photoUrl).toBeTruthy();
+    expect(
+      inferPendingPhotoSubmissionKind({
+        photoKey: profileAfterFirst.photoKey,
+        photoUrl: profileAfterFirst.photoUrl,
+      })
+    ).toBe("gallery");
+    expect((await canUploadPhoto(workerAProfileId, "gallery")).canUpload).toBe(true);
+
+    const gallery = await insertProfilePhotoWithSlotLock({
+      userId: workerAId,
+      workerProfileId: workerAProfileId,
+      purpose: "gallery",
+      moderationReason: "manual review",
+      moderationConfidence: 90,
+      moderationCategories: ["safe"],
+      buildRow: async () => ({
+        stagingKey: `profile-photo-staging/${workerAId}/gallery.jpg`,
+        photoKey: null,
+        photoUrl: null,
+        moderationStatus: "pending",
+      }),
+    });
+    expect(gallery.success).toBe(true);
+    if (!gallery.success) return;
+
+    const approvedGallery = await approvePhoto(gallery.photo.id, "admin@example.com");
+    expect(approvedGallery.success).toBe(true);
+
+    const [profileAfterGallery] = await db
+      .select()
+      .from(workerProfiles)
+      .where(eq(workerProfiles.id, workerAProfileId))
+      .limit(1);
+    expect(profileAfterGallery.photoKey).toBe(profileAfterFirst.photoKey);
+    expect(profileAfterGallery.photoUrl).toBe(profileAfterFirst.photoUrl);
+
+    const [galleryRow] = await db
+      .select()
+      .from(profilePhotos)
+      .where(eq(profilePhotos.id, gallery.photo.id))
+      .limit(1);
+    expect(galleryRow.isCurrentApproved).toBe(false);
+    expect(galleryRow.moderationStatus).toBe("approved");
   });
 });

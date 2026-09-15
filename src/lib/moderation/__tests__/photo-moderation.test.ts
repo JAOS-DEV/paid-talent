@@ -73,6 +73,7 @@ describe("photo-moderation integration", () => {
       const result = checkPhotoLimits(1, 3, {
         purpose: "gallery",
         isVerified: true,
+        hasApprovedPrimary: true,
       });
 
       expect(result.canUpload).toBe(true);
@@ -88,6 +89,16 @@ describe("photo-moderation integration", () => {
       const result = checkPhotoLimits(1, 0, {
         purpose: "gallery",
         isVerified: false,
+        hasApprovedPrimary: true,
+      });
+      expect(result.canUpload).toBe(false);
+    });
+
+    it("does not let verified workers use gallery purpose without an approved primary", () => {
+      const result = checkPhotoLimits(0, 1, {
+        purpose: "gallery",
+        isVerified: true,
+        hasApprovedPrimary: false,
       });
       expect(result.canUpload).toBe(false);
     });

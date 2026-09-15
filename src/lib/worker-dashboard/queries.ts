@@ -15,6 +15,7 @@ import {
 } from "@/lib/hire-outcomes/confirmations";
 import { getPhotoCountsForWorker } from "@/lib/moderation/photo-moderation";
 import { checkPhotoLimits, MAX_PROFILE_PHOTOS } from "@/lib/moderation/photo-policy";
+import { hasApprovedPrimaryProfileImage } from "@/lib/media/photo-persistence";
 import {
   DASHBOARD_RECENT_INTEREST_LIMIT,
   emptyDashboardStats,
@@ -167,7 +168,7 @@ export function toDashboardSafeProfile(profile: {
     isVerified: profile.isVerified,
     verificationStatus: profile.verificationStatus,
     hasSubmittedPhoto: profile.hasSubmittedPhoto,
-    hasApprovedPrimaryPhoto: Boolean(profile.photoKey && profile.photoUrl),
+    hasApprovedPrimaryPhoto: hasApprovedPrimaryProfileImage(profile),
   };
 }
 
@@ -175,6 +176,7 @@ export function buildPhotoSlots(input: {
   approvedCount: number;
   pendingCount: number;
   isVerified: boolean;
+  hasApprovedPrimary: boolean;
 }): WorkerDashboardPhotoSlots {
   const approvedCount = toCount(input.approvedCount);
   const pendingCount = toCount(input.pendingCount);
@@ -183,6 +185,7 @@ export function buildPhotoSlots(input: {
   const galleryLimit = checkPhotoLimits(approvedCount, pendingCount, {
     purpose: "gallery",
     isVerified: input.isVerified,
+    hasApprovedPrimary: input.hasApprovedPrimary,
   });
 
   return {
@@ -287,9 +290,10 @@ export async function getWorkerDashboardData(
       approvedCount: photoCounts.approved,
       pendingCount: photoCounts.pending,
       isVerified,
+      hasApprovedPrimary: hasApprovedPrimaryProfileImage(profile),
     }),
     verificationStatus: profile.verificationStatus,
     isPublished: profile.isPublished,
-    hasApprovedPrimaryPhoto: Boolean(profile.photoKey && profile.photoUrl),
+    hasApprovedPrimaryPhoto: hasApprovedPrimaryProfileImage(profile),
   };
 }

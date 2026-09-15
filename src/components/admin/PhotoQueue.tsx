@@ -114,6 +114,7 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
   }, [photo.id, reason, onResolved]);
 
   return (
+    <div data-testid="pending-photo-card">
     <Card padding="lg" className="w-full">
       <CardContent className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row">
@@ -156,7 +157,7 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
               </div>
               <Badge variant="warning">pending</Badge>
             </div>
-            <p className="text-sm text-charcoal-300">
+            <p className="text-sm text-charcoal-300" data-testid={`photo-submission-${photo.submissionKind ?? "primary"}`}>
               <span className="text-charcoal-500">Submission: </span>
               {photo.submissionKind === "gallery"
                 ? "Gallery photo"
@@ -259,6 +260,7 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }
 
