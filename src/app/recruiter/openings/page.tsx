@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
 import { Button, Card, CardContent } from "@/components/ui";
-import { OpeningCard } from "@/components/recruiter";
+import { OpeningCard, RecruiterBackLink } from "@/components/recruiter";
 import { EMPTY_STATE_COPY } from "@/lib/interests";
 import { getRecruiterOpenings } from "@/lib/recruiter-profile/actions";
 
@@ -24,22 +24,27 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
       <Header />
       <main className="flex-1 bg-charcoal-950 py-8">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-charcoal-100">Openings</h1>
-              <p className="text-charcoal-400 mt-1">
-                Create and publish roles workers can see when you express
-                interest.
-              </p>
-              {openings.length > 0 && (
-                <p className="text-sm text-charcoal-500 mt-2">
-                  {publishedCount} published · {draftCount} draft
+          <div className="mb-6 min-w-0">
+            <RecruiterBackLink href="/recruiter/dashboard">
+              ← Back to Dashboard
+            </RecruiterBackLink>
+            <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold text-charcoal-100">Openings</h1>
+                <p className="text-charcoal-400 mt-1">
+                  Create and publish roles workers can see when you express
+                  interest.
                 </p>
-              )}
+                {openings.length > 0 && (
+                  <p className="text-sm text-charcoal-500 mt-2">
+                    {publishedCount} published · {draftCount} draft
+                  </p>
+                )}
+              </div>
+              <Link href="/recruiter/openings/new">
+                <Button>Add opening</Button>
+              </Link>
             </div>
-            <Link href="/recruiter/openings/new">
-              <Button>Add opening</Button>
-            </Link>
           </div>
 
           {openings.length === 0 ? (

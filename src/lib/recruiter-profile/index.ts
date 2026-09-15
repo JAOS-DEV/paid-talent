@@ -161,3 +161,23 @@ export {
   normalizeOptionalText,
   optionalNonNegativePaySchema,
 } from "./opening-validation";
+
+export {
+  canonicalizePayPeriod,
+  DEFAULT_OPENING_PAY_CURRENCY,
+  DEFAULT_OPENING_PAY_PERIOD,
+  emptyPayToNull,
+  formatOpeningChoiceLabel,
+  formatOpeningPay,
+  getOpeningPayAmount,
+  hasLegacyPayRange,
+  joinOpeningContextAndPay,
+  LEGACY_PAY_RANGE_MESSAGE,
+  OPENING_PAY_AMOUNT_MAX,
+  OPENING_PAY_CURRENCIES,
+  OPENING_PAY_PERIOD_OPTIONS,
+  OPENING_PAY_PERIOD_PRESETS,
+  parseStoredPayPeriod,
+  serializeCustomPayPeriod,
+  toOpeningPayStorage,
+} from "./opening-pay";

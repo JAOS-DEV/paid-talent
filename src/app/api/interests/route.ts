@@ -19,6 +19,10 @@ import {
   resolveVenueName,
 } from "@/lib/hire-outcomes/confirmations";
 import {
+  formatOpeningPay,
+  joinOpeningContextAndPay,
+} from "@/lib/recruiter-profile/opening-pay";
+import {
   deniedActiveUserResponse,
   requireActiveAppUser,
   requireActiveRecruiter,
@@ -204,6 +208,10 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
           message: profileInterests.message,
           openingRole: recruiterOpenings.role,
           openingArea: recruiterOpenings.area,
+          payMin: recruiterOpenings.payMin,
+          payMax: recruiterOpenings.payMax,
+          payCurrency: recruiterOpenings.payCurrency,
+          payPeriod: recruiterOpenings.payPeriod,
           notifiedAt: profileInterests.notifiedAt,
           createdAt: profileInterests.createdAt,
         })
@@ -227,9 +235,17 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
             interest.venueNameOrg,
             interest.recruiterName
           ),
-          openingContext: resolveOpeningContext(
-            interest.openingRole,
-            interest.openingArea
+          openingContext: joinOpeningContextAndPay(
+            resolveOpeningContext(
+              interest.openingRole,
+              interest.openingArea
+            ),
+            formatOpeningPay({
+              payMin: interest.payMin,
+              payMax: interest.payMax,
+              payCurrency: interest.payCurrency,
+              payPeriod: interest.payPeriod,
+            })
           ),
           message: interest.message,
           notifiedAt: interest.notifiedAt,
