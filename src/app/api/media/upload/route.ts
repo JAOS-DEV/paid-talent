@@ -91,7 +91,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { contentType, contentLength } = validation.data;
+    const { contentType, contentLength, purpose } = validation.data;
 
     const [profile] = await db
       .select({ id: workerProfiles.id })
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .limit(1);
 
     if (profile) {
-      const limitCheck = await canUploadPhoto(profile.id);
+      const limitCheck = await canUploadPhoto(profile.id, purpose ?? "primary");
       if (!limitCheck.canUpload) {
         return NextResponse.json(
           {
@@ -163,11 +163,19 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     }
 
     const body = await request.json();
-    const { key } = body as { key?: unknown };
+    const { key, purpose: rawPurpose } = body as {
+      key?: unknown;
+      purpose?: unknown;
+    };
 
     if (typeof key !== "string" || !key) {
       return NextResponse.json({ error: "Missing key" }, { status: 400 });
     }
+
+    const purpose =
+      rawPurpose === "gallery" || rawPurpose === "primary"
+        ? rawPurpose
+        : "primary";
 
     try {
       assertOwnedPhotoStagingKey(actor.user.userId, key);
@@ -218,7 +226,8 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     const uploadResult = await submitPhotoForModeration(
       actor.user.userId,
       profile.id,
-      key
+      key,
+      { purpose }
     );
 
     if (!uploadResult.success) {

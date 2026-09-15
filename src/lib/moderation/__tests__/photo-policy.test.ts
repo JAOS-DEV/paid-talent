@@ -252,6 +252,34 @@ describe("photo-policy", () => {
       expect(result.canUpload).toBe(false);
       expect(result.reason).toBe(PHOTO_POLICY_COPY.pending);
     });
+
+    it("blocks gallery uploads until the worker is verified", () => {
+      const result = checkPhotoLimits(1, 0, {
+        purpose: "gallery",
+        isVerified: false,
+      });
+
+      expect(result.canUpload).toBe(false);
+      expect(result.reason).toContain("identity verification");
+    });
+
+    it("allows a verified worker to add a gallery photo under the five-slot cap", () => {
+      const result = checkPhotoLimits(1, 0, {
+        purpose: "gallery",
+        isVerified: true,
+      });
+
+      expect(result.canUpload).toBe(true);
+    });
+
+    it("blocks a sixth active or pending photo server-side", () => {
+      const result = checkPhotoLimits(4, 1, {
+        purpose: "gallery",
+        isVerified: true,
+      });
+
+      expect(result.canUpload).toBe(false);
+    });
   });
 
   describe("PHOTO_POLICY_COPY", () => {

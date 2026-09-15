@@ -107,7 +107,13 @@ export function HireOutcomeActions({
   }
 
   return (
-    <div className={compact ? "flex flex-col items-end gap-1" : "flex flex-col gap-2"}>
+    <div
+      className={
+        compact
+          ? "flex flex-col gap-1 w-full items-stretch md:w-auto md:items-end"
+          : "flex flex-col gap-2"
+      }
+    >
       {pendingLabel && (
         <p className="text-gold-400 text-xs font-medium">{pendingLabel}</p>
       )}
@@ -118,6 +124,7 @@ export function HireOutcomeActions({
         <Button
           variant={action === "request-hire" ? "gold" : "primary"}
           size={compact ? "sm" : "md"}
+          className={compact ? "w-full md:w-auto min-h-11 px-3 text-center" : ""}
           onClick={() => {
             void handleRequest();
           }}

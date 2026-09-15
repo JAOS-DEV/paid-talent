@@ -1,13 +1,19 @@
 "use client";
 
-import React from "react";
+import React, { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Button, Badge } from "@/components/ui";
 import type { VerificationStatus } from "@/lib/db/schema";
+import {
+  isVerifiedLiveSuccessState,
+  readVerifiedBannerDismissed,
+  writeVerifiedBannerDismissed,
+} from "@/lib/verification/banner-dismissal";
 
 interface VerificationStatusBannerProps {
   status: VerificationStatus;
   isPublished: boolean;
+  userId?: string;
   onStartVerification?: () => void;
 }
 
@@ -107,6 +113,16 @@ function ShieldIcon(): React.ReactElement {
   );
 }
 
+function subscribeBannerStorage(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
 const typeStyles = {
   success: {
     container: "bg-green-500/10 border-green-500/30",
@@ -137,13 +153,45 @@ const typeStyles = {
 export function VerificationStatusBanner({
   status,
   isPublished,
+  userId,
 }: VerificationStatusBannerProps): React.ReactElement {
+  const isSuccess = isVerifiedLiveSuccessState(status, isPublished);
+  const [dismissedThisSession, setDismissedThisSession] = useState(false);
+  const storedDismissed = useSyncExternalStore(
+    subscribeBannerStorage,
+    () =>
+      isSuccess && userId ? readVerifiedBannerDismissed(userId) : false,
+    () => false
+  );
+  const dismissed = isSuccess && (dismissedThisSession || storedDismissed);
+
+  function handleDismiss(): void {
+    if (!userId) return;
+    writeVerifiedBannerDismissed(userId);
+    setDismissedThisSession(true);
+  }
+
+  if (isSuccess && dismissed) {
+    return (
+      <div
+        className="flex flex-wrap items-center gap-2"
+        data-testid="verified-live-compact"
+      >
+        <Badge variant="success">Verified</Badge>
+        <span className="text-sm text-charcoal-400">Profile live</span>
+      </div>
+    );
+  }
+
   const config = getStatusConfig(status, isPublished);
   const styles = typeStyles[config.type];
   const Icon = config.icon;
 
   return (
-    <div className={`rounded-lg border p-4 ${styles.container}`}>
+    <div
+      className={`rounded-lg border p-4 ${styles.container}`}
+      data-testid={isSuccess ? "verified-live-banner" : "verification-status-banner"}
+    >
       <div className="flex items-start gap-4">
         <div className={`flex-shrink-0 ${styles.icon}`}>
           <Icon />
@@ -168,6 +216,18 @@ export function VerificationStatusBanner({
             </div>
           )}
         </div>
+        {isSuccess ? (
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="flex-shrink-0 min-h-11 min-w-11 rounded-lg text-charcoal-400 hover:text-charcoal-100 hover:bg-charcoal-800 flex items-center justify-center"
+            aria-label="Dismiss verified banner"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        ) : null}
       </div>
     </div>
   );

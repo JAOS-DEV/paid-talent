@@ -16,6 +16,10 @@ import {
 } from "@/lib/helpers/contact-visibility";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 import { getApprovedPhotosForWorker } from "@/lib/moderation";
+import {
+  mapApprovedPhotosToPublic,
+  type PublicWorkerPhoto,
+} from "@/lib/worker-profile/public-profile";
 import type { HireOutcomeStatus } from "@/lib/db/schema";
 import { getEffectiveEntitlement } from "@/lib/entitlements";
 import {
@@ -27,12 +31,7 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export interface WorkerPhoto {
-  id: string;
-  photoUrl: string;
-  displayOrder: number;
-  isCurrentApproved: boolean;
-}
+export type WorkerPhoto = PublicWorkerPhoto;
 
 export interface WorkerProfileDetail {
   id: string;
@@ -143,19 +142,7 @@ export async function GET(
       : null;
 
     const approvedPhotos = await getApprovedPhotosForWorker(workerProfile.id);
-    const photos: WorkerPhoto[] = approvedPhotos.flatMap((photo) => {
-      if (!photo.photoUrl) {
-        return [];
-      }
-      return [
-        {
-          id: photo.id,
-          photoUrl: photo.photoUrl,
-          displayOrder: photo.displayOrder,
-          isCurrentApproved: photo.isCurrentApproved,
-        },
-      ];
-    });
+    const photos = mapApprovedPhotosToPublic(approvedPhotos);
 
     const result: WorkerProfileDetail = {
       id: workerProfile.id,

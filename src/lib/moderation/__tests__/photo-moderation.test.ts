@@ -71,6 +71,14 @@ describe("photo-moderation integration", () => {
 
       expect(result.canUpload).toBe(true);
     });
+
+    it("does not let unverified workers use gallery purpose", () => {
+      const result = checkPhotoLimits(1, 0, {
+        purpose: "gallery",
+        isVerified: false,
+      });
+      expect(result.canUpload).toBe(false);
+    });
   });
 
   describe("policy copy verification", () => {

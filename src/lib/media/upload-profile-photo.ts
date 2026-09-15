@@ -20,6 +20,7 @@ export interface ProfilePhotoUploadDeps {
   fetch?: typeof fetch;
   prepareImage?: (file: File) => Promise<File>;
   onStage?: (stage: ProfilePhotoUploadStage) => void;
+  purpose?: "primary" | "gallery";
 }
 
 /**
@@ -120,6 +121,7 @@ export async function uploadProfilePhoto(
         contentType: preparedInspection.contentType,
         folder: "profiles",
         contentLength: prepared.size,
+        purpose: deps.purpose ?? "primary",
       }),
     });
   } catch (error) {
@@ -190,7 +192,10 @@ export async function uploadProfilePhoto(
     confirmRes = await callProfilePhotoFetch(deps.fetch, "/api/media/upload", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key }),
+      body: JSON.stringify({
+        key,
+        purpose: deps.purpose ?? "primary",
+      }),
     });
   } catch (error) {
     throw new ProfilePhotoUploadError(

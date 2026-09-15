@@ -21,6 +21,8 @@ import {
   MAX_PROFILE_PHOTOS,
   MAX_PENDING_PHOTOS,
   PHOTO_POLICY_COPY,
+  GALLERY_UNVERIFIED_REASON,
+  type PhotoUploadPurpose,
 } from "./photo-policy";
 import { analyzeProfilePhoto } from "./photo-provider";
 
@@ -71,11 +73,31 @@ export async function getPhotoCountsForWorker(
   };
 }
 
+export function isWorkerIdentityVerified(profile: {
+  isVerified: boolean;
+  verificationStatus: string;
+}): boolean {
+  return profile.verificationStatus === "verified" || profile.isVerified;
+}
+
 export async function canUploadPhoto(
-  workerProfileId: string
+  workerProfileId: string,
+  purpose: PhotoUploadPurpose = "primary"
 ): Promise<PhotoLimitCheck> {
   const counts = await getPhotoCountsForWorker(workerProfileId);
-  return checkPhotoLimits(counts.approved, counts.pending);
+  const [profile] = await db
+    .select({
+      isVerified: workerProfiles.isVerified,
+      verificationStatus: workerProfiles.verificationStatus,
+    })
+    .from(workerProfiles)
+    .where(eq(workerProfiles.id, workerProfileId))
+    .limit(1);
+
+  return checkPhotoLimits(counts.approved, counts.pending, {
+    isVerified: profile ? isWorkerIdentityVerified(profile) : false,
+    purpose,
+  });
 }
 
 async function analyzePrivateStagingPhoto(
@@ -152,11 +174,13 @@ async function markFirstApprovedAsCurrent(
 export async function submitPhotoForModeration(
   userId: string,
   workerProfileId: string,
-  stagingKey: string
+  stagingKey: string,
+  options: { purpose?: PhotoUploadPurpose } = {}
 ): Promise<PhotoUploadResult> {
   assertOwnedPhotoStagingKey(userId, stagingKey);
 
-  const limitCheck = await canUploadPhoto(workerProfileId);
+  const purpose = options.purpose ?? "primary";
+  const limitCheck = await canUploadPhoto(workerProfileId, purpose);
 
   if (!limitCheck.canUpload) {
     return {
@@ -208,7 +232,7 @@ export async function submitPhotoForModeration(
     })
     .returning();
 
-  if (persistence.moderationStatus === "approved") {
+  if (persistence.moderationStatus === "approved" && purpose !== "gallery") {
     await markFirstApprovedAsCurrent(workerProfileId, photo);
   }
 
@@ -425,9 +449,40 @@ export async function setCurrentApprovedPhoto(
   return { success: true };
 }
 
-export async function deletePhoto(
+export function toOwnedPhotoDto(photo: ProfilePhoto): {
+  id: string;
+  photoUrl: string | null;
+  moderationStatus: PhotoModerationStatus;
+  moderationReason: string | null;
+  displayOrder: number;
+  isCurrentApproved: boolean;
+  createdAt: string;
+} {
+  return {
+    id: photo.id,
+    photoUrl:
+      photo.moderationStatus === "approved" && hasApprovedPublicPhoto(photo)
+        ? photo.photoUrl
+        : null,
+    moderationStatus: photo.moderationStatus,
+    moderationReason: photo.moderationReason,
+    displayOrder: photo.displayOrder,
+    isCurrentApproved: photo.isCurrentApproved,
+    createdAt: photo.createdAt.toISOString(),
+  };
+}
+
+export async function getOwnedPhotosForWorker(
+  workerProfileId: string
+): Promise<ReturnType<typeof toOwnedPhotoDto>[]> {
+  const photos = await getWorkerPhotos(workerProfileId, true);
+  return photos.map(toOwnedPhotoDto);
+}
+
+export async function moveOwnedGalleryPhoto(
   photoId: string,
-  userId: string
+  userId: string,
+  direction: "up" | "down"
 ): Promise<{ success: boolean; error?: string }> {
   const [photo] = await db
     .select()
@@ -437,6 +492,60 @@ export async function deletePhoto(
 
   if (!photo) {
     return { success: false, error: "Photo not found" };
+  }
+
+  if (photo.isCurrentApproved) {
+    return { success: false, error: "Primary photo order cannot be changed" };
+  }
+
+  if (photo.moderationStatus !== "approved" || !hasApprovedPublicPhoto(photo)) {
+    return { success: false, error: "Only approved gallery photos can be reordered" };
+  }
+
+  const siblings = (await getApprovedPhotosForWorker(photo.workerProfileId)).filter(
+    (item) => !item.isCurrentApproved
+  );
+  const index = siblings.findIndex((item) => item.id === photo.id);
+  if (index < 0) {
+    return { success: false, error: "Photo not found" };
+  }
+
+  const swapIndex = direction === "up" ? index - 1 : index + 1;
+  const neighbor = siblings[swapIndex];
+  if (!neighbor) {
+    return { success: true };
+  }
+
+  const photoOrder = photo.displayOrder;
+  await db
+    .update(profilePhotos)
+    .set({ displayOrder: neighbor.displayOrder, updatedAt: new Date() })
+    .where(eq(profilePhotos.id, photo.id));
+  await db
+    .update(profilePhotos)
+    .set({ displayOrder: photoOrder, updatedAt: new Date() })
+    .where(eq(profilePhotos.id, neighbor.id));
+
+  return { success: true };
+}
+
+export async function deletePhoto(
+  photoId: string,
+  userId: string,
+  options: { allowPrimary?: boolean } = {}
+): Promise<{ success: boolean; error?: string }> {
+  const [photo] = await db
+    .select()
+    .from(profilePhotos)
+    .where(and(eq(profilePhotos.id, photoId), eq(profilePhotos.userId, userId)))
+    .limit(1);
+
+  if (!photo) {
+    return { success: false, error: "Photo not found" };
+  }
+
+  if (photo.isCurrentApproved && options.allowPrimary !== true) {
+    return { success: false, error: "Cannot remove the primary profile photo" };
   }
 
   const shouldReplaceProfilePhoto =
@@ -489,4 +598,5 @@ export {
   MAX_PROFILE_PHOTOS,
   MAX_PENDING_PHOTOS,
   PHOTO_POLICY_COPY,
+  GALLERY_UNVERIFIED_REASON,
 };

@@ -17,13 +17,14 @@ const SEEDED_WORKER_EMAIL = "worker4@example.com";
 const SEEDED_WORKER_NAME = "Araya S.";
 
 async function signInAs(page: Page, email: string, dest: string): Promise<void> {
+  const origin = process.env.BASE_URL || "http://localhost:3000";
   const request = page.context().request;
   const csrf = await (await request.get("/api/auth/csrf")).json();
   const callback = await request.post("/api/auth/callback/credentials", {
     form: {
       csrfToken: csrf.csrfToken,
       email,
-      callbackUrl: `http://localhost:3000${dest}`,
+      callbackUrl: `${origin}${dest}`,
       json: "true",
     },
     maxRedirects: 0,

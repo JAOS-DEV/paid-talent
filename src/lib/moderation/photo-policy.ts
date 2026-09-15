@@ -3,6 +3,11 @@ import type { PhotoModerationStatus } from "@/lib/db/schema";
 export const MAX_PROFILE_PHOTOS = 5;
 export const MAX_PENDING_PHOTOS = 1;
 
+export type PhotoUploadPurpose = "primary" | "gallery";
+
+export const GALLERY_UNVERIFIED_REASON =
+  "Additional photos are available after identity verification is approved.";
+
 export const PHOTO_POLICY_COPY = {
   helper:
     "Add a clear photo so venues recognise you. Face visible preferred.",
@@ -109,10 +114,28 @@ export interface PhotoLimitCheck {
   currentPendingCount: number;
 }
 
+export interface PhotoLimitOptions {
+  isVerified?: boolean;
+  purpose?: PhotoUploadPurpose;
+}
+
 export function checkPhotoLimits(
   approvedCount: number,
-  pendingCount: number
+  pendingCount: number,
+  options: PhotoLimitOptions = {}
 ): PhotoLimitCheck {
+  const purpose = options.purpose ?? "primary";
+  const isVerified = options.isVerified === true;
+
+  if (purpose === "gallery" && !isVerified) {
+    return {
+      canUpload: false,
+      reason: GALLERY_UNVERIFIED_REASON,
+      currentApprovedCount: approvedCount,
+      currentPendingCount: pendingCount,
+    };
+  }
+
   if (pendingCount >= MAX_PENDING_PHOTOS) {
     return {
       canUpload: false,
@@ -122,7 +145,8 @@ export function checkPhotoLimits(
     };
   }
 
-  if (approvedCount >= MAX_PROFILE_PHOTOS) {
+  const slotCount = approvedCount + pendingCount;
+  if (slotCount >= MAX_PROFILE_PHOTOS || approvedCount >= MAX_PROFILE_PHOTOS) {
     return {
       canUpload: false,
       reason: `Maximum of ${MAX_PROFILE_PHOTOS} profile photos allowed`,
