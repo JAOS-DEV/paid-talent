@@ -1,4 +1,5 @@
 import type { PhotoModerationStatus } from "@/lib/db/schema";
+import { hasApprovedPrimaryProfileImage } from "@/lib/media/photo-persistence";
 
 export const MAX_PROFILE_PHOTOS = 5;
 /** Conservative cap for competing PRIMARY verification-photo submissions. */
@@ -16,15 +17,32 @@ export type PhotoUploadPurpose = "primary" | "gallery";
 export const GALLERY_UNVERIFIED_REASON =
   "Additional photos are available after identity verification is approved.";
 
+export const GALLERY_PRIMARY_PENDING_REASON =
+  "Additional photos are available after your primary photo is approved.";
+
+export function inferPendingPhotoSubmissionKind(profile: {
+  photoKey: string | null;
+  photoUrl: string | null;
+}): PhotoUploadPurpose {
+  return hasApprovedPrimaryProfileImage(profile) ? "gallery" : "primary";
+}
+
 export const PHOTO_POLICY_COPY = {
   helper:
     "Add a clear photo so venues recognise you. Face visible preferred.",
-  rules: "No nudes. Lingerie OK — we'll review before it goes live.",
-  pending:
-    "Photo under review — your profile stays visible with your previous photo until approved.",
+  rules: "No nudes. We'll review each photo before it goes live.",
+  pending: "This photo will appear on your profile after it is approved.",
   rejected:
     "This photo didn't meet our guidelines. Try a clear, face-forward shot without nudity.",
+  primaryLocked:
+    "Make another photo primary before removing this one.",
 } as const;
+
+/**
+ * Current MVP publication mode. Analyzer results are advisory only and must
+ * never approve, reject, or publish a profile photo.
+ */
+export const PHOTO_MODERATION_PUBLICATION_MODE = "manual" as const;
 
 export type PhotoContentCategory =
   | "explicit_nudity"
@@ -115,6 +133,23 @@ export function applyPhotoPolicy(
   };
 }
 
+export function decidePhotoSubmission(
+  analysis: PhotoAnalysisResult
+): PhotoPolicyDecision {
+  const advisory = applyPhotoPolicy(analysis);
+
+  if (PHOTO_MODERATION_PUBLICATION_MODE === "manual") {
+    return {
+      action: "quarantine",
+      status: "pending",
+      reason: advisory.reason,
+      requiresReview: true,
+    };
+  }
+
+  return advisory;
+}
+
 export interface PhotoLimitCheck {
   canUpload: boolean;
   reason?: string;
@@ -125,6 +160,7 @@ export interface PhotoLimitCheck {
 export interface PhotoLimitOptions {
   isVerified?: boolean;
   purpose?: PhotoUploadPurpose;
+  hasApprovedPrimary?: boolean;
 }
 
 export function checkPhotoLimits(
@@ -134,11 +170,21 @@ export function checkPhotoLimits(
 ): PhotoLimitCheck {
   const purpose = options.purpose ?? "primary";
   const isVerified = options.isVerified === true;
+  const hasApprovedPrimary = options.hasApprovedPrimary === true;
 
   if (purpose === "gallery" && !isVerified) {
     return {
       canUpload: false,
       reason: GALLERY_UNVERIFIED_REASON,
+      currentApprovedCount: approvedCount,
+      currentPendingCount: pendingCount,
+    };
+  }
+
+  if (purpose === "gallery" && !hasApprovedPrimary) {
+    return {
+      canUpload: false,
+      reason: GALLERY_PRIMARY_PENDING_REASON,
       currentApprovedCount: approvedCount,
       currentPendingCount: pendingCount,
     };

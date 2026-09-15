@@ -15,7 +15,10 @@ export interface WorkerSearchFilters {
 }
 
 export function filterSearchableWorkers<
-  T extends Pick<WorkerProfile, "verificationStatus" | "isPublished">,
+  T extends Pick<
+    WorkerProfile,
+    "verificationStatus" | "isPublished" | "photoKey" | "photoUrl"
+  >,
 >(profiles: T[]): T[] {
   return profiles.filter((profile) => {
     const result = isSearchableWorker(profile);

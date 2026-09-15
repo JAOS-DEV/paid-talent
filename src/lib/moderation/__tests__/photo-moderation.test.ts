@@ -3,9 +3,11 @@ import {
   MAX_PROFILE_PHOTOS,
   MAX_PENDING_PHOTOS,
   PHOTO_POLICY_COPY,
+  toOwnedPhotoDto,
 } from "../photo-moderation";
 import {
   applyPhotoPolicy,
+  decidePhotoSubmission,
   checkPhotoLimits,
   type PhotoAnalysisResult,
 } from "../photo-policy";
@@ -28,6 +30,7 @@ describe("photo-moderation integration", () => {
       const decision = applyPhotoPolicy(safeAnalysis);
 
       expect(decision.status).toBe("approved");
+      expect(decidePhotoSubmission(safeAnalysis).status).toBe("pending");
     });
 
     it("should keep pending photos hidden from recruiters", () => {
@@ -70,6 +73,7 @@ describe("photo-moderation integration", () => {
       const result = checkPhotoLimits(1, 3, {
         purpose: "gallery",
         isVerified: true,
+        hasApprovedPrimary: true,
       });
 
       expect(result.canUpload).toBe(true);
@@ -85,6 +89,16 @@ describe("photo-moderation integration", () => {
       const result = checkPhotoLimits(1, 0, {
         purpose: "gallery",
         isVerified: false,
+        hasApprovedPrimary: true,
+      });
+      expect(result.canUpload).toBe(false);
+    });
+
+    it("does not let verified workers use gallery purpose without an approved primary", () => {
+      const result = checkPhotoLimits(0, 1, {
+        purpose: "gallery",
+        isVerified: true,
+        hasApprovedPrimary: false,
       });
       expect(result.canUpload).toBe(false);
     });
@@ -99,13 +113,13 @@ describe("photo-moderation integration", () => {
 
     it("should provide correct rules copy", () => {
       expect(PHOTO_POLICY_COPY.rules).toBe(
-        "No nudes. Lingerie OK — we'll review before it goes live."
+        "No nudes. We'll review each photo before it goes live."
       );
     });
 
     it("should provide correct pending copy", () => {
       expect(PHOTO_POLICY_COPY.pending).toBe(
-        "Photo under review — your profile stays visible with your previous photo until approved."
+        "This photo will appear on your profile after it is approved."
       );
     });
 
@@ -117,15 +131,18 @@ describe("photo-moderation integration", () => {
   });
 
   describe("moderation workflow", () => {
-    it("should auto-reject explicit nudity without admin review", () => {
+    it("keeps explicit nudity pending for admin review in manual mode", () => {
       const analysis: PhotoAnalysisResult = {
         categories: ["explicit_nudity"],
         confidence: 0.95,
       };
-      const decision = applyPhotoPolicy(analysis);
+      const advisory = applyPhotoPolicy(analysis);
+      const decision = decidePhotoSubmission(analysis);
 
-      expect(decision.action).toBe("reject");
-      expect(decision.requiresReview).toBe(false);
+      expect(advisory.action).toBe("reject");
+      expect(decision.action).toBe("quarantine");
+      expect(decision.requiresReview).toBe(true);
+      expect(decision.status).toBe("pending");
     });
 
     it("should quarantine lingerie for admin review", () => {
@@ -133,7 +150,7 @@ describe("photo-moderation integration", () => {
         categories: ["lingerie_swimwear"],
         confidence: 0.9,
       };
-      const decision = applyPhotoPolicy(analysis);
+      const decision = decidePhotoSubmission(analysis);
 
       expect(decision.action).toBe("quarantine");
       expect(decision.requiresReview).toBe(true);
@@ -144,27 +161,28 @@ describe("photo-moderation integration", () => {
         categories: ["unknown"],
         confidence: 0.6,
       };
-      const decision = applyPhotoPolicy(analysis);
+      const decision = decidePhotoSubmission(analysis);
 
       expect(decision.action).toBe("quarantine");
       expect(decision.requiresReview).toBe(true);
     });
 
-    it("should auto-approve safe content", () => {
+    it("does not auto-approve safe content in current manual mode", () => {
       const analysis: PhotoAnalysisResult = {
         categories: ["safe"],
         confidence: 0.92,
       };
-      const decision = applyPhotoPolicy(analysis);
+      const decision = decidePhotoSubmission(analysis);
 
-      expect(decision.action).toBe("approve");
-      expect(decision.requiresReview).toBe(false);
+      expect(decision.action).toBe("quarantine");
+      expect(decision.status).toBe("pending");
+      expect(decision.requiresReview).toBe(true);
     });
   });
 
   describe("previous photo visibility during pending", () => {
-    it("should indicate pending status keeps previous photo visible", () => {
-      expect(PHOTO_POLICY_COPY.pending).toContain("previous photo");
+    it("tells the worker the photo is not live until approved", () => {
+      expect(PHOTO_POLICY_COPY.pending).toContain("after it is approved");
     });
   });
 
@@ -174,9 +192,10 @@ describe("photo-moderation integration", () => {
       provider.setScenario("safe");
 
       const result = await provider.analyzeImage("https://example.com/image.jpg");
-      const decision = applyPhotoPolicy(result);
+      const decision = decidePhotoSubmission(result);
 
-      expect(decision.action).toBe("approve");
+      expect(decision.action).toBe("quarantine");
+      expect(decision.status).toBe("pending");
     });
 
     it("should handle explicit scenario correctly", async () => {
@@ -184,9 +203,9 @@ describe("photo-moderation integration", () => {
       provider.setScenario("explicit");
 
       const result = await provider.analyzeImage("https://example.com/image.jpg");
-      const decision = applyPhotoPolicy(result);
+      const decision = decidePhotoSubmission(result);
 
-      expect(decision.action).toBe("reject");
+      expect(decision.action).toBe("quarantine");
     });
 
     it("should handle lingerie scenario correctly", async () => {
@@ -207,6 +226,60 @@ describe("photo-moderation integration", () => {
       const decision = applyPhotoPolicy(result);
 
       expect(decision.action).toBe("quarantine");
+    });
+  });
+
+  describe("owned photo DTO", () => {
+    it("never exposes stagingKey and hides analyzer reasons until admin rejection", () => {
+      const pending = toOwnedPhotoDto({
+        id: "p1",
+        userId: "u1",
+        workerProfileId: "w1",
+        stagingKey: "profile-photo-staging/u1/a.jpg",
+        photoKey: null,
+        photoUrl: null,
+        moderationStatus: "pending",
+        moderationReason: "Content meets guidelines",
+        moderationConfidence: 92,
+        moderationCategories: ["safe"],
+        moderationReviewedAt: null,
+        moderationReviewedBy: null,
+        displayOrder: 0,
+        isCurrentApproved: false,
+        createdAt: new Date("2026-09-15T00:00:00.000Z"),
+        updatedAt: new Date("2026-09-15T00:00:00.000Z"),
+      });
+
+      expect(pending).not.toHaveProperty("stagingKey");
+      expect(pending.photoUrl).toBeNull();
+      expect(pending.moderationReason).toBeNull();
+      expect(pending.moderationStatus).toBe("pending");
+    });
+
+    it("shows the admin rejection reason after review", () => {
+      const rejected = toOwnedPhotoDto({
+        id: "p2",
+        userId: "u1",
+        workerProfileId: "w1",
+        stagingKey: null,
+        photoKey: null,
+        photoUrl: null,
+        moderationStatus: "rejected",
+        moderationReason: "Please upload a clear face-forward photo.",
+        moderationConfidence: 10,
+        moderationCategories: ["explicit_nudity"],
+        moderationReviewedAt: new Date("2026-09-15T00:00:00.000Z"),
+        moderationReviewedBy: "admin@example.com",
+        displayOrder: 1,
+        isCurrentApproved: false,
+        createdAt: new Date("2026-09-15T00:00:00.000Z"),
+        updatedAt: new Date("2026-09-15T00:00:00.000Z"),
+      });
+
+      expect(rejected.moderationReason).toBe(
+        "Please upload a clear face-forward photo."
+      );
+      expect(rejected.photoUrl).toBeNull();
     });
   });
 });

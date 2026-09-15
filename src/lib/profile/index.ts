@@ -16,7 +16,9 @@ export type ProfileCompletenessSource = Pick<
   | "lineId"
   | "whatsappNumber"
   | "phoneNumber"
->;
+> & {
+  hasSubmittedPhoto?: boolean;
+};
 
 type FieldSpec =
   | keyof ProfileCompletenessSource
@@ -99,9 +101,19 @@ export interface ProfileCompleteness {
 
 function isSingleFieldComplete(
   profile: ProfileCompletenessSource,
-  field: keyof ProfileCompletenessSource
+  field: keyof WorkerProfile | "hasSubmittedPhoto"
 ): boolean {
-  const value = profile[field];
+  if (field === "photoUrl") {
+    if (profile.hasSubmittedPhoto === true) {
+      return true;
+    }
+  }
+
+  if (field === "hasSubmittedPhoto") {
+    return profile.hasSubmittedPhoto === true;
+  }
+
+  const value = profile[field as keyof ProfileCompletenessSource];
   if (value === null || value === undefined) return false;
   if (typeof value === "string" && value.trim() === "") return false;
   if (Array.isArray(value) && value.length === 0) return false;

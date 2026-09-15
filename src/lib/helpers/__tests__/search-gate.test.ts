@@ -12,8 +12,8 @@ function createMockProfile(
   return {
     id: "test-id",
     userId: "user-id",
-    photoKey: null,
-    photoUrl: null,
+    photoKey: "profiles/user/photo.jpg",
+    photoUrl: "https://cdn.example/photo.jpg",
     displayName: "Test Worker",
     location: "Bangkok",
     area: "Bangkok",
@@ -58,6 +58,21 @@ describe("search-gate helpers", () => {
 
       const result = filterSearchableWorkers(profiles);
 
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("1");
+    });
+
+    it("filters out verified published workers without an approved primary photo", () => {
+      const profiles = [
+        createMockProfile({ id: "1" }),
+        createMockProfile({
+          id: "2",
+          photoKey: null,
+          photoUrl: null,
+        }),
+      ];
+
+      const result = filterSearchableWorkers(profiles);
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe("1");
     });

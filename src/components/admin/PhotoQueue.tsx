@@ -14,6 +14,7 @@ export interface PendingPhoto {
   moderationConfidence: number | null;
   moderationCategories: string[] | null;
   createdAt: string;
+  submissionKind?: "primary" | "gallery";
   worker: {
     displayName: string;
     email: string | null;
@@ -113,6 +114,7 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
   }, [photo.id, reason, onResolved]);
 
   return (
+    <div data-testid="pending-photo-card">
     <Card padding="lg" className="w-full">
       <CardContent className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row">
@@ -155,6 +157,12 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
               </div>
               <Badge variant="warning">pending</Badge>
             </div>
+            <p className="text-sm text-charcoal-300" data-testid={`photo-submission-${photo.submissionKind ?? "primary"}`}>
+              <span className="text-charcoal-500">Submission: </span>
+              {photo.submissionKind === "gallery"
+                ? "Gallery photo"
+                : "Primary submission"}
+            </p>
             <p className="text-sm text-charcoal-300">
               <span className="text-charcoal-500">Reason: </span>
               {photo.moderationReason || "—"}
@@ -169,6 +177,12 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
                 ? photo.moderationCategories.join(", ")
                 : "—"}
             </p>
+            {photo.moderationCategories?.includes("explicit_nudity") ? (
+              <p className="text-sm text-yellow-300">
+                Analyzer flagged explicit content. This is advisory only — approve
+                or reject manually.
+              </p>
+            ) : null}
             <p className="text-sm text-charcoal-500">
               Uploaded {formatDate(photo.createdAt)}
             </p>
@@ -246,6 +260,7 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }
 

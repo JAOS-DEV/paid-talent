@@ -107,3 +107,10 @@ export function hasApprovedPublicPhoto(photo: {
     Boolean(photo.photoUrl)
   );
 }
+
+export function hasApprovedPrimaryProfileImage(profile: {
+  photoKey: string | null;
+  photoUrl: string | null;
+}): boolean {
+  return Boolean(profile.photoKey && profile.photoUrl);
+}

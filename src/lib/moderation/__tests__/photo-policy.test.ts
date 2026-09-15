@@ -1,10 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   applyPhotoPolicy,
+  decidePhotoSubmission,
   checkPhotoLimits,
+  inferPendingPhotoSubmissionKind,
   MAX_PROFILE_PHOTOS,
   MAX_PENDING_PHOTOS,
   PHOTO_POLICY_COPY,
+  PHOTO_MODERATION_PUBLICATION_MODE,
+  GALLERY_PRIMARY_PENDING_REASON,
   type PhotoAnalysisResult,
 } from "../photo-policy";
 
@@ -257,6 +261,29 @@ describe("photo-policy", () => {
       const result = checkPhotoLimits(1, 0, {
         purpose: "gallery",
         isVerified: false,
+        hasApprovedPrimary: true,
+      });
+
+      expect(result.canUpload).toBe(false);
+      expect(result.reason).toContain("identity verification");
+    });
+
+    it("blocks gallery uploads until an approved primary photo exists", () => {
+      const result = checkPhotoLimits(0, 1, {
+        purpose: "gallery",
+        isVerified: true,
+        hasApprovedPrimary: false,
+      });
+
+      expect(result.canUpload).toBe(false);
+      expect(result.reason).toBe(GALLERY_PRIMARY_PENDING_REASON);
+    });
+
+    it("blocks gallery uploads for unverified workers even with an approved-looking primary", () => {
+      const result = checkPhotoLimits(1, 0, {
+        purpose: "gallery",
+        isVerified: false,
+        hasApprovedPrimary: true,
       });
 
       expect(result.canUpload).toBe(false);
@@ -267,6 +294,7 @@ describe("photo-policy", () => {
       const result = checkPhotoLimits(1, 0, {
         purpose: "gallery",
         isVerified: true,
+        hasApprovedPrimary: true,
       });
 
       expect(result.canUpload).toBe(true);
@@ -276,6 +304,7 @@ describe("photo-policy", () => {
       const result = checkPhotoLimits(4, 1, {
         purpose: "gallery",
         isVerified: true,
+        hasApprovedPrimary: true,
       });
 
       expect(result.canUpload).toBe(false);
@@ -283,14 +312,36 @@ describe("photo-policy", () => {
 
     it("allows four extra gallery submissions after one approved primary", () => {
       expect(
-        checkPhotoLimits(1, 0, { purpose: "gallery", isVerified: true }).canUpload
+        checkPhotoLimits(1, 0, {
+          purpose: "gallery",
+          isVerified: true,
+          hasApprovedPrimary: true,
+        }).canUpload
       ).toBe(true);
       expect(
-        checkPhotoLimits(1, 3, { purpose: "gallery", isVerified: true }).canUpload
+        checkPhotoLimits(1, 3, {
+          purpose: "gallery",
+          isVerified: true,
+          hasApprovedPrimary: true,
+        }).canUpload
       ).toBe(true);
       expect(
-        checkPhotoLimits(1, 4, { purpose: "gallery", isVerified: true }).canUpload
+        checkPhotoLimits(1, 4, {
+          purpose: "gallery",
+          isVerified: true,
+          hasApprovedPrimary: true,
+        }).canUpload
       ).toBe(false);
+    });
+
+    it("allows a replacement primary after the previous pending photo is gone", () => {
+      const result = checkPhotoLimits(0, 0, {
+        purpose: "primary",
+        isVerified: true,
+        hasApprovedPrimary: false,
+      });
+
+      expect(result.canUpload).toBe(true);
     });
 
     it("keeps the primary pending cap at one competing submission", () => {
@@ -319,13 +370,13 @@ describe("photo-policy", () => {
 
     it("should have designer-specified copy for rules", () => {
       expect(PHOTO_POLICY_COPY.rules).toBe(
-        "No nudes. Lingerie OK — we'll review before it goes live."
+        "No nudes. We'll review each photo before it goes live."
       );
     });
 
     it("should have designer-specified copy for pending", () => {
       expect(PHOTO_POLICY_COPY.pending).toBe(
-        "Photo under review — your profile stays visible with your previous photo until approved."
+        "This photo will appear on your profile after it is approved."
       );
     });
 
@@ -343,6 +394,60 @@ describe("photo-policy", () => {
 
     it("should have MAX_PENDING_PHOTOS set to 1", () => {
       expect(MAX_PENDING_PHOTOS).toBe(1);
+    });
+  });
+
+  describe("decidePhotoSubmission", () => {
+    it("never auto-approves safe high-confidence photos in manual mode", () => {
+      expect(PHOTO_MODERATION_PUBLICATION_MODE).toBe("manual");
+      const decision = decidePhotoSubmission({
+        categories: ["safe"],
+        confidence: 0.99,
+      });
+      expect(decision.status).toBe("pending");
+      expect(decision.requiresReview).toBe(true);
+      expect(decision.action).toBe("quarantine");
+    });
+
+    it("never auto-rejects explicit photos in manual mode", () => {
+      const decision = decidePhotoSubmission({
+        categories: ["explicit_nudity"],
+        confidence: 0.99,
+      });
+      expect(decision.status).toBe("pending");
+      expect(decision.requiresReview).toBe(true);
+    });
+
+    it("keeps suggestive and unknown analyzer results pending in manual mode", () => {
+      expect(
+        decidePhotoSubmission({
+          categories: ["suggestive"],
+          confidence: 0.9,
+        }).status
+      ).toBe("pending");
+      expect(
+        decidePhotoSubmission({
+          categories: ["unknown"],
+          confidence: 0.4,
+        }).status
+      ).toBe("pending");
+    });
+  });
+
+  describe("inferPendingPhotoSubmissionKind", () => {
+    it("labels pending photos as primary until a public primary exists", () => {
+      expect(
+        inferPendingPhotoSubmissionKind({ photoKey: null, photoUrl: null })
+      ).toBe("primary");
+    });
+
+    it("labels later pending photos as gallery once a public primary exists", () => {
+      expect(
+        inferPendingPhotoSubmissionKind({
+          photoKey: "profiles/u1/a.jpg",
+          photoUrl: "https://cdn.example/a.jpg",
+        })
+      ).toBe("gallery");
     });
   });
 });

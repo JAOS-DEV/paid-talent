@@ -164,6 +164,9 @@ function mockDashboardFetches(options: {
             },
             verificationStatus: options.profile?.verificationStatus ?? "unverified",
             isPublished: options.profile?.isPublished ?? false,
+            hasApprovedPrimaryPhoto: Boolean(
+              options.profile?.photoUrl && options.profile?.photoKey
+            ),
           }),
         };
       }
@@ -428,6 +431,7 @@ describe("WorkerDashboardPage", () => {
         },
         verificationStatus: "verified",
         isPublished: true,
+        hasApprovedPrimaryPhoto: true,
       }),
     };
     vi.stubGlobal(

@@ -19,6 +19,7 @@ import {
 } from "@/lib/recruiter-profile/opening-pay";
 import { getPhotoCountsForWorker } from "@/lib/moderation/photo-moderation";
 import { checkPhotoLimits, MAX_PROFILE_PHOTOS } from "@/lib/moderation/photo-policy";
+import { hasApprovedPrimaryProfileImage } from "@/lib/media/photo-persistence";
 import {
   DASHBOARD_RECENT_INTEREST_LIMIT,
   emptyDashboardStats,
@@ -149,6 +150,7 @@ export async function getWorkerReceivedInterests(
 
 export function toDashboardSafeProfile(profile: {
   photoUrl: string | null;
+  photoKey: string | null;
   displayName: string;
   location: string | null;
   availability: string[];
@@ -163,6 +165,7 @@ export function toDashboardSafeProfile(profile: {
   isPublished: boolean;
   isVerified: boolean;
   verificationStatus: WorkerDashboardProfile["verificationStatus"];
+  hasSubmittedPhoto: boolean;
 }): WorkerDashboardProfile {
   return {
     photoUrl: profile.photoUrl,
@@ -180,6 +183,8 @@ export function toDashboardSafeProfile(profile: {
     isPublished: profile.isPublished,
     isVerified: profile.isVerified,
     verificationStatus: profile.verificationStatus,
+    hasSubmittedPhoto: profile.hasSubmittedPhoto,
+    hasApprovedPrimaryPhoto: hasApprovedPrimaryProfileImage(profile),
   };
 }
 
@@ -187,6 +192,7 @@ export function buildPhotoSlots(input: {
   approvedCount: number;
   pendingCount: number;
   isVerified: boolean;
+  hasApprovedPrimary: boolean;
 }): WorkerDashboardPhotoSlots {
   const approvedCount = toCount(input.approvedCount);
   const pendingCount = toCount(input.pendingCount);
@@ -195,6 +201,7 @@ export function buildPhotoSlots(input: {
   const galleryLimit = checkPhotoLimits(approvedCount, pendingCount, {
     purpose: "gallery",
     isVerified: input.isVerified,
+    hasApprovedPrimary: input.hasApprovedPrimary,
   });
 
   return {
@@ -225,6 +232,7 @@ export async function getWorkerDashboardData(
   const [profile] = await db
     .select({
       photoUrl: workerProfiles.photoUrl,
+      photoKey: workerProfiles.photoKey,
       displayName: workerProfiles.displayName,
       location: workerProfiles.location,
       availability: workerProfiles.availability,
@@ -255,6 +263,7 @@ export async function getWorkerDashboardData(
       photoSlots: emptyPhotoSlots(false),
       verificationStatus: "unverified",
       isPublished: false,
+      hasApprovedPrimaryPhoto: false,
     };
   }
 
@@ -276,7 +285,13 @@ export async function getWorkerDashboardData(
   ]);
 
   return {
-    profile: toDashboardSafeProfile(profile),
+    profile: toDashboardSafeProfile({
+      ...profile,
+      hasSubmittedPhoto:
+        Boolean(profile.photoUrl) ||
+        photoCounts.approved > 0 ||
+        photoCounts.pending > 0,
+    }),
     stats: toDashboardStats(viewStats, interestReceivedCount),
     recentInterests,
     interestReceivedCount,
@@ -291,8 +306,10 @@ export async function getWorkerDashboardData(
       approvedCount: photoCounts.approved,
       pendingCount: photoCounts.pending,
       isVerified,
+      hasApprovedPrimary: hasApprovedPrimaryProfileImage(profile),
     }),
     verificationStatus: profile.verificationStatus,
     isPublished: profile.isPublished,
+    hasApprovedPrimaryPhoto: hasApprovedPrimaryProfileImage(profile),
   };
 }

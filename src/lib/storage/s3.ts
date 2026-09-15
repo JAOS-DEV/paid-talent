@@ -215,6 +215,15 @@ export async function createModerationStagingSignedGet(
   });
 }
 
+export async function getSignedPhotoStagingUrlForOwner(
+  userId: string,
+  key: string,
+  expiresIn: number = 120
+): Promise<string> {
+  assertOwnedPhotoStagingKey(userId, key);
+  return createModerationStagingSignedGet(key, expiresIn);
+}
+
 export async function getSignedPhotoStagingUrlForAdmin(
   adminEmail: string | null | undefined,
   key: string,

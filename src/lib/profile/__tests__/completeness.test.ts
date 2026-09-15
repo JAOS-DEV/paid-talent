@@ -288,6 +288,14 @@ describe("profile completeness", () => {
         expect(result.completedSteps).toContain("photo");
       });
 
+      it("should mark photo step complete when a pending photo was submitted", () => {
+        const result = getProfileCompleteness({
+          ...createMockProfile({ photoUrl: null }),
+          hasSubmittedPhoto: true,
+        });
+        expect(result.completedSteps).toContain("photo");
+      });
+
       it("should NOT mark photo step complete with empty photoUrl", () => {
         const profile = createMockProfile({
           photoUrl: "",

@@ -179,6 +179,10 @@ export default function WorkerDashboardPage(): React.ReactElement {
               <VerificationStatusBanner
                 status={verificationStatus}
                 isPublished={isPublished}
+                hasApprovedPrimaryPhoto={
+                  dashboard.hasApprovedPrimaryPhoto ||
+                  Boolean(profile?.hasApprovedPrimaryPhoto)
+                }
                 userId={session.user.id}
               />
             ) : null}

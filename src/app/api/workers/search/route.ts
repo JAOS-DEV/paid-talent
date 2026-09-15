@@ -62,6 +62,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       eq(workerProfiles.isPublished, true),
       eq(workerProfiles.verificationStatus, "verified"),
       eq(users.accountStatus, "active"),
+      sql`${workerProfiles.photoUrl} IS NOT NULL`,
+      sql`${workerProfiles.photoKey} IS NOT NULL`,
     ];
 
     if (filters.query) {

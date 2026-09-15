@@ -25,12 +25,15 @@ export async function getOwnWorkerPreview(
     getApprovedPhotosForWorker(profile.id),
     isProfileTopTalent(profile.id),
   ]);
+  const photos = mapApprovedPhotosToPublic(approvedPhotos);
+  const primary =
+    photos.find((photo) => photo.isCurrentApproved) ?? photos[0] ?? null;
 
   return buildPublicWorkerProfileView({
     id: profile.id,
     displayName: profile.displayName,
-    photoUrl: profile.photoUrl,
-    photos: mapApprovedPhotosToPublic(approvedPhotos),
+    photoUrl: primary?.photoUrl ?? null,
+    photos,
     location: profile.location,
     area: profile.area,
     bio: profile.bio,

@@ -65,6 +65,8 @@ export interface WorkerDashboardProfile {
   isPublished: boolean;
   isVerified: boolean;
   verificationStatus: VerificationStatus;
+  hasSubmittedPhoto: boolean;
+  hasApprovedPrimaryPhoto: boolean;
 }
 
 export interface WorkerDashboardData {
@@ -76,11 +78,13 @@ export interface WorkerDashboardData {
   photoSlots: WorkerDashboardPhotoSlots;
   verificationStatus: VerificationStatus;
   isPublished: boolean;
+  hasApprovedPrimaryPhoto: boolean;
 }
 
 export interface WorkerOwnedPhoto {
   id: string;
   photoUrl: string | null;
+  previewUrl: string | null;
   moderationStatus: PhotoModerationStatus;
   moderationReason: string | null;
   displayOrder: number;
