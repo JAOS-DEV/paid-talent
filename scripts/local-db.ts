@@ -1,4 +1,5 @@
 import { spawn, type SpawnOptions } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
@@ -364,10 +365,51 @@ export async function stopPrDb(prNumber: number): Promise<void> {
   }
 }
 
+const E2E_STORAGE_ENV_NAMES = [
+  "S3_REGION",
+  "S3_ENDPOINT",
+  "S3_FORCE_PATH_STYLE",
+  "S3_BUCKET_NAME",
+  "S3_ACCESS_KEY_ID",
+  "S3_SECRET_ACCESS_KEY",
+  "S3_CDN_URL",
+  "S3_PRIVATE_BUCKET_NAME",
+  "S3_PRIVATE_ACCESS_KEY_ID",
+  "S3_PRIVATE_SECRET_ACCESS_KEY",
+] as const;
+
+function logWorktreeStorageEnvPresence(): void {
+  const envLocalPath = path.join(repoRoot, ".env.local");
+  const present = existsSync(envLocalPath);
+  console.log(`E2E worktree .env.local exists=${present}`);
+  if (!present) {
+    console.warn(
+      "E2E worktree is missing .env.local; Next may not have private storage credentials."
+    );
+    return;
+  }
+
+  const raw = readFileSync(envLocalPath, "utf8").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  for (const name of E2E_STORAGE_ENV_NAMES) {
+    const active = raw.match(new RegExp(`^\\s*${name}\\s*=\\s*(.*)$`, "m"));
+    const commented = new RegExp(`^\\s*#\\s*${name}\\s*=`, "m").test(raw);
+    const value = active?.[1]?.trim().replace(/\r$/, "").replace(/^['"]|['"]$/g, "") ?? "";
+    console.log(
+      `E2E env ${name} present=${Boolean(active)} commented=${commented} empty=${Boolean(active) && value.length === 0}`
+    );
+  }
+}
+
 export async function runLocalE2E(playwrightArgs: string[] = []): Promise<void> {
   await startLocalDb("test");
   await resetLocalDb("test");
   const e2ePort = process.env.PAID_TALENT_E2E_PORT || "3000";
+  if (e2ePort !== "3000") {
+    console.warn(
+      `PAID_TALENT_E2E_PORT=${e2ePort} is not 3000. Private R2 CORS allows http://localhost:3000 only, so browser profile-photo PUTs will fail.`
+    );
+  }
+  logWorktreeStorageEnvPresence();
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     DATABASE_URL: localDatabaseUrl("test"),
@@ -379,7 +421,7 @@ export async function runLocalE2E(playwrightArgs: string[] = []): Promise<void> 
     PLAYWRIGHT_REUSE_SERVER: "false",
     PORT: e2ePort,
     BASE_URL: `http://localhost:${e2ePort}`,
-    PLAYWRIGHT_WEB_SERVER_COMMAND: `npx next dev --port ${e2ePort}`,
+    PLAYWRIGHT_WEB_SERVER_COMMAND: `npx next dev --hostname 0.0.0.0 --port ${e2ePort}`,
   };
   assertLocalDatabase(env.DATABASE_URL, {
     action: "authenticated e2e",

@@ -1,5 +1,6 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { hasLocalAuthEnv, LOCAL_AUTH_SKIP_REASON } from "./helpers/local-auth";
+import { attachUploadStageCapture } from "./helpers/upload-stage-capture";
 
 const WORKER_EMAIL = "worker6@example.com";
 const RECRUITER_EMAIL = "recruiter-pro@example.com";
@@ -233,8 +234,9 @@ async function adminApproveVisiblePhoto(
   expectedKind: "primary" | "gallery"
 ): Promise<void> {
   await page.goto("/admin/photos");
+  await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Photo moderation" })
+    page.getByRole("main").getByRole("heading", { name: "Photo moderation" })
   ).toBeVisible();
 
   const pending = await page.request.get("/api/admin/photos/pending");
@@ -341,12 +343,15 @@ test.describe("manual photo moderation (authenticated)", () => {
   }) => {
     await signInAs(page, ADMIN_EMAIL, "/admin/photos");
     await expect(page).toHaveURL(/\/admin\/photos/);
+    await expect(page.getByRole("navigation", { name: "Admin" })).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Photo moderation" })
+      page.getByRole("main").getByRole("heading", { name: "Photo moderation" })
     ).toBeVisible();
     await expect(page.getByText(/Lingerie OK/i)).toHaveCount(0);
     await expect(
-      page.getByText("Photos stay private until you approve them.")
+      page
+        .getByRole("main")
+        .getByText("Photos stay private until you approve them.")
     ).toBeVisible();
   });
 
@@ -364,13 +369,37 @@ test.describe("manual photo moderation (authenticated)", () => {
     const admin = await openRole(browser, ADMIN_EMAIL, "/admin/photos");
 
     try {
+      const uploadCapture = attachUploadStageCapture(worker.page);
+      const uploadFailed = worker.page.getByText(
+        "We couldn't upload your photo. Please try again."
+      );
+      const dumpUploadCapture = (): void => {
+        console.error(
+          "[e2e photo upload] stage capture",
+          JSON.stringify({
+            origin: uploadCapture.origin(),
+            events: uploadCapture.events,
+          })
+        );
+      };
+
       await expect(worker.page.getByTestId("upload-primary-photo")).toBeVisible();
       await uploadJpeg(worker.page, "upload-primary-photo", "primary.jpg");
-      await expect(
-        worker.page.getByText(
-          "This photo will appear on your profile after it is approved."
-        ).first()
-      ).toBeVisible({ timeout: 30000 });
+      const pendingPrimaryCopy = worker.page.getByText(
+        "This photo will appear on your profile after it is approved."
+      );
+      try {
+        await expect(pendingPrimaryCopy.or(uploadFailed).first()).toBeVisible({
+          timeout: 30000,
+        });
+      } catch (error) {
+        dumpUploadCapture();
+        throw error;
+      }
+      if (await uploadFailed.isVisible()) {
+        dumpUploadCapture();
+      }
+      await expect(pendingPrimaryCopy.first()).toBeVisible();
       await worker.page.reload();
       await expect(
         worker.page.getByTestId("photo-status-pending-review")
