@@ -9,6 +9,7 @@ import {
   getPublishedOpeningsForRecruiter,
   getInterestContextForWorker,
   getInterestsForWorkerProfile,
+  getRecruiterVenueInfo,
 } from "../index";
 import { db } from "@/lib/db";
 
@@ -325,6 +326,70 @@ describe("unpublished openings never reach worker-facing queries", () => {
       payPeriod: "night",
     });
   });
+
+  it("getRecruiterVenueInfo marks a deleted venue profile as unavailable", async () => {
+    const selectMock = vi.mocked(db.select);
+    selectMock.mockReset();
+    selectMock
+      .mockReturnValueOnce(mockLimitResult([{ name: "Recruiter" }]) as never)
+      .mockReturnValueOnce(mockLimitResult([]) as never)
+      .mockReturnValueOnce(mockLimitResult([]) as never);
+
+    const result = await getRecruiterVenueInfo(RECRUITER_USER);
+    expect(result?.hasProfile).toBe(false);
+    expect(result?.venueName).toBeNull();
+    expect(result?.openings).toEqual([]);
+  });
+
+  it("getRecruiterVenueInfo keeps published openings and pay for an existing venue", async () => {
+    const selectMock = vi.mocked(db.select);
+    selectMock.mockReset();
+    selectMock
+      .mockReturnValueOnce(mockLimitResult([{ name: "Recruiter" }]) as never)
+      .mockReturnValueOnce(
+        mockLimitResult([
+          {
+            organizationName: "Sky Bar",
+            logoUrl: "https://example.com/logo.png",
+            area: "Sukhumvit",
+            subArea: "Soi 11",
+            blurb: "Rooftop bar",
+          },
+        ]) as never
+      )
+      .mockReturnValueOnce(
+        mockLimitResult([{ id: RECRUITER_PROFILE }]) as never
+      )
+      .mockReturnValueOnce(
+        mockLimitResult([
+          {
+            id: OPENING_PUBLISHED,
+            role: "Bartender",
+            area: "Sukhumvit",
+            payMin: 1500,
+            payMax: null,
+            payCurrency: "THB",
+            payPeriod: "night",
+            isPublished: true,
+          },
+        ]) as never
+      );
+
+    const result = await getRecruiterVenueInfo(RECRUITER_USER);
+    expect(result?.hasProfile).toBe(true);
+    expect(result?.venueName).toBe("Sky Bar");
+    expect(result?.openings).toEqual([
+      {
+        openingId: OPENING_PUBLISHED,
+        role: "Bartender",
+        area: "Sukhumvit",
+        payMin: 1500,
+        payMax: null,
+        payCurrency: "THB",
+        payPeriod: "night",
+      },
+    ]);
+  });
 });
 
 describe("schema / migration integrity for opening FK", () => {
@@ -350,6 +415,9 @@ describe("EMPTY_STATE_COPY", () => {
     );
     expect(EMPTY_STATE_COPY.workerNoInterests).toBe(
       "No interest yet — keep your profile fresh"
+    );
+    expect(EMPTY_STATE_COPY.workerVenueUnavailable).toBe(
+      "This venue is no longer available"
     );
   });
 });

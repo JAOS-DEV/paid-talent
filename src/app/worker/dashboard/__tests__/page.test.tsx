@@ -277,6 +277,16 @@ describe("WorkerDashboardPage", () => {
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("Recruiters interested in you")).toBeInTheDocument();
     expect(screen.getByText("Sky Bar")).toBeInTheDocument();
+    expect(screen.getByText("Interested in you")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View openings" })).toHaveAttribute(
+      "href",
+      "/worker/interests/int-1/openings"
+    );
+    expect(screen.getByRole("link", { name: "View venue" })).toHaveAttribute(
+      "href",
+      "/worker/interests/int-1/venue"
+    );
+    expect(screen.queryByRole("tab", { name: /messages/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /view profile/i })).toHaveAttribute(
       "href",
       "/worker/profile/preview"

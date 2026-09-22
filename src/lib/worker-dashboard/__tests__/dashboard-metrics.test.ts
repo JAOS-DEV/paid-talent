@@ -8,9 +8,39 @@ import {
   toDashboardSafeProfile,
   toDashboardStats,
   toSlotCount,
+  toWorkerFacingOpeningSummary,
 } from "../index";
 
 describe("worker dashboard metrics helpers", () => {
+  it("hides unpublished opening role and pay from worker-facing interest summaries", () => {
+    expect(
+      toWorkerFacingOpeningSummary({
+        role: "Bartender",
+        area: "Sukhumvit",
+        isPublished: false,
+        payMin: 1500,
+        payMax: null,
+        payCurrency: "THB",
+        payPeriod: "night",
+      })
+    ).toEqual({ openingContext: null, openingRole: null });
+
+    expect(
+      toWorkerFacingOpeningSummary({
+        role: "Bartender",
+        area: "Sukhumvit",
+        isPublished: true,
+        payMin: 1500,
+        payMax: null,
+        payCurrency: "THB",
+        payPeriod: "night",
+      })
+    ).toEqual({
+      openingContext: "Bartender — Sukhumvit · ฿1,500 / night",
+      openingRole: "Bartender",
+    });
+  });
+
   it("uses a 30-day profile view window", () => {
     const now = new Date("2026-09-15T12:00:00.000Z");
     const start = profileViewWindowStart(now);

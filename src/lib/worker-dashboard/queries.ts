@@ -35,6 +35,33 @@ import {
   type WorkerDashboardViewStats,
 } from "./types";
 
+export function toWorkerFacingOpeningSummary(input: {
+  role: string | null;
+  area: string | null;
+  isPublished: boolean | null;
+  payMin: number | null;
+  payMax: number | null;
+  payCurrency: string | null;
+  payPeriod: string | null;
+}): { openingContext: string | null; openingRole: string | null } {
+  if (input.isPublished !== true) {
+    return { openingContext: null, openingRole: null };
+  }
+
+  return {
+    openingContext: joinOpeningContextAndPay(
+      resolveOpeningContext(input.role, input.area),
+      formatOpeningPay({
+        payMin: input.payMin,
+        payMax: input.payMax,
+        payCurrency: input.payCurrency,
+        payPeriod: input.payPeriod,
+      })
+    ),
+    openingRole: input.role,
+  };
+}
+
 function toCount(value: number | string | null | undefined): number {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -112,7 +139,11 @@ export async function getWorkerReceivedInterests(
       organizationName: recruiterProfiles.organizationName,
       logoUrl: recruiterProfiles.logoUrl,
       recruiterName: users.name,
+      area: recruiterProfiles.area,
+      subArea: recruiterProfiles.subArea,
+      blurb: recruiterProfiles.blurb,
       openingRole: recruiterOpenings.role,
+      openingIsPublished: recruiterOpenings.isPublished,
       openingArea: recruiterOpenings.area,
       payMin: recruiterOpenings.payMin,
       payMax: recruiterOpenings.payMax,
@@ -133,22 +164,30 @@ export async function getWorkerReceivedInterests(
     .orderBy(desc(profileInterests.createdAt))
     .limit(limit);
 
-  return rows.map((row) => ({
-    id: row.id,
-    venueName: resolveVenueName(row.organizationName, row.recruiterName),
-    logoUrl: toPublicVenueLogoUrl(row.logoUrl),
-    openingContext: joinOpeningContextAndPay(
-      resolveOpeningContext(row.openingRole, row.openingArea),
-      formatOpeningPay({
-        payMin: row.payMin,
-        payMax: row.payMax,
-        payCurrency: row.payCurrency,
-        payPeriod: row.payPeriod,
-      })
-    ),
-    message: row.message,
-    createdAt: row.createdAt.toISOString(),
-  }));
+  return rows.map((row) => {
+    const opening = toWorkerFacingOpeningSummary({
+      role: row.openingRole,
+      area: row.openingArea,
+      isPublished: row.openingIsPublished,
+      payMin: row.payMin,
+      payMax: row.payMax,
+      payCurrency: row.payCurrency,
+      payPeriod: row.payPeriod,
+    });
+
+    return {
+      id: row.id,
+      venueName: resolveVenueName(row.organizationName, row.recruiterName),
+      logoUrl: toPublicVenueLogoUrl(row.logoUrl),
+      openingContext: opening.openingContext,
+      message: row.message,
+      createdAt: row.createdAt.toISOString(),
+      area: row.area,
+      subArea: row.subArea,
+      blurb: row.blurb,
+      openingRole: opening.openingRole,
+    };
+  });
 }
 
 export function toDashboardSafeProfile(profile: {
