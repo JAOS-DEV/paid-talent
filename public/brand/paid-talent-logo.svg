@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 32" width="200" height="32" fill="none" role="img" aria-label="Paid Talent">
+  <rect width="32" height="32" rx="8" fill="#8B5CF6"/>
+  <path d="M10 7.5h7.2c3.7 0 6.3 2.35 6.3 5.85 0 3.5-2.6 5.85-6.3 5.85H13.6V24.5H10V7.5zm3.6 3.1v5.5h3.45c1.85 0 3.05-1.05 3.05-2.75S18.9 10.6 17.05 10.6H13.6z" fill="#FFFFFF"/>
+  <circle cx="23.5" cy="8.5" r="2.25" fill="#FACC15"/>
+  <text x="40" y="22" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" font-weight="700" letter-spacing="-0.02em">
+    <tspan fill="#FACC15">Paid</tspan><tspan dx="5" fill="#A78BFA">Talent</tspan>
+  </text>
+</svg>

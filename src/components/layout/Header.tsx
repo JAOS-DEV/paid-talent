@@ -1,16 +1,50 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import { LanguageToggle } from "@/components/i18n";
 
+const MARK_SRC = "/brand/paid-talent-mark.svg";
+const LOCKUP_SRC = "/brand/paid-talent-logo.svg";
+
+function BrandLink({ href }: { href: string }): React.ReactElement {
+  return (
+    <Link
+      href={href}
+      aria-label="Paid Talent"
+      className="inline-flex h-8 shrink-0 items-center"
+    >
+      <Image
+        src={MARK_SRC}
+        alt=""
+        width={32}
+        height={32}
+        priority
+        unoptimized
+        aria-hidden
+        className="h-8 w-8 min-[380px]:hidden"
+      />
+      <Image
+        src={LOCKUP_SRC}
+        alt=""
+        width={200}
+        height={32}
+        priority
+        unoptimized
+        aria-hidden
+        className="hidden h-7 w-auto max-w-[180px] min-[380px]:block"
+      />
+    </Link>
+  );
+}
+
 export function Header(): React.ReactElement {
   const t = useTranslations("navigation");
   const { data: session, status } = useSession();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   const getDashboardLink = (): string => {
     if (!session?.user || session.user.signupPending) {
@@ -22,186 +56,64 @@ export function Header(): React.ReactElement {
   };
 
   const isFullUser = !!session?.user && session.user.signupPending !== true;
-  const isWorker = isFullUser && session?.user?.role === "worker";
-  const isRecruiter = isFullUser && session?.user?.role === "recruiter";
   const isAdmin = isFullUser && session?.user?.isAdmin === true;
-  const needsMobileMenu = isFullUser && (isRecruiter || isAdmin);
-
-  const roleLinks = isRecruiter
-    ? [
-        { href: "/recruiter/search", label: t("searchWorkers") },
-        { href: "/recruiter/openings", label: t("openings") },
-        { href: "/recruiter/profile", label: t("profile") },
-        { href: "/recruiter/interests", label: t("interests") },
-      ]
-    : isWorker
-      ? [
-          { href: "/worker/profile", label: t("profile") },
-          { href: "/worker/interests", label: t("interests") },
-          { href: "/worker/verification", label: t("verification") },
-        ]
-      : [];
-
-  const closeMobileMenu = (): void => {
-    setMobileOpen(false);
-  };
-
-  const toggleMobileMenu = (): void => {
-    setMobileOpen((open) => !open);
-  };
+  const logoHref =
+    status === "authenticated" && session?.user ? getDashboardLink() : "/";
 
   const handleSignOut = (): void => {
     void signOut({ callbackUrl: "/" });
   };
 
   return (
-    <header className="bg-charcoal-900 border-b border-charcoal-700 overflow-x-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
-        <div className="flex items-center justify-between gap-3 h-16 min-w-0">
-          <Link href="/" className="flex items-center space-x-2 min-w-0 shrink">
-            <span className="text-xl font-bold text-primary-500 whitespace-nowrap">
-              Paid
-            </span>
-            <span className="text-xl font-bold text-gold-500 whitespace-nowrap">
-              Talent
-            </span>
-          </Link>
+    <header className="h-14 overflow-x-hidden border-b border-charcoal-700 bg-charcoal-900">
+      <div className="mx-auto flex h-full min-w-0 max-w-7xl items-center justify-between gap-1.5 px-3 sm:gap-3 sm:px-6 lg:px-8">
+        <BrandLink href={logoHref} />
 
-          <nav className="hidden md:flex items-center space-x-6 min-w-0">
-            {roleLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-charcoal-300 hover:text-charcoal-100 transition-colors whitespace-nowrap"
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <LanguageToggle />
+          {status === "loading" ? (
+            <div className="h-8 w-8 animate-pulse rounded-full bg-charcoal-700" />
+          ) : session?.user?.signupPending ? (
+            <Link href="/auth/role-select" className="inline-flex">
+              <Button variant="primary" size="header" type="button">
+                {t("finishSignup")}
+              </Button>
+            </Link>
+          ) : isFullUser ? (
+            <>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  prefetch={false}
+                  className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg bg-gold-500 px-2 text-xs font-semibold text-charcoal-950 hover:bg-gold-600 sm:px-2.5 sm:text-sm"
+                >
+                  {t("admin")}
+                </Link>
+              )}
+              <Button
+                variant="ghost"
+                size="header"
+                type="button"
+                onClick={handleSignOut}
               >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <LanguageToggle />
-            {status === "loading" ? (
-              <div className="w-8 h-8 rounded-full bg-charcoal-700 animate-pulse" />
-            ) : session?.user?.signupPending ? (
-              <Link href="/auth/role-select">
-                <Button variant="primary" size="sm">
-                  {t("finishSignup")}
+                {t("signOutAction")}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link href="/auth/signin" className="inline-flex">
+                <Button variant="ghost" size="header" type="button">
+                  {t("signInAction")}
                 </Button>
               </Link>
-            ) : isFullUser ? (
-              <>
-                {isAdmin && (
-                  <Link
-                    href="/admin"
-                    prefetch={false}
-                    className="inline-flex items-center justify-center min-h-11 px-3 py-1.5 text-sm rounded-lg bg-gold-500 hover:bg-gold-600 text-charcoal-950 font-semibold whitespace-nowrap"
-                  >
-                    {t("admin")}
-                  </Link>
-                )}
-                <Link
-                  href={getDashboardLink()}
-                  className={needsMobileMenu ? "hidden md:inline-flex" : "inline-flex"}
-                >
-                  <Button variant="ghost" size="sm">
-                    {t("dashboard")}
-                  </Button>
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className={
-                    needsMobileMenu
-                      ? "hidden md:inline-flex text-charcoal-400 hover:text-charcoal-200 text-sm transition-colors min-h-11 items-center whitespace-nowrap"
-                      : "inline-flex text-charcoal-400 hover:text-charcoal-200 text-sm transition-colors min-h-11 items-center whitespace-nowrap"
-                  }
-                >
-                  {t("signOutAction")}
-                </button>
-                {needsMobileMenu && (
-                  <button
-                    type="button"
-                    className="md:hidden inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg text-charcoal-300 hover:bg-charcoal-800"
-                    aria-expanded={mobileOpen}
-                    aria-controls="account-mobile-nav"
-                    aria-label={mobileOpen ? t("closeMenu") : t("openMenu")}
-                    onClick={toggleMobileMenu}
-                  >
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      {mobileOpen ? (
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      ) : (
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 6h16M4 12h16M4 18h16"
-                        />
-                      )}
-                    </svg>
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <Link href="/auth/signin">
-                  <Button variant="ghost" size="sm">
-                    {t("signInAction")}
-                  </Button>
-                </Link>
-                <Link href="/auth/role-select">
-                  <Button variant="primary" size="sm">
-                    {t("getStarted")}
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-
-        {needsMobileMenu && mobileOpen && (
-          <nav
-            id="account-mobile-nav"
-            className="md:hidden border-t border-charcoal-700 py-3 space-y-1"
-          >
-            {roleLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="block px-2 py-3 text-charcoal-200 hover:bg-charcoal-800 rounded-lg"
-                onClick={closeMobileMenu}
-              >
-                {link.label}
+              <Link href="/auth/role-select" className="inline-flex">
+                <Button variant="primary" size="header" type="button">
+                  {t("getStarted")}
+                </Button>
               </Link>
-            ))}
-            <Link
-              href={getDashboardLink()}
-              className="block px-2 py-3 text-charcoal-200 hover:bg-charcoal-800 rounded-lg"
-              onClick={closeMobileMenu}
-            >
-              {t("dashboard")}
-            </Link>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="block w-full text-left px-2 py-3 text-charcoal-200 hover:bg-charcoal-800 rounded-lg"
-            >
-              {t("signOutAction")}
-            </button>
-          </nav>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

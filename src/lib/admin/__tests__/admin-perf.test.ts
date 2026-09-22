@@ -63,11 +63,13 @@ describe("admin performance architecture", () => {
     expect(loading).toContain("animate-pulse");
   });
 
-  it("keeps the mobile header from rendering an oversized Admin Dashboard control", () => {
+  it("keeps the header from rendering an oversized Admin Dashboard control", () => {
     const header = readSrc("components/layout/Header.tsx");
     expect(header).not.toContain("Admin Dashboard");
-    expect(header).toContain("needsMobileMenu");
-    expect(header).toContain("account-mobile-nav");
+    expect(header).not.toContain("needsMobileMenu");
+    expect(header).not.toContain("account-mobile-nav");
+    expect(header).toContain("h-14");
+    expect(header).toContain("h-8");
     expect(header).toContain("overflow-x-hidden");
   });
 });

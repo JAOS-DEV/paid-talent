@@ -14,6 +14,7 @@ vi.mock("@/lib/i18n/actions", () => ({
 }));
 
 import { LanguageToggle } from "../LanguageToggle";
+import { AuthLocaleBar } from "../AuthLocaleBar";
 
 describe("LanguageToggle", () => {
   beforeEach(() => {
@@ -22,21 +23,45 @@ describe("LanguageToggle", () => {
     setUserLocale.mockResolvedValue(undefined);
   });
 
-  it("shows an EN | Thai control and persists Thai", async () => {
+  it("opens a globe menu with EN / ไทย and a check on the active locale", () => {
     render(<LanguageToggle />);
 
-    expect(screen.getByRole("group", { name: "Language" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "English" })).toHaveAttribute(
-      "aria-pressed",
+    const globe = screen.getByRole("button", { name: "Language" });
+    expect(globe).toHaveAttribute("aria-haspopup", "menu");
+    expect(globe).toHaveClass("h-8");
+    expect(screen.queryByRole("group", { name: "Language" })).not.toBeInTheDocument();
+
+    fireEvent.click(globe);
+
+    expect(screen.getByRole("menuitemradio", { name: "EN" })).toHaveAttribute(
+      "aria-checked",
       "true"
     );
+    expect(screen.getByRole("menuitemradio", { name: "ไทย" })).toHaveAttribute(
+      "aria-checked",
+      "false"
+    );
+    expect(screen.getByTestId("locale-active-check")).toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: "ไทย" }));
+  it("persists Thai through setUserLocale", async () => {
+    render(<LanguageToggle />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Language" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "ไทย" }));
 
     expect(setUserLocale).toHaveBeenCalledWith("th");
     await waitFor(() => {
       expect(refresh).toHaveBeenCalled();
-      expect(screen.getByRole("button", { name: "ไทย" })).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: "Language" })).not.toBeDisabled();
     });
+    expect(screen.queryByRole("menu", { name: "Language" })).not.toBeInTheDocument();
+  });
+
+  it("uses the same globe menu on the auth locale bar", () => {
+    render(<AuthLocaleBar />);
+
+    expect(screen.getByRole("button", { name: "Language" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Language" })).not.toBeInTheDocument();
   });
 });
