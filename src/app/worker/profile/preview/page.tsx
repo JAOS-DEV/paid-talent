@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Header, Footer } from "@/components/layout";
 import {
   Button,
@@ -18,6 +19,8 @@ import type { PublicWorkerProfileView } from "@/lib/worker-profile/public-profil
 export default function WorkerProfilePreviewPage(): React.ReactElement {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const t = useTranslations("worker.publicProfile");
+  const dashboard = useTranslations("worker.dashboard");
   const [profile, setProfile] = useState<PublicWorkerProfileView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,11 +38,11 @@ export default function WorkerProfilePreviewPage(): React.ReactElement {
         const response = await fetch("/api/worker/profile/preview");
         if (cancelled) return;
         if (response.status === 404) {
-          setError("Profile not found");
+          setError(t("profileNotFound"));
           return;
         }
         if (!response.ok) {
-          setError("Failed to load preview");
+          setError(t("previewLoadFailed"));
           return;
         }
         const data = (await response.json()) as {
@@ -49,7 +52,7 @@ export default function WorkerProfilePreviewPage(): React.ReactElement {
         setProfile(data.profile);
       } catch {
         if (!cancelled) {
-          setError("Failed to load preview");
+          setError(t("previewLoadFailed"));
         }
       } finally {
         if (!cancelled) {
@@ -61,7 +64,7 @@ export default function WorkerProfilePreviewPage(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [session, router]);
+  }, [session, router, t]);
 
   if (status === "loading" || !session || session.user.role !== "worker") {
     return (
@@ -80,7 +83,7 @@ export default function WorkerProfilePreviewPage(): React.ReactElement {
             href="/worker/dashboard"
             className="inline-flex items-center text-charcoal-400 hover:text-charcoal-200 mb-6 transition-colors min-h-11"
           >
-            Back to dashboard
+            {t("backToDashboard")}
           </Link>
 
           {loading ? (
@@ -89,13 +92,13 @@ export default function WorkerProfilePreviewPage(): React.ReactElement {
             <Card padding="lg">
               <CardContent className="text-center py-12">
                 <CardHeader>
-                  <CardTitle>{error || "Profile not found"}</CardTitle>
+                  <CardTitle>{error || t("profileNotFound")}</CardTitle>
                 </CardHeader>
                 <p className="text-charcoal-400 mb-6">
-                  Complete your profile before previewing how recruiters see you.
+                  {t("completeBeforePreview")}
                 </p>
                 <Link href="/worker/profile">
-                  <Button>Edit Profile</Button>
+                  <Button>{dashboard("editProfile")}</Button>
                 </Link>
               </CardContent>
             </Card>

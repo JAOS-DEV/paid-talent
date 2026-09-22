@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button, Input } from "@/components/ui";
 import { updateProfileName } from "@/app/worker/actions";
 import {
@@ -19,6 +20,8 @@ export function NameStep({
   onComplete,
   onBack,
 }: NameStepProps): React.ReactElement {
+  const t = useTranslations("worker.profile");
+  const common = useTranslations("common");
   const [name, setName] = useState(initialName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +30,7 @@ export function NameStep({
     e.preventDefault();
 
     if (name.trim().length < DISPLAY_NAME_MIN_LENGTH) {
-      setError("Name must be at least 2 characters");
+      setError(t("nameTooShort"));
       return;
     }
 
@@ -41,7 +44,7 @@ export function NameStep({
       }
       onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(err instanceof Error ? err.message : t("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -51,8 +54,8 @@ export function NameStep({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <Input
-          label="Display Name"
-          placeholder="How you want to be called"
+          label={t("displayName")}
+          placeholder={t("displayNamePlaceholder")}
           value={name}
           onChange={(e) => {
             setName(e.target.value);
@@ -63,7 +66,7 @@ export function NameStep({
           autoFocus
         />
         <p className="text-charcoal-500 text-xs mt-2">
-          This is how recruiters will see you
+          {t("seenByRecruiters")}
         </p>
       </div>
 
@@ -74,7 +77,7 @@ export function NameStep({
           onClick={onBack}
           className="flex-1"
         >
-          Back
+          {common("back")}
         </Button>
         <Button
           type="submit"
@@ -82,7 +85,7 @@ export function NameStep({
           disabled={name.trim().length < DISPLAY_NAME_MIN_LENGTH}
           className="flex-1"
         >
-          Continue
+          {common("continue")}
         </Button>
       </div>
     </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button, Input } from "@/components/ui";
 import { updateProfileExperience } from "@/app/worker/actions";
 import { CharacterCount } from "@/components/profile/CharacterCount";
@@ -23,6 +24,9 @@ export function ExperienceStep({
   onComplete,
   onBack,
 }: ExperienceStepProps): React.ReactElement {
+  const profile = useTranslations("worker.profile");
+  const onboarding = useTranslations("worker.onboarding");
+  const common = useTranslations("common");
   const [experience, setExperience] = useState(initialExperience ?? "");
   const [years, setYears] = useState(initialYears?.toString() ?? "");
   const [saving, setSaving] = useState(false);
@@ -32,7 +36,7 @@ export function ExperienceStep({
     e.preventDefault();
 
     if (!experience.trim() && !years) {
-      setError("Please provide your experience or years");
+      setError(onboarding("experienceRequired"));
       return;
     }
 
@@ -49,7 +53,7 @@ export function ExperienceStep({
       }
       onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(err instanceof Error ? err.message : profile("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -59,11 +63,11 @@ export function ExperienceStep({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
         <Input
-          label="Years of Experience"
+          label={profile("yearsExperience")}
           type="number"
           min={EXPERIENCE_YEARS_MIN}
           max={EXPERIENCE_YEARS_MAX}
-          placeholder="e.g., 3"
+          placeholder={profile("yearsPlaceholder")}
           value={years}
           onChange={(e) => {
             setYears(e.target.value);
@@ -73,11 +77,11 @@ export function ExperienceStep({
 
         <div>
           <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-            Experience Description
+            {profile("experienceDescription")}
           </label>
           <textarea
             className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[100px]"
-            placeholder="Describe your work history briefly..."
+            placeholder={onboarding("experienceHistoryPlaceholder")}
             value={experience}
             maxLength={EXPERIENCE_DESCRIPTION_MAX_LENGTH}
             onChange={(e) => {
@@ -87,7 +91,7 @@ export function ExperienceStep({
           />
           <div className="flex justify-between items-center mt-1.5">
             <p className="text-charcoal-500 text-xs">
-              Mention where you&apos;ve worked and what you did
+              {onboarding("experienceHint")}
             </p>
             <CharacterCount
               current={experience.length}
@@ -106,7 +110,7 @@ export function ExperienceStep({
           onClick={onBack}
           className="flex-1"
         >
-          Back
+          {common("back")}
         </Button>
         <Button
           type="submit"
@@ -114,7 +118,7 @@ export function ExperienceStep({
           disabled={!experience.trim() && !years}
           className="flex-1"
         >
-          Continue
+          {common("continue")}
         </Button>
       </div>
     </form>

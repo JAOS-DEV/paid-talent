@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { useRouter, redirect } from "next/navigation";
 import Link from "next/link";
 import { Header, Footer } from "@/components/layout";
@@ -19,6 +20,11 @@ import type { SearchWorkerResult } from "@/app/api/workers/search/route";
 import type { RecruiterOpening } from "@/lib/db/schema";
 import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import { AVAILABILITY_OPTIONS } from "@/lib/profile/availability";
+import {
+  AVAILABILITY_MESSAGE_KEYS,
+  JOB_ROLE_MESSAGE_KEYS,
+  translateCatalogValue,
+} from "@/lib/i18n/labels";
 
 interface WorkerCardProps {
   worker: SearchWorkerResult;
@@ -35,6 +41,8 @@ function WorkerCard({
   onUnlock,
   onExpressInterest,
 }: WorkerCardProps): React.ReactElement {
+  const t = useTranslations("recruiter.search");
+  const roleLabels = useTranslations("roles");
   const isLocked = worker.isTopTalent && !hasTopTalentAccess;
 
   return (
@@ -72,7 +80,7 @@ function WorkerCard({
               </h3>
               {worker.isTopTalent && <TopTalentBadge />}
               {worker.isVerified && (
-                <Badge variant="success">Verified</Badge>
+                <Badge variant="success">{t("verified")}</Badge>
               )}
             </div>
 
@@ -85,7 +93,9 @@ function WorkerCard({
             {worker.jobRoles.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-3">
                 {worker.jobRoles.slice(0, 3).map((role) => (
-                  <Badge key={role}>{role}</Badge>
+                  <Badge key={role}>
+                    {translateCatalogValue(roleLabels, JOB_ROLE_MESSAGE_KEYS, role)}
+                  </Badge>
                 ))}
                 {worker.jobRoles.length > 3 && (
                   <Badge variant="default">+{worker.jobRoles.length - 3}</Badge>
@@ -118,17 +128,17 @@ function WorkerCard({
                     d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
                   />
                 </svg>
-                Contact locked
+                {t("contactLockedShort")}
               </div>
               <Button variant="gold" size="sm" onClick={onUnlock}>
-                Unlock Contact
+                {t("unlockContact")}
               </Button>
             </div>
           ) : (
             <div className="flex items-center justify-between flex-wrap gap-2">
               <Link href={`/recruiter/profile/${worker.id}`}>
                 <Button variant="outline" size="sm">
-                  View Profile
+                  {t("viewProfile")}
                 </Button>
               </Link>
               {interestSent ? (
@@ -146,11 +156,11 @@ function WorkerCard({
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  Interest Sent
+                  {t("interestSent")}
                 </Button>
               ) : (
                 <Button size="sm" onClick={onExpressInterest}>
-                  Express Interest
+                  {t("expressInterest")}
                 </Button>
               )}
             </div>
@@ -169,6 +179,9 @@ interface SearchFilters {
 }
 
 export default function SearchPage(): React.ReactElement {
+  const t = useTranslations("recruiter.search");
+  const roleLabels = useTranslations("roles");
+  const availabilityLabels = useTranslations("availability");
   const { data: session, status } = useSession();
   const router = useRouter();
   const [filters, setFilters] = useState<SearchFilters>({
@@ -347,22 +360,20 @@ export default function SearchPage(): React.ReactElement {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-charcoal-100">
-              Search Workers
+              {t("pageTitle")}
             </h1>
-            <p className="text-charcoal-400 mt-1">
-              Find the perfect talent for your needs
-            </p>
+            <p className="text-charcoal-400 mt-1">{t("subtitle")}</p>
           </div>
 
           <div className="grid lg:grid-cols-4 gap-6">
             <div className="lg:col-span-1">
               <Card padding="lg">
                 <CardContent className="space-y-4">
-                  <h3 className="font-semibold text-charcoal-100">Filters</h3>
+                  <h3 className="font-semibold text-charcoal-100">{t("filters")}</h3>
 
                   <Input
-                    label="Search"
-                    placeholder="Name or keyword"
+                    label={t("searchLabel")}
+                    placeholder={t("searchPlaceholder")}
                     value={filters.query}
                     onChange={(e) =>
                       setFilters((f) => ({ ...f, query: e.target.value }))
@@ -371,7 +382,7 @@ export default function SearchPage(): React.ReactElement {
 
                   <div>
                     <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-                      Job Role
+                      {t("jobRole")}
                     </label>
                     <select
                       value={filters.role}
@@ -380,20 +391,24 @@ export default function SearchPage(): React.ReactElement {
                       }
                       className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     >
-                      <option value="">All roles</option>
-                      <option value="Bartender">Bartender</option>
-                      <option value="Server">Server</option>
-                      <option value="Host/Hostess">Host/Hostess</option>
-                      <option value="Chef">Chef</option>
-                      <option value="Barista">Barista</option>
-                      <option value="Manager">Manager</option>
-                      <option value="DJ">DJ</option>
+                      <option value="">{t("allRoles")}</option>
+                      {["Bartender", "Server", "Host/Hostess", "Chef", "Barista", "Manager", "DJ"].map(
+                        (role) => (
+                          <option key={role} value={role}>
+                            {translateCatalogValue(
+                              roleLabels,
+                              JOB_ROLE_MESSAGE_KEYS,
+                              role
+                            )}
+                          </option>
+                        )
+                      )}
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-                      Area
+                      {t("area")}
                     </label>
                     <select
                       value={filters.area}
@@ -402,7 +417,7 @@ export default function SearchPage(): React.ReactElement {
                       }
                       className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     >
-                      <option value="">All areas</option>
+                      <option value="">{t("allAreas")}</option>
                       <option value="Bangkok">Bangkok</option>
                       <option value="Pattaya">Pattaya</option>
                       <option value="Phuket">Phuket</option>
@@ -412,7 +427,7 @@ export default function SearchPage(): React.ReactElement {
 
                   <div>
                     <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-                      Availability
+                      {t("availability")}
                     </label>
                     <select
                       value={filters.availability}
@@ -424,17 +439,21 @@ export default function SearchPage(): React.ReactElement {
                       }
                       className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     >
-                      <option value="">Any availability</option>
+                      <option value="">{t("anyAvailability")}</option>
                       {AVAILABILITY_OPTIONS.map((option) => (
                         <option key={option} value={option}>
-                          {option}
+                          {translateCatalogValue(
+                            availabilityLabels,
+                            AVAILABILITY_MESSAGE_KEYS,
+                            option
+                          )}
                         </option>
                       ))}
                     </select>
                   </div>
 
                   <Button fullWidth onClick={handleApplyFilters}>
-                    Apply Filters
+                    {t("applyFilters")}
                   </Button>
                 </CardContent>
               </Card>
@@ -454,8 +473,7 @@ export default function SearchPage(): React.ReactElement {
                     id="search-interest-opening"
                   />
                   <p className="text-xs text-charcoal-500 mt-2">
-                    Applies to &quot;I&apos;m Interested&quot; on worker cards below.
-                    Optional — leave as General interest if you prefer.
+                    {t("interestHint")}
                   </p>
                 </CardContent>
               </Card>
@@ -463,10 +481,12 @@ export default function SearchPage(): React.ReactElement {
               <div className="flex items-center justify-between mb-4">
                 <p className="text-charcoal-400 text-sm">
                   {loading
-                    ? "Searching..."
+                    ? t("searching")
                     : total > 0
-                      ? `${total} verified worker${total !== 1 ? "s" : ""} found`
-                      : "No verified workers found"}
+                      ? total === 1
+                        ? t("foundOne", { count: total })
+                        : t("foundOther", { count: total })
+                      : t("noVerified")}
                 </p>
               </div>
 
@@ -502,10 +522,8 @@ export default function SearchPage(): React.ReactElement {
                       d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                     />
                   </svg>
-                  <p>No verified workers found matching your criteria</p>
-                  <p className="text-sm mt-2">
-                    Try adjusting your filters or check back later
-                  </p>
+                  <p>{t("noMatch")}</p>
+                  <p className="text-sm mt-2">{t("adjustFilters")}</p>
                 </div>
               )}
             </div>

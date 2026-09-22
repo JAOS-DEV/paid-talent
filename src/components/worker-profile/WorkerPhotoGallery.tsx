@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   splitPublicPhotos,
   type PublicWorkerPhoto,
@@ -43,6 +44,7 @@ export function WorkerPhotoGallery({
   photoUrl,
   photos,
 }: WorkerPhotoGalleryProps): React.ReactElement {
+  const t = useTranslations("worker.publicProfile");
   const { primaryUrl, additional } = splitPublicPhotos(photos, photoUrl);
   const [activeUrl, setActiveUrl] = useState(primaryUrl);
 
@@ -72,7 +74,7 @@ export function WorkerPhotoGallery({
                   ? "border-primary-500"
                   : "border-transparent"
               }`}
-              aria-label="Show primary photo"
+              aria-label={t("showPrimaryPhoto")}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- CDN/R2 URLs are not next/image remotePatterns */}
               <img

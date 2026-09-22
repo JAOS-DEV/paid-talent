@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Header, Footer } from "@/components/layout";
 import { Button, Badge } from "@/components/ui";
@@ -82,6 +83,8 @@ function WhyWeAskModal({
   isOpen: boolean;
   onClose: () => void;
 }): React.ReactElement | null {
+  const t = useTranslations("worker.verificationFlow");
+  const common = useTranslations("common");
   if (!isOpen) return null;
 
   return (
@@ -92,26 +95,22 @@ function WhyWeAskModal({
       />
       <div className="relative bg-charcoal-900 rounded-xl p-6 max-w-sm w-full border border-charcoal-700">
         <h3 className="text-lg font-semibold text-charcoal-100 mb-3">
-          Why we verify identity
+          {t("whyTitle")}
         </h3>
         <div className="space-y-3 text-charcoal-400 text-sm">
           <p>
-            Identity verification helps us maintain a trusted platform for both
-            workers and recruiters.
+            {t("whyBody")}
           </p>
-          <p>We verify that:</p>
+          <p>{t("whyListIntro")}</p>
           <ul className="list-disc list-inside space-y-1 text-charcoal-500">
-            <li>You are who you say you are</li>
-            <li>You meet our age requirement (20+)</li>
-            <li>Your profile represents a real person</li>
+            <li>{t("whyIdentity")}</li>
+            <li>{t("whyAge")}</li>
+            <li>{t("whyReal")}</li>
           </ul>
-          <p className="text-charcoal-500">
-            Your ID and video are used only for verification and are securely
-            stored with limited retention.
-          </p>
+          <p className="text-charcoal-500">{t("whyRetention")}</p>
         </div>
         <Button fullWidth className="mt-4" onClick={onClose}>
-          Got it
+          {common("gotIt")}
         </Button>
       </div>
     </div>
@@ -119,18 +118,20 @@ function WhyWeAskModal({
 }
 
 function StartAgainButton({ onClick }: { onClick: () => void }): React.ReactElement {
+  const t = useTranslations("worker.verificationFlow");
   return (
     <button
       type="button"
       onClick={onClick}
       className="block w-full text-center text-xs text-charcoal-500 hover:text-charcoal-300 pt-1"
     >
-      Start again
+      {t("startAgain")}
     </button>
   );
 }
 
 export default function WorkerVerificationPage(): React.ReactElement {
+  const t = useTranslations("worker.verificationFlow");
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -456,14 +457,14 @@ export default function WorkerVerificationPage(): React.ReactElement {
       <div className="space-y-5" data-testid="verification-id-step">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-charcoal-100">
-            Verify your identity
+            {t("heading")}
           </h1>
           <p className="text-primary-400 mt-2 text-sm font-medium">
-            Step 1 of 2
+            {t("stepOf", { current: 1, total: 2 })}
           </p>
-          <p className="text-charcoal-100 mt-2 font-medium">Upload your ID</p>
+          <p className="text-charcoal-100 mt-2 font-medium">{t("uploadIdTitle")}</p>
           <p className="text-charcoal-400 mt-1.5 text-sm">
-            First, upload a clear photo of your government-issued ID.
+            {t("uploadIdBody")}
           </p>
         </div>
 
@@ -471,11 +472,19 @@ export default function WorkerVerificationPage(): React.ReactElement {
           className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           value={docType}
           onChange={(e) => setDocType(e.target.value as DocType)}
-          aria-label="Document type"
+          aria-label={t("documentType")}
         >
           {DOC_TYPE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
-              {opt.label}
+              {t(
+                opt.value === "passport"
+                  ? "docPassport"
+                  : opt.value === "thai_id"
+                    ? "docThaiId"
+                    : opt.value === "drivers_license"
+                      ? "docLicense"
+                      : "docOther"
+              )}
             </option>
           ))}
         </select>
@@ -485,7 +494,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
             {idUploading ? (
               <div className="flex items-center justify-center gap-2 py-2">
                 <div className="animate-spin w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full" />
-                <span className="text-charcoal-300 text-sm">Uploading ID...</span>
+                <span className="text-charcoal-300 text-sm">{t("uploadingId")}</span>
               </div>
             ) : (
               <>
@@ -505,10 +514,10 @@ export default function WorkerVerificationPage(): React.ReactElement {
                   </svg>
                 </div>
                 <p className="text-charcoal-100 font-medium text-sm">
-                  Upload ID photo
+                  {t("uploadIdPhoto")}
                 </p>
                 <p className="text-charcoal-500 text-xs mt-0.5">
-                  JPG, PNG or WebP
+                  {t("imageTypes")}
                 </p>
               </>
             )}
@@ -531,13 +540,13 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
         <div className="text-center pt-3 border-t border-charcoal-800">
           <p className="text-charcoal-500 text-xs">
-            Used only for age and identity checks · 20+
+            {t("usedForChecks")}
           </p>
           <button
             onClick={() => setShowWhyModal(true)}
             className="text-primary-400 text-xs mt-1.5 hover:text-primary-300 transition-colors"
           >
-            Why we ask
+            {t("whyWeAsk")}
           </button>
         </div>
       </div>
@@ -549,10 +558,10 @@ export default function WorkerVerificationPage(): React.ReactElement {
       <div className="space-y-5" data-testid="verification-id-uploaded-step">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-charcoal-100">
-            Verify your identity
+            {t("heading")}
           </h1>
           <p className="text-primary-400 mt-2 text-sm font-medium">
-            Step 1 of 2
+            {t("stepOf", { current: 1, total: 2 })}
           </p>
         </div>
 
@@ -570,7 +579,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
               d="M5 13l4 4L19 7"
             />
           </svg>
-          <span className="text-green-300 text-sm">ID uploaded</span>
+          <span className="text-green-300 text-sm">{t("idUploaded")}</span>
         </div>
 
         {error && (
@@ -584,7 +593,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
           onClick={() => void handleContinueToVideo()}
           loading={submitting}
         >
-          Continue to video verification
+          {t("continueToVideo")}
         </Button>
         <StartAgainButton onClick={handleStartAgain} />
       </div>
@@ -599,25 +608,25 @@ export default function WorkerVerificationPage(): React.ReactElement {
       <div className="space-y-5" data-testid="verification-video-step">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-charcoal-100">
-            Verify your identity
+            {t("heading")}
           </h1>
           <p className="text-primary-400 mt-2 text-sm font-medium">
-            Step 2 of 2
+            {t("stepOf", { current: 2, total: 2 })}
           </p>
           <p className="text-charcoal-100 mt-2 font-medium">
-            Record a short verification video
+            {t("recordVideoTitle")}
           </p>
         </div>
 
         <div className="space-y-2.5 px-2">
-          <ChecklistItem text="Hold your ID beside your face" />
-          <ChecklistItem text="Keep your face and ID clearly visible" />
-          <ChecklistItem text="Read the displayed code clearly" />
+          <ChecklistItem text={t("holdId")} />
+          <ChecklistItem text={t("keepVisible")} />
+          <ChecklistItem text={t("readCode")} />
         </div>
 
         <div className="bg-charcoal-900 border border-primary-500 rounded-xl px-5 py-4 text-center">
           <p className="text-charcoal-400 text-[10px] uppercase tracking-wider mb-1">
-            Say this code
+            {t("sayThisCode")}
           </p>
           <p
             className="text-4xl font-mono font-bold text-primary-400 tracking-[0.2em]"
@@ -631,7 +640,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
             <p className="text-red-300 text-sm">
               {isExpired
-                ? "Challenge code has expired. Please request a new one."
+                ? t("codeExpired")
                 : error}
             </p>
           </div>
@@ -643,11 +652,11 @@ export default function WorkerVerificationPage(): React.ReactElement {
             onClick={() => void handleRefreshChallenge()}
             loading={submitting}
           >
-            Get a new code
+            {t("getNewCode")}
           </Button>
         ) : (
           <Button fullWidth onClick={() => void handleOpenCamera()}>
-            Open camera
+            {t("openCamera")}
           </Button>
         )}
 
@@ -655,13 +664,13 @@ export default function WorkerVerificationPage(): React.ReactElement {
 
         <div className="text-center pt-3 border-t border-charcoal-800">
           <p className="text-charcoal-500 text-xs">
-            Used only for age and identity checks · 20+
+            {t("usedForChecks")}
           </p>
           <button
             onClick={() => setShowWhyModal(true)}
             className="text-primary-400 text-xs mt-1.5 hover:text-primary-300 transition-colors"
           >
-            Why we ask
+            {t("whyWeAsk")}
           </button>
         </div>
       </div>
@@ -677,10 +686,10 @@ export default function WorkerVerificationPage(): React.ReactElement {
       <div className="space-y-5" data-testid="verification-recording-step">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-charcoal-100">
-            Verify your identity
+            {t("heading")}
           </h1>
           <p className="text-primary-400 mt-2 text-sm font-medium">
-            Step 2 of 2
+            {t("stepOf", { current: 2, total: 2 })}
           </p>
         </div>
 
@@ -719,10 +728,10 @@ export default function WorkerVerificationPage(): React.ReactElement {
       <div className="space-y-6" data-testid="verification-review-step">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-charcoal-100">
-            Ready to submit
+            {t("readyTitle")}
           </h1>
           <p className="text-charcoal-400 mt-2">
-            Review your submission before sending.
+            {t("readyBody")}
           </p>
         </div>
 
@@ -741,7 +750,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
                 d="M5 13l4 4L19 7"
               />
             </svg>
-            <span className="text-green-300 text-sm">ID document uploaded</span>
+            <span className="text-green-300 text-sm">{t("idDocumentUploaded")}</span>
           </div>
           <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
             <svg
@@ -758,15 +767,23 @@ export default function WorkerVerificationPage(): React.ReactElement {
               />
             </svg>
             <span className="text-green-300 text-sm">
-              Verification video recorded
+              {t("videoRecorded")}
             </span>
           </div>
         </div>
 
         <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
           <p className="text-charcoal-300 text-sm">
-            <span className="text-charcoal-400">Document type:</span>{" "}
-            {DOC_TYPE_OPTIONS.find((d) => d.value === docType)?.label}
+            <span className="text-charcoal-400">{t("documentTypeLabel")}</span>{" "}
+            {t(
+              docType === "passport"
+                ? "docPassport"
+                : docType === "thai_id"
+                  ? "docThaiId"
+                  : docType === "drivers_license"
+                    ? "docLicense"
+                    : "docOther"
+            )}
           </p>
         </div>
 
@@ -782,14 +799,14 @@ export default function WorkerVerificationPage(): React.ReactElement {
             onClick={() => void handleSubmitVerification()}
             loading={submitting}
           >
-            Submit verification
+            {t("submit")}
           </Button>
           <StartAgainButton onClick={handleStartAgain} />
         </div>
 
         <div className="text-center pt-2 border-t border-charcoal-800">
           <p className="text-charcoal-500 text-xs">
-            Used only for age and identity checks · 20+
+            {t("usedForChecks")}
           </p>
         </div>
       </div>
@@ -816,29 +833,25 @@ export default function WorkerVerificationPage(): React.ReactElement {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-charcoal-100">
-            Verification pending
+            {t("pendingTitle")}
           </h1>
-          <p className="text-charcoal-400 mt-2">
-            We&apos;re reviewing your submission. This usually takes 1-2
-            business days.
-          </p>
+          <p className="text-charcoal-400 mt-2">{t("pendingBody")}</p>
         </div>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between py-2">
-            <span className="text-charcoal-400">Status</span>
-            <Badge variant="warning">Under review</Badge>
+            <span className="text-charcoal-400">{t("status")}</span>
+            <Badge variant="warning">{t("underReview")}</Badge>
           </div>
           <div className="flex items-center justify-between py-2">
-            <span className="text-charcoal-400">Profile visibility</span>
-            <Badge variant="default">Not live</Badge>
+            <span className="text-charcoal-400">{t("profileVisibility")}</span>
+            <Badge variant="default">{t("notLive")}</Badge>
           </div>
         </div>
 
         <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
           <p className="text-charcoal-400 text-sm">
-            Once approved, your profile will automatically become visible to
-            recruiters. We&apos;ll notify you when the review is complete.
+            {t("pendingNote")}
           </p>
         </div>
 
@@ -847,7 +860,7 @@ export default function WorkerVerificationPage(): React.ReactElement {
           fullWidth
           onClick={() => router.push("/worker/dashboard")}
         >
-          Return to dashboard
+          {t("returnToDashboard")}
         </Button>
       </div>
     );
@@ -873,16 +886,13 @@ export default function WorkerVerificationPage(): React.ReactElement {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-charcoal-100">
-            You&apos;re verified
+            {t("verifiedTitle")}
           </h1>
-          <p className="text-charcoal-400 mt-2">
-            Your identity has been confirmed. Your profile is now visible to
-            recruiters.
-          </p>
+          <p className="text-charcoal-400 mt-2">{t("verifiedBody")}</p>
         </div>
 
         <Button fullWidth onClick={() => router.push("/worker/dashboard")}>
-          Go to dashboard
+          {t("goToDashboard")}
         </Button>
       </div>
     );
@@ -908,35 +918,33 @@ export default function WorkerVerificationPage(): React.ReactElement {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-charcoal-100">
-            Verification unsuccessful
+            {t("rejectedTitle")}
           </h1>
-          <p className="text-charcoal-400 mt-2">
-            We couldn&apos;t verify your identity. Please try again.
-          </p>
+          <p className="text-charcoal-400 mt-2">{t("rejectedBody")}</p>
         </div>
 
         <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
           <p className="text-charcoal-300 text-sm font-medium mb-2">
-            Common issues:
+            {t("commonIssues")}
           </p>
           <ul className="text-charcoal-400 text-sm space-y-1 list-disc list-inside">
-            <li>ID photo was unclear or cut off</li>
-            <li>Face wasn&apos;t visible in video</li>
-            <li>Code wasn&apos;t read clearly</li>
-            <li>ID didn&apos;t match the person in video</li>
+            <li>{t("issueUnclear")}</li>
+            <li>{t("issueFace")}</li>
+            <li>{t("issueCode")}</li>
+            <li>{t("issueMismatch")}</li>
           </ul>
         </div>
 
         <div className="space-y-3">
           <Button fullWidth onClick={handleStartAgain}>
-            Try again
+            {t("tryAgain")}
           </Button>
           <Button
             variant="outline"
             fullWidth
             onClick={() => router.push("/worker/dashboard")}
           >
-            Return to dashboard
+            {t("returnToDashboard")}
           </Button>
         </div>
       </div>

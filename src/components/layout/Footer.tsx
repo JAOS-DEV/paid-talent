@@ -2,8 +2,11 @@
 
 import React from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 export function Footer(): React.ReactElement {
+  const t = useTranslations("footer");
+
   return (
     <footer className="bg-charcoal-900 border-t border-charcoal-700 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -13,20 +16,18 @@ export function Footer(): React.ReactElement {
               <span className="text-lg font-bold text-primary-500">Paid</span>
               <span className="text-lg font-bold text-gold-500">Talent</span>
             </div>
-            <p className="text-charcoal-400 text-sm">
-              Connecting workers with recruiters. Find your next opportunity.
-            </p>
+            <p className="text-charcoal-400 text-sm">{t("tagline")}</p>
           </div>
 
           <div>
-            <h4 className="text-charcoal-200 font-medium mb-3">For Workers</h4>
+            <h4 className="text-charcoal-200 font-medium mb-3">{t("forWorkers")}</h4>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
                   href="/auth/age-gate?role=worker"
                   className="text-charcoal-400 hover:text-charcoal-200 transition-colors"
                 >
-                  Create Profile
+                  {t("createProfile")}
                 </Link>
               </li>
               <li>
@@ -34,7 +35,7 @@ export function Footer(): React.ReactElement {
                   href="#"
                   className="text-charcoal-400 hover:text-charcoal-200 transition-colors"
                 >
-                  How It Works
+                  {t("howItWorks")}
                 </Link>
               </li>
             </ul>
@@ -42,7 +43,7 @@ export function Footer(): React.ReactElement {
 
           <div>
             <h4 className="text-charcoal-200 font-medium mb-3">
-              For Recruiters
+              {t("forRecruiters")}
             </h4>
             <ul className="space-y-2 text-sm">
               <li>
@@ -50,7 +51,7 @@ export function Footer(): React.ReactElement {
                   href="/auth/age-gate?role=recruiter"
                   className="text-charcoal-400 hover:text-charcoal-200 transition-colors"
                 >
-                  Start Recruiting
+                  {t("startRecruiting")}
                 </Link>
               </li>
               <li>
@@ -58,21 +59,21 @@ export function Footer(): React.ReactElement {
                   href="#"
                   className="text-charcoal-400 hover:text-charcoal-200 transition-colors"
                 >
-                  Top Talent
+                  {t("topTalent")}
                 </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-charcoal-200 font-medium mb-3">Legal</h4>
+            <h4 className="text-charcoal-200 font-medium mb-3">{t("legal")}</h4>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
                   href="#"
                   className="text-charcoal-400 hover:text-charcoal-200 transition-colors"
                 >
-                  Privacy Policy
+                  {t("privacy")}
                 </Link>
               </li>
               <li>
@@ -80,7 +81,7 @@ export function Footer(): React.ReactElement {
                   href="#"
                   className="text-charcoal-400 hover:text-charcoal-200 transition-colors"
                 >
-                  Terms of Service
+                  {t("terms")}
                 </Link>
               </li>
             </ul>
@@ -89,7 +90,7 @@ export function Footer(): React.ReactElement {
 
         <div className="border-t border-charcoal-700 mt-8 pt-8 text-center">
           <p className="text-charcoal-500 text-sm">
-            &copy; {new Date().getFullYear()} Paid Talent. All rights reserved.
+            {t("rights", { year: new Date().getFullYear() })}
           </p>
         </div>
       </div>

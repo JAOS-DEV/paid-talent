@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Input,
@@ -58,6 +59,7 @@ export function OpeningForm({
   mode,
   initialOpening = null,
 }: OpeningFormProps): React.ReactElement {
+  const t = useTranslations("recruiter.openings");
   const router = useRouter();
   const isLegacyRange = Boolean(
     initialOpening && hasLegacyPayRange(initialOpening)
@@ -159,33 +161,30 @@ export function OpeningForm({
         <div className="space-y-6">
           <div>
             <h2 className="text-xl font-semibold text-charcoal-100">
-              {mode === "create" ? "Add opening" : "Edit opening"}
+              {mode === "create" ? t("addOpening") : t("editOpening")}
             </h2>
-            <p className="text-sm text-charcoal-400 mt-1">
-              Advertise one clear pay amount, then choose the currency and
-              period.
-            </p>
+            <p className="text-sm text-charcoal-400 mt-1">{t("intro")}</p>
           </div>
 
           <CardContent className="space-y-5 !p-0 min-w-0">
             <Input
               id="opening-role"
-              label="Role *"
+              label={t("role")}
               value={role}
               onChange={(e) => setRole(e.target.value)}
               maxLength={100}
               required
-              placeholder="e.g. Bartender"
+              placeholder={t("rolePlaceholder")}
             />
 
             <Input
               id="opening-area"
-              label="Area *"
+              label={t("area")}
               value={area}
               onChange={(e) => setArea(e.target.value)}
               maxLength={100}
               required
-              placeholder="e.g. Sukhumvit"
+              placeholder={t("areaPlaceholder")}
             />
 
             {isLegacyRange && (
@@ -202,7 +201,7 @@ export function OpeningForm({
                 <div className="flex-1">
                   <Input
                     id="opening-pay"
-                    label="Pay amount"
+                    label={t("payAmount")}
                     type="number"
                     inputMode="numeric"
                     min={0}
@@ -210,7 +209,7 @@ export function OpeningForm({
                     step={1}
                     value={payAmount}
                     onChange={(e) => setPayAmount(e.target.value)}
-                    placeholder="e.g. 1000"
+                    placeholder={t("payPlaceholder")}
                   />
                 </div>
                 <div className="w-24">
@@ -218,7 +217,7 @@ export function OpeningForm({
                     htmlFor="opening-pay-currency"
                     className="block text-sm font-medium text-charcoal-200 mb-1.5"
                   >
-                    Currency
+                    {t("currency")}
                   </label>
                   <select
                     id="opening-pay-currency"
@@ -237,12 +236,12 @@ export function OpeningForm({
 
               <div>
                 <label className="block text-sm font-medium text-charcoal-200 mb-2">
-                  Pay period
+                  {t("payPeriod")}
                 </label>
                 <div
                   className="flex flex-wrap gap-2"
                   role="group"
-                  aria-label="Pay period"
+                  aria-label={t("payPeriod")}
                 >
                   {OPENING_PAY_PERIOD_OPTIONS.map((option) => (
                     <button
@@ -255,7 +254,11 @@ export function OpeningForm({
                           : "bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700 border border-charcoal-600"
                       }`}
                     >
-                      {option.label}
+                      {option.value === "night"
+                        ? t("perNight")
+                        : option.value === "hour"
+                          ? t("perHour")
+                          : t("perShift")}
                     </button>
                   ))}
                 </div>
@@ -264,14 +267,14 @@ export function OpeningForm({
 
             <div>
               <Textarea
-                label="Notes"
+                label={t("notes")}
                 value={notes}
                 onChange={(e) =>
                   setNotes(e.target.value.slice(0, OPENING_NOTES_MAX_LENGTH))
                 }
                 maxLength={OPENING_NOTES_MAX_LENGTH}
                 aria-describedby="notes-counter"
-                placeholder="Any additional details about this opening"
+                placeholder={t("notesPlaceholder")}
               />
               <p
                 id="notes-counter"
@@ -284,7 +287,7 @@ export function OpeningForm({
             {mode === "edit" && (
               <fieldset className="space-y-2">
                 <legend className="text-sm font-medium text-charcoal-200">
-                  Visibility
+                  {t("visibility")}
                 </legend>
                 <label className="flex items-center gap-3 text-sm text-charcoal-300 cursor-pointer min-h-[44px]">
                   <input
@@ -293,7 +296,7 @@ export function OpeningForm({
                     onChange={(e) => setIsPublished(e.target.checked)}
                     className="w-5 h-5 rounded border-charcoal-600 bg-charcoal-800 text-primary-600 focus:ring-primary-500 focus:ring-offset-charcoal-900"
                   />
-                  Published (visible to workers)
+                  {t("publishedVisible")}
                 </label>
               </fieldset>
             )}
@@ -317,7 +320,7 @@ export function OpeningForm({
                   loading={saving}
                   onClick={() => void submit(true)}
                 >
-                  Publish opening
+                  {t("publish")}
                 </Button>
                 <Button
                   type="button"
@@ -326,15 +329,15 @@ export function OpeningForm({
                   loading={saving}
                   onClick={() => void submit(false)}
                 >
-                  Save as draft
+                  {t("saveDraft")}
                 </Button>
                 <p className="text-center text-xs text-charcoal-500">
-                  Your opening will be visible to talents after publishing.
+                  {t("publishHint")}
                 </p>
               </div>
             ) : (
               <Button type="submit" fullWidth loading={saving}>
-                Save changes
+                {t("saveChanges")}
               </Button>
             )}
           </CardContent>

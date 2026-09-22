@@ -2,6 +2,7 @@
 
 import React, { Suspense, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -33,14 +34,14 @@ interface OutcomeStats {
 }
 
 function SubscriptionAlert(): React.ReactElement | null {
+  const t = useTranslations("recruiter.dashboard");
   const searchParams = useSearchParams();
   const subscriptionStatus = searchParams.get("subscription");
 
   if (subscriptionStatus === "success") {
     return (
       <div className="mb-6 p-4 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400">
-        Successfully subscribed to Top Talent! You can now view full contact
-        details.
+        {t("subscribeSuccess")}
       </div>
     );
   }
@@ -48,7 +49,7 @@ function SubscriptionAlert(): React.ReactElement | null {
   if (subscriptionStatus === "cancelled") {
     return (
       <div className="mb-6 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400">
-        Subscription was not completed. You can try again when ready.
+        {t("subscribeCancelled")}
       </div>
     );
   }
@@ -57,6 +58,8 @@ function SubscriptionAlert(): React.ReactElement | null {
 }
 
 function InterestsCard(): React.ReactElement {
+  const t = useTranslations("recruiter.dashboard");
+  const common = useTranslations("common");
   const [stats, setStats] = useState<OutcomeStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -81,7 +84,7 @@ function InterestsCard(): React.ReactElement {
   return (
     <Card padding="lg">
       <CardHeader>
-        <CardTitle>Your Interests</CardTitle>
+        <CardTitle>{t("yourInterests")}</CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -95,7 +98,7 @@ function InterestsCard(): React.ReactElement {
               {stats?.total ?? 0}
             </div>
             <p className="text-charcoal-400 text-sm mb-3">
-              Workers you&apos;ve expressed interest in
+              {t("interestsBody")}
             </p>
             {stats && stats.total > 0 && (
               <div className="flex gap-4 text-xs text-charcoal-500 mb-4">
@@ -103,19 +106,19 @@ function InterestsCard(): React.ReactElement {
                   <span className="text-primary-400 font-medium">
                     {stats.interested}
                   </span>{" "}
-                  Interested
+                  {t("interested")}
                 </span>
                 <span>
                   <span className="text-gold-400 font-medium">
                     {stats.hired}
                   </span>{" "}
-                  Hired
+                  {t("hired")}
                 </span>
                 <span>
                   <span className="text-green-400 font-medium">
                     {stats.started}
                   </span>{" "}
-                  Started
+                  {t("started")}
                 </span>
               </div>
             )}
@@ -123,7 +126,7 @@ function InterestsCard(): React.ReactElement {
         )}
         <Link href="/recruiter/interests">
           <Button variant="outline" fullWidth className="mt-2">
-            View All
+            {common("viewAll")}
           </Button>
         </Link>
       </CardContent>
@@ -132,11 +135,13 @@ function InterestsCard(): React.ReactElement {
 }
 
 function VenueStatusCard(): React.ReactElement {
+  const t = useTranslations("recruiter.dashboard");
   const [loading, setLoading] = useState(true);
   const [complete, setComplete] = useState(false);
   const [publishedCount, setPublishedCount] = useState(0);
   const [draftCount, setDraftCount] = useState(0);
-  const [venueName, setVenueName] = useState("Your venue");
+  const fallbackVenue = t("fallbackVenue");
+  const [venueName, setVenueName] = useState(fallbackVenue);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -147,7 +152,7 @@ function VenueStatusCard(): React.ReactElement {
           getRecruiterOpenings(),
         ]);
         setComplete(getRecruiterProfileCompleteness(profile).isComplete);
-        setVenueName(profile?.organizationName?.trim() || "Your venue");
+        setVenueName(profile?.organizationName?.trim() || fallbackVenue);
         setLogoUrl(toPublicVenueLogoUrl(profile?.logoUrl));
         setPublishedCount(openings.filter((o) => o.isPublished).length);
         setDraftCount(openings.filter((o) => !o.isPublished).length);
@@ -158,16 +163,16 @@ function VenueStatusCard(): React.ReactElement {
       }
     };
     void load();
-  }, []);
+  }, [fallbackVenue]);
 
   return (
     <Card padding="lg">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>Venue Profile</CardTitle>
+          <CardTitle>{t("venueProfile")}</CardTitle>
           {!loading && (
             <Badge variant={complete ? "success" : "warning"}>
-              {complete ? "Venue profile complete" : "Venue profile incomplete"}
+              {complete ? t("venueComplete") : t("venueIncomplete")}
             </Badge>
           )}
         </div>
@@ -180,22 +185,25 @@ function VenueStatusCard(): React.ReactElement {
           </div>
         ) : null}
         <p className="text-charcoal-400 text-sm mb-4">
-          Update the venue details workers see when you express interest.
+          {t("venueBody")}
         </p>
         {!loading && (
           <p className="text-xs text-charcoal-500 mb-4">
-            Openings: {publishedCount} published · {draftCount} draft
+            {t("openingsSummary", {
+              published: publishedCount,
+              draft: draftCount,
+            })}
           </p>
         )}
         <div className="flex flex-col sm:flex-row gap-2">
           <Link href="/recruiter/profile" className="flex-1">
             <Button fullWidth variant="outline">
-              Venue Profile
+              {t("venueProfile")}
             </Button>
           </Link>
           <Link href="/recruiter/openings" className="flex-1">
             <Button fullWidth>
-              Openings
+              {t("openings")}
             </Button>
           </Link>
         </div>
@@ -205,6 +213,7 @@ function VenueStatusCard(): React.ReactElement {
 }
 
 function TopTalentAccessCard(): React.ReactElement {
+  const t = useTranslations("recruiter.dashboard");
   const [hasTopTalent, setHasTopTalent] = useState(false);
   const [openAccess, setOpenAccess] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -232,7 +241,7 @@ function TopTalentAccessCard(): React.ReactElement {
     <Card padding="lg">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Top Talent Access</CardTitle>
+          <CardTitle>{t("topTalentAccess")}</CardTitle>
           <TopTalentBadge />
         </div>
       </CardHeader>
@@ -241,22 +250,20 @@ function TopTalentAccessCard(): React.ReactElement {
           <div className="h-16 bg-charcoal-800 animate-pulse rounded-lg" />
         ) : openAccess ? (
           <p className="text-charcoal-400 text-sm">
-            Premium Top Talent features are currently available without a
-            subscription. Top Talent badges and ranking continue as normal.
+            {t("openAccessBody")}
           </p>
         ) : hasTopTalent ? (
           <p className="text-charcoal-400 text-sm">
-            You have access to full contact details for Top Talent workers.
+            {t("hasAccessBody")}
           </p>
         ) : (
           <>
             <p className="text-charcoal-400 text-sm mb-4">
-              Unlock full contact details including LINE, WhatsApp, and phone
-              numbers.
+              {t("unlockBody")}
             </p>
             <Link href="/recruiter/search">
               <Button variant="gold" fullWidth>
-                Browse Top Talent
+                {t("browseTopTalent")}
               </Button>
             </Link>
           </>
@@ -267,6 +274,7 @@ function TopTalentAccessCard(): React.ReactElement {
 }
 
 export default function RecruiterDashboardPage(): React.ReactElement {
+  const t = useTranslations("recruiter.dashboard");
   const { data: session, status } = useSession();
 
   if (status === "loading") {
@@ -293,25 +301,24 @@ export default function RecruiterDashboardPage(): React.ReactElement {
 
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-charcoal-100">
-              Welcome, {session.user.name || "Recruiter"}!
+              {t("welcomeNamed", {
+                name: session.user.name || t("fallbackName"),
+              })}
             </h1>
-            <p className="text-charcoal-400 mt-1">
-              Find and connect with talented workers
-            </p>
+            <p className="text-charcoal-400 mt-1">{t("subtitle")}</p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Card padding="lg">
               <CardHeader>
-                <CardTitle>Search Workers</CardTitle>
+                <CardTitle>{t("searchWorkers")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-charcoal-400 text-sm mb-4">
-                  Browse our database of skilled workers. Filter by role, area,
-                  availability, and more.
+                  {t("searchBody")}
                 </p>
                 <Link href="/recruiter/search">
-                  <Button fullWidth>Start Searching</Button>
+                  <Button fullWidth>{t("startSearching")}</Button>
                 </Link>
               </CardContent>
             </Card>
@@ -326,7 +333,7 @@ export default function RecruiterDashboardPage(): React.ReactElement {
           <div className="mt-8">
             <Card padding="lg">
               <CardHeader>
-                <CardTitle>Recent Top Talent</CardTitle>
+                <CardTitle>{t("recentTopTalent")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-center py-8 text-charcoal-500">
@@ -343,12 +350,12 @@ export default function RecruiterDashboardPage(): React.ReactElement {
                       d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                     />
                   </svg>
-                  <p>No top talent profiles yet</p>
+                  <p>{t("noTopTalent")}</p>
                   <Link
                     href="/recruiter/search"
                     className="text-primary-400 hover:text-primary-300 text-sm mt-2 inline-block"
                   >
-                    Search for workers
+                    {t("searchForWorkers")}
                   </Link>
                 </div>
               </CardContent>

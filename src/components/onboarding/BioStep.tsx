@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import { updateProfileBio } from "@/app/worker/actions";
 import { CharacterCount } from "@/components/profile/CharacterCount";
@@ -17,6 +18,9 @@ export function BioStep({
   onComplete,
   onBack,
 }: BioStepProps): React.ReactElement {
+  const onboarding = useTranslations("worker.onboarding");
+  const profile = useTranslations("worker.profile");
+  const common = useTranslations("common");
   const [bio, setBio] = useState(initialBio ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +29,7 @@ export function BioStep({
     e.preventDefault();
 
     if (bio.trim().length < BIO_MIN_LENGTH) {
-      setError(`Bio must be at least ${BIO_MIN_LENGTH} characters`);
+      setError(onboarding("minimumCharacters", { count: BIO_MIN_LENGTH }));
       return;
     }
 
@@ -39,7 +43,7 @@ export function BioStep({
       }
       onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(err instanceof Error ? err.message : profile("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -49,7 +53,7 @@ export function BioStep({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-          About You
+          {onboarding("steps.bio.title")}
         </label>
         <textarea
           className={`
@@ -58,7 +62,7 @@ export function BioStep({
             focus:ring-primary-500 focus:border-transparent min-h-[150px] resize-none
             ${error ? "border-error" : "border-charcoal-600"}
           `}
-          placeholder="Tell recruiters about yourself, your strengths, and what makes you a great hire..."
+          placeholder={onboarding("bioLongPlaceholder")}
           value={bio}
           onChange={(e) => {
             setBio(e.target.value);
@@ -69,7 +73,7 @@ export function BioStep({
         />
         <div className="flex justify-between items-center mt-1.5">
           <p className="text-charcoal-500 text-xs">
-            Minimum {BIO_MIN_LENGTH} characters
+            {onboarding("minimumCharacters", { count: BIO_MIN_LENGTH })}
           </p>
           <CharacterCount
             current={bio.length}
@@ -87,7 +91,7 @@ export function BioStep({
           onClick={onBack}
           className="flex-1"
         >
-          Back
+          {common("back")}
         </Button>
         <Button
           type="submit"
@@ -95,7 +99,7 @@ export function BioStep({
           disabled={bio.trim().length < BIO_MIN_LENGTH}
           className="flex-1"
         >
-          Continue
+          {common("continue")}
         </Button>
       </div>
     </form>

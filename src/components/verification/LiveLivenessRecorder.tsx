@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import {
   LIVE_RECORDING_COUNTDOWN_SECONDS,
@@ -98,6 +99,7 @@ export function LiveLivenessRecorder({
   onError,
   onReacquireCamera,
 }: LiveLivenessRecorderProps): React.ReactElement {
+  const t = useTranslations("worker.verificationFlow");
   const livePreviewRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -348,7 +350,7 @@ export function LiveLivenessRecorder({
         <div className="absolute top-4 left-0 right-0 z-10 flex justify-center pointer-events-none">
           <div className="bg-charcoal-950/95 border border-primary-500 rounded-lg px-5 py-3 shadow-lg">
             <p className="text-charcoal-400 text-[10px] text-center uppercase tracking-wider mb-1">
-              Say this code
+              {t("sayThisCode")}
             </p>
             <p
               className="text-3xl font-mono font-bold text-primary-400 tracking-[0.2em] text-center"

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import { updateProfilePhoto } from "@/app/worker/actions";
 import {
@@ -27,6 +28,8 @@ export function PhotoStep({
   initialPendingReview = false,
   onComplete,
 }: PhotoStepProps): React.ReactElement {
+  const t = useTranslations("worker.profile");
+  const common = useTranslations("common");
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl);
   const [uploading, setUploading] = useState(false);
   const [uploadStage, setUploadStage] =
@@ -41,7 +44,8 @@ export function PhotoStep({
   const isBusy = uploading;
   const continueDisabled = isBusy || (!photoUrl && !pendingReview);
   const statusText = uploadStage ? PROFILE_PHOTO_STATUS[uploadStage] : null;
-  const chooseLabel = photoUrl || pendingReview ? "Change Photo" : "Upload Photo";
+  const chooseLabel =
+    photoUrl || pendingReview ? t("changePhoto") : t("uploadPhoto");
 
   useEffect(() => {
     return () => {
@@ -192,7 +196,7 @@ export function PhotoStep({
         ) : null}
 
         <p className="text-charcoal-500 text-xs mt-2">
-          JPG, PNG or WebP. Max 10MB. Photos are resized on your device.
+          {t("photoHint")}
         </p>
         <p className="text-charcoal-500 text-xs mt-1 text-center">
           {PHOTO_POLICY_COPY.rules}
@@ -209,7 +213,7 @@ export function PhotoStep({
 
       <div className="pt-4">
         <Button fullWidth onClick={handleContinue} disabled={continueDisabled}>
-          Continue
+          {common("continue")}
         </Button>
       </div>
     </div>

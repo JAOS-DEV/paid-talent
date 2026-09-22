@@ -1,13 +1,17 @@
+"use client";
+
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui";
-import { EMPTY_STATE_COPY } from "@/lib/interests/copy";
 
 export function VenueUnavailable(): React.ReactElement {
+  const t = useTranslations("worker.interests");
+
   return (
     <Card padding="lg">
       <CardContent>
         <p className="text-center text-white py-10" role="status">
-          {EMPTY_STATE_COPY.workerVenueUnavailable}
+          {t("unavailable")}
         </p>
       </CardContent>
     </Card>

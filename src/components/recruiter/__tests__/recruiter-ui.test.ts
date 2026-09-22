@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
+import enMessages from "../../../../messages/en.json";
 import { formatOpeningPay, emptyPayToNull } from "../format-pay";
 import {
   createOpeningSchema,
@@ -222,9 +223,15 @@ describe("recruiter UI routes", () => {
     );
 
     expect(profileSource).toContain('href="/recruiter/dashboard"');
-    expect(profileSource).toContain("Back to Dashboard");
+    expect(profileSource).toContain('t("backToDashboard")');
+    expect(enMessages.recruiter.profile.backToDashboard).toContain(
+      "Back to Dashboard"
+    );
     expect(openingsSource).toContain('href="/recruiter/dashboard"');
-    expect(openingsSource).toContain("Back to Dashboard");
+    expect(openingsSource).toContain('t("backToDashboard")');
+    expect(enMessages.recruiter.openings.backToDashboard).toContain(
+      "Back to Dashboard"
+    );
   });
 
   it("keeps Back to openings on new and edit opening pages", () => {
@@ -238,8 +245,14 @@ describe("recruiter UI routes", () => {
     );
 
     expect(newSource).toContain('href="/recruiter/openings"');
-    expect(newSource).toContain("Back to openings");
+    expect(newSource).toContain('t("backToOpenings")');
+    expect(enMessages.recruiter.openings.backToOpenings).toContain(
+      "Back to openings"
+    );
     expect(editSource).toContain('href="/recruiter/openings"');
-    expect(editSource).toContain("Back to openings");
+    expect(editSource).toContain('t("backToOpenings")');
+    expect(enMessages.recruiter.openings.backToOpenings).toContain(
+      "Back to openings"
+    );
   });
 });

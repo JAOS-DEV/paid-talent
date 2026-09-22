@@ -3,15 +3,9 @@
 import React, { useState, Suspense, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button, Card, CardContent, Input } from "@/components/ui";
-
-const errorMessages: Record<string, string> = {
-  CredentialsSignin: "No account found with that email. Please check your email or sign up.",
-  OAuthAccountNotLinked: "Email already associated with another account.",
-  EmailSignin: "Could not send sign-in email. Please check your email address or try again.",
-  EmailNotConfigured: "Email sign-in is not available. Please use Google to sign in.",
-  Default: "An error occurred during sign in.",
-};
+import { AuthLocaleBar } from "@/components/i18n";
 
 interface AuthConfig {
   emailEnabled: boolean;
@@ -19,6 +13,7 @@ interface AuthConfig {
 }
 
 function SignInForm(): React.ReactElement {
+  const t = useTranslations("auth");
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
@@ -96,17 +91,25 @@ function SignInForm(): React.ReactElement {
     }
   };
 
+  const errorMessages: Record<string, string> = {
+    CredentialsSignin: t("errorCredentials"),
+    OAuthAccountNotLinked: t("errorOAuthLinked"),
+    EmailSignin: t("errorEmailSignin"),
+    EmailNotConfigured: t("errorEmailNotConfigured"),
+    Default: t("errorDefault"),
+  };
+
   const displayError = error
     ? errorMessages[error] || errorMessages.Default
     : null;
 
   const emailButtonText = authConfig.devBypassEnabled
-    ? "Continue with Email (Dev)"
-    : "Send Sign-in Link";
+    ? t("continueWithEmailDev")
+    : t("sendSignInLink");
 
   const emailHelperText = authConfig.devBypassEnabled
     ? null
-    : "We'll send a secure sign-in link to your email.";
+    : t("emailHelper");
 
   return (
     <>
@@ -143,7 +146,7 @@ function SignInForm(): React.ReactElement {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Continue with Google
+            {t("continueWithGoogle")}
           </Button>
 
           <div className="relative">
@@ -152,7 +155,7 @@ function SignInForm(): React.ReactElement {
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-2 bg-charcoal-900 text-charcoal-500">
-                or
+                {t("or")}
               </span>
             </div>
           </div>
@@ -160,8 +163,8 @@ function SignInForm(): React.ReactElement {
           <form onSubmit={handleEmailSignIn} className="space-y-4">
             <Input
               type="email"
-              label="Email address"
-              placeholder="you@example.com"
+              label={t("emailLabel")}
+              placeholder={t("emailPlaceholder")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -188,7 +191,7 @@ function SignInForm(): React.ReactElement {
 
             {!authConfig.emailEnabled && !authConfig.devBypassEnabled && (
               <p className="text-charcoal-500 text-xs text-center">
-                Email sign-in is not configured. Please use Google.
+                {t("emailNotConfigured")}
               </p>
             )}
           </form>
@@ -199,6 +202,8 @@ function SignInForm(): React.ReactElement {
 }
 
 function SignInPageContent(): React.ReactElement {
+  const t = useTranslations("auth");
+
   return (
     <div className="w-full max-w-md">
       <div className="text-center mb-8">
@@ -207,10 +212,10 @@ function SignInPageContent(): React.ReactElement {
           <span className="text-2xl font-bold text-gold-500">Talent</span>
         </div>
         <h1 className="text-xl font-semibold text-charcoal-100 mb-2">
-          Sign in to your account
+          {t("signInSubtitle")}
         </h1>
         <p className="text-charcoal-400 text-sm">
-          Welcome back! Sign in to continue.
+          {t("welcomeBack")}
         </p>
       </div>
 
@@ -226,12 +231,12 @@ function SignInPageContent(): React.ReactElement {
       </Suspense>
 
       <p className="text-center text-charcoal-500 text-sm mt-6">
-        Don&apos;t have an account?{" "}
+        {t("noAccount")}{" "}
         <a
           href="/auth/role-select"
           className="text-primary-400 hover:text-primary-300"
         >
-          Get started
+          {t("getStarted")}
         </a>
       </p>
     </div>
@@ -241,6 +246,7 @@ function SignInPageContent(): React.ReactElement {
 export default function SignInPage(): React.ReactElement {
   return (
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
+      <AuthLocaleBar />
       <Suspense fallback={
         <div className="w-full max-w-md">
           <div className="text-center mb-8">

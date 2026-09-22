@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui";
+import { LanguageToggle } from "@/components/i18n";
 
 interface AdminNavItem {
   href: string;
@@ -48,6 +49,7 @@ export function AdminNav(): React.ReactElement {
             </Link>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <LanguageToggle />
             <Link
               href="/"
               className="px-3 py-1.5 rounded-lg text-sm text-charcoal-400 hover:bg-charcoal-800 whitespace-nowrap"

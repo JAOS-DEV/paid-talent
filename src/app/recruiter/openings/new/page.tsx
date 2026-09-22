@@ -1,5 +1,6 @@
 import React from "react";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
 import { OpeningForm, RecruiterBackLink } from "@/components/recruiter";
@@ -11,6 +12,8 @@ export default async function NewOpeningPage(): Promise<React.ReactElement> {
     redirect("/auth/signin");
   }
 
+  const t = await getTranslations("recruiter.openings");
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -18,7 +21,7 @@ export default async function NewOpeningPage(): Promise<React.ReactElement> {
         <div className="max-w-2xl mx-auto px-4">
           <div className="mb-6">
             <RecruiterBackLink href="/recruiter/openings">
-              ← Back to openings
+              {t("backToOpenings")}
             </RecruiterBackLink>
           </div>
           <OpeningForm mode="create" />

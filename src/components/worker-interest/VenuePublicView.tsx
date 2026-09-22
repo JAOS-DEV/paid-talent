@@ -1,5 +1,8 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui";
 import { workerPrimaryLinkClass } from "./link-styles";
 import { workerInterestOpeningsPath } from "./model";
@@ -20,6 +23,8 @@ export function VenuePublicView({
   blurb,
   logoUrl,
 }: VenuePublicViewProps): React.ReactElement {
+  const t = useTranslations("worker.interests");
+
   return (
     <Card padding="lg">
       <CardContent>
@@ -46,7 +51,7 @@ export function VenuePublicView({
             href={workerInterestOpeningsPath(interestId)}
             className={workerPrimaryLinkClass}
           >
-            View openings
+            {t("viewOpenings")}
           </Link>
         </div>
       </CardContent>
