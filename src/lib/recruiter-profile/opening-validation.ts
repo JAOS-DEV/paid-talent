@@ -61,8 +61,6 @@ export const updateProfileSchema = z.object({
       BLURB_MAX_LENGTH,
       `Blurb must be ${BLURB_MAX_LENGTH} characters or less`
     ),
-  logoKey: z.preprocess(emptyToUndefined, z.string().optional()),
-  logoUrl: z.union([z.literal(""), z.string().url()]).optional(),
   contactEmail: z.union([z.literal(""), z.string().email()]).optional(),
   contactPhone: z.preprocess(
     emptyToUndefined,

@@ -16,6 +16,10 @@ import {
 } from "@/lib/recruiter-profile";
 import { updateRecruiterProfile } from "@/lib/recruiter-profile/actions";
 import type { RecruiterProfile } from "@/lib/db/schema";
+import {
+  VenueLogoPicker,
+  type VenueLogoChange,
+} from "@/components/recruiter/VenueLogoPicker";
 
 interface RecruiterProfileFormProps {
   initialProfile: RecruiterProfile | null;
@@ -52,6 +56,10 @@ export function RecruiterProfileForm({
   const [contactPhone, setContactPhone] = useState(
     initialProfile?.contactPhone || ""
   );
+  const [logo, setLogo] = useState<VenueLogoChange>({
+    logoKey: initialProfile?.logoKey ?? null,
+    logoUrl: initialProfile?.logoUrl ?? null,
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -67,6 +75,25 @@ export function RecruiterProfileForm({
 
   const handleAreaChipClick = (chipArea: string): void => {
     setArea(chipArea);
+  };
+
+  const draftProfile = (nextLogo: VenueLogoChange): RecruiterProfile => {
+    return {
+      ...(initialProfile || ({} as RecruiterProfile)),
+      organizationName: organizationName.trim(),
+      area: area.trim(),
+      subArea: subArea.trim() || null,
+      blurb: blurb.trim(),
+      contactEmail: contactEmail.trim() || null,
+      contactPhone: contactPhone.trim() || null,
+      logoKey: nextLogo.logoKey,
+      logoUrl: nextLogo.logoUrl,
+    } as RecruiterProfile;
+  };
+
+  const handleLogoChange = (nextLogo: VenueLogoChange): void => {
+    setLogo(nextLogo);
+    setCompleteness(getRecruiterProfileCompleteness(draftProfile(nextLogo)));
   };
 
   const handleSubmit = async (
@@ -93,17 +120,7 @@ export function RecruiterProfileForm({
       return;
     }
 
-    const nextProfile = {
-      ...(initialProfile || ({} as RecruiterProfile)),
-      organizationName: organizationName.trim(),
-      area: area.trim(),
-      subArea: subArea.trim() || null,
-      blurb: blurb.trim(),
-      contactEmail: contactEmail.trim() || null,
-      contactPhone: contactPhone.trim() || null,
-    } as RecruiterProfile;
-
-    setCompleteness(getRecruiterProfileCompleteness(nextProfile));
+    setCompleteness(getRecruiterProfileCompleteness(draftProfile(logo)));
     setSuccess("Venue profile saved");
   };
 
@@ -121,29 +138,7 @@ export function RecruiterProfileForm({
         <div className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4">
-              <div className="relative flex-shrink-0">
-                <div
-                  className="w-20 h-20 rounded-full bg-charcoal-800 border-2 border-dashed border-charcoal-600 flex items-center justify-center cursor-not-allowed"
-                  aria-label="Logo placeholder"
-                >
-                  <svg
-                    className="w-8 h-8 text-charcoal-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                </div>
-                <p className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs text-charcoal-500 whitespace-nowrap">
-                  Add logo
-                </p>
-              </div>
+              <VenueLogoPicker logoUrl={logo.logoUrl} onChange={handleLogoChange} />
               <div className="pt-1">
                 <h2 className="text-xl font-semibold text-charcoal-100">
                   Venue profile
@@ -152,7 +147,7 @@ export function RecruiterProfileForm({
                   This is what workers see when you express interest.
                 </p>
                 <p className="text-xs text-charcoal-500 mt-2">
-                  Logo upload coming soon. Optional. Shows on your openings.
+                  Optional. Shows on your openings.
                 </p>
               </div>
             </div>

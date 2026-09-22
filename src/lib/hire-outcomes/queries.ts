@@ -24,6 +24,7 @@ import {
   formatOpeningPay,
   joinOpeningContextAndPay,
 } from "@/lib/recruiter-profile/opening-pay";
+import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
 
 export interface ConfirmationRequestSummary {
   id: string;
@@ -295,6 +296,7 @@ export interface WorkerPendingConfirmation {
   requestedStatus: HireConfirmationRequestedStatus;
   requestedAt: Date;
   venueName: string;
+  logoUrl: string | null;
   openingContext: string | null;
 }
 
@@ -308,6 +310,7 @@ export async function getPendingConfirmationRequestsForWorker(
       requestedStatus: hireOutcomeConfirmationRequests.requestedStatus,
       requestedAt: hireOutcomeConfirmationRequests.requestedAt,
       organizationName: recruiterProfiles.organizationName,
+      logoUrl: recruiterProfiles.logoUrl,
       recruiterName: users.name,
       openingRole: recruiterOpenings.role,
       openingArea: recruiterOpenings.area,
@@ -348,6 +351,7 @@ export async function getPendingConfirmationRequestsForWorker(
     requestedStatus: row.requestedStatus,
     requestedAt: row.requestedAt,
     venueName: resolveVenueName(row.organizationName, row.recruiterName),
+    logoUrl: toPublicVenueLogoUrl(row.logoUrl),
     openingContext: joinOpeningContextAndPay(
       resolveOpeningContext(row.openingRole, row.openingArea),
       formatOpeningPay({

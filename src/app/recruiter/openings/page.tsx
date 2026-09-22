@@ -4,8 +4,13 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
 import { Button, Card, CardContent } from "@/components/ui";
+import { VenueLogo } from "@/components/media/VenueLogo";
 import { OpeningCard, RecruiterBackLink } from "@/components/recruiter";
-import { getRecruiterOpenings } from "@/lib/recruiter-profile/actions";
+import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
+import {
+  getRecruiterOpenings,
+  getRecruiterProfile,
+} from "@/lib/recruiter-profile/actions";
 
 export default async function RecruiterOpeningsPage(): Promise<React.ReactElement> {
   const session = await auth();
@@ -14,7 +19,12 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
     redirect("/auth/signin");
   }
 
-  const openings = await getRecruiterOpenings();
+  const [openings, profile] = await Promise.all([
+    getRecruiterOpenings(),
+    getRecruiterProfile(),
+  ]);
+  const venueName = profile?.organizationName?.trim() || "Your venue";
+  const venueLogoUrl = toPublicVenueLogoUrl(profile?.logoUrl);
   const publishedCount = openings.filter((o) => o.isPublished).length;
   const draftCount = openings.length - publishedCount;
 
@@ -28,7 +38,9 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
               ← Back to Dashboard
             </RecruiterBackLink>
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-3">
+                <VenueLogo logoUrl={venueLogoUrl} name={venueName} />
+                <div className="min-w-0">
                 <h1 className="text-2xl font-semibold text-charcoal-100">
                   Openings
                 </h1>
@@ -41,6 +53,7 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
                     {publishedCount} published · {draftCount} draft
                   </p>
                 )}
+                </div>
               </div>
               <Link href="/recruiter/openings/new" className="flex-shrink-0">
                 <Button>Add opening</Button>
@@ -83,7 +96,12 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
           ) : (
             <div className="space-y-3">
               {openings.map((opening) => (
-                <OpeningCard key={opening.id} opening={opening} />
+                <OpeningCard
+                  key={opening.id}
+                  opening={opening}
+                  venueLogoUrl={venueLogoUrl}
+                  venueName={venueName}
+                />
               ))}
             </div>
           )}

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Header, Footer } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { VenueLogo } from "@/components/media/VenueLogo";
 import type { WorkerDashboardRecentInterest } from "@/lib/worker-dashboard";
 
 export default function WorkerInterestsPage(): React.ReactElement {
@@ -25,6 +26,7 @@ export default function WorkerInterestsPage(): React.ReactElement {
           interests?: Array<{
             id: string;
             venueName?: string;
+            logoUrl?: string | null;
             recruiterName?: string;
             openingContext?: string | null;
             message: string | null;
@@ -35,6 +37,7 @@ export default function WorkerInterestsPage(): React.ReactElement {
           (data.interests ?? []).map((interest) => ({
             id: interest.id,
             venueName: interest.venueName || interest.recruiterName || "A venue",
+            logoUrl: interest.logoUrl ?? null,
             openingContext: interest.openingContext ?? null,
             message: interest.message,
             createdAt: interest.createdAt,
@@ -93,8 +96,14 @@ export default function WorkerInterestsPage(): React.ReactElement {
                   {interests.map((interest) => (
                     <li
                       key={interest.id}
-                      className="border-b border-charcoal-800 pb-4 last:border-0 last:pb-0"
+                      className="flex items-start gap-3 border-b border-charcoal-800 pb-4 last:border-0 last:pb-0"
                     >
+                      <VenueLogo
+                        logoUrl={interest.logoUrl}
+                        name={interest.venueName}
+                        size="sm"
+                      />
+                      <div className="min-w-0">
                       <p className="text-charcoal-100 font-medium">
                         {interest.venueName}
                       </p>
@@ -109,6 +118,7 @@ export default function WorkerInterestsPage(): React.ReactElement {
                           {interest.message}
                         </p>
                       ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>

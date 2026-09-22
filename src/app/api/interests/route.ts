@@ -22,6 +22,7 @@ import {
   formatOpeningPay,
   joinOpeningContextAndPay,
 } from "@/lib/recruiter-profile/opening-pay";
+import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
 import {
   deniedActiveUserResponse,
   requireActiveAppUser,
@@ -204,6 +205,7 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
         .select({
           id: profileInterests.id,
           venueNameOrg: recruiterProfiles.organizationName,
+          logoUrl: recruiterProfiles.logoUrl,
           recruiterName: users.name,
           message: profileInterests.message,
           openingRole: recruiterOpenings.role,
@@ -235,6 +237,7 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
             interest.venueNameOrg,
             interest.recruiterName
           ),
+          logoUrl: toPublicVenueLogoUrl(interest.logoUrl),
           openingContext: joinOpeningContextAndPay(
             resolveOpeningContext(
               interest.openingRole,

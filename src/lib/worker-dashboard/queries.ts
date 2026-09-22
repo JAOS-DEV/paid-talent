@@ -20,6 +20,7 @@ import {
 import { getPhotoCountsForWorker } from "@/lib/moderation/photo-moderation";
 import { checkPhotoLimits, MAX_PROFILE_PHOTOS } from "@/lib/moderation/photo-policy";
 import { hasApprovedPrimaryProfileImage } from "@/lib/media/photo-persistence";
+import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
 import {
   DASHBOARD_RECENT_INTEREST_LIMIT,
   emptyDashboardStats,
@@ -109,6 +110,7 @@ export async function getWorkerReceivedInterests(
       message: profileInterests.message,
       createdAt: profileInterests.createdAt,
       organizationName: recruiterProfiles.organizationName,
+      logoUrl: recruiterProfiles.logoUrl,
       recruiterName: users.name,
       openingRole: recruiterOpenings.role,
       openingArea: recruiterOpenings.area,
@@ -134,6 +136,7 @@ export async function getWorkerReceivedInterests(
   return rows.map((row) => ({
     id: row.id,
     venueName: resolveVenueName(row.organizationName, row.recruiterName),
+    logoUrl: toPublicVenueLogoUrl(row.logoUrl),
     openingContext: joinOpeningContextAndPay(
       resolveOpeningContext(row.openingRole, row.openingArea),
       formatOpeningPay({
@@ -300,6 +303,7 @@ export async function getWorkerDashboardData(
       requestedStatus: request.requestedStatus,
       requestedAt: request.requestedAt.toISOString(),
       venueName: request.venueName,
+      logoUrl: request.logoUrl,
       openingContext: request.openingContext,
     })),
     photoSlots: buildPhotoSlots({
