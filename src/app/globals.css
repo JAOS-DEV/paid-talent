@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Dark charcoal base */
-  --color-charcoal-950: #0d0d0f;
-  --color-charcoal-900: #141418;
-  --color-charcoal-800: #1c1c22;
-  --color-charcoal-700: #26262e;
-  --color-charcoal-600: #32323c;
-  --color-charcoal-500: #4a4a58;
-  --color-charcoal-400: #6b6b7d;
-  --color-charcoal-300: #9191a3;
-  --color-charcoal-200: #c2c2cf;
-  --color-charcoal-100: #e8e8ed;
+  /* Dark charcoal base — matches designer mocks */
+  --color-charcoal-950: #121212;
+  --color-charcoal-900: #1a1a1a;
+  --color-charcoal-800: #242424;
+  --color-charcoal-700: #2e2e2e;
+  --color-charcoal-600: #3d3d3d;
+  --color-charcoal-500: #525252;
+  --color-charcoal-400: #9ca3af;
+  --color-charcoal-300: #a1a1aa;
+  --color-charcoal-200: #d4d4d8;
+  --color-charcoal-100: #f4f4f5;
 
   /* Purple primary */
   --color-primary-950: #1a0a2e;

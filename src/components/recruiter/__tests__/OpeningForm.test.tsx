@@ -55,11 +55,13 @@ describe("OpeningForm", () => {
   it("replaces min/max with a single pay field and defaults currency to THB", () => {
     render(<OpeningForm mode="create" />);
 
-    expect(screen.getByLabelText(/^pay$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/pay amount/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/minimum pay/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/maximum pay/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/^currency$/i)).toHaveValue("THB");
-    expect(screen.getByLabelText(/^pay period$/i)).toHaveValue("night");
+    expect(screen.getByRole("button", { name: /per night/i })).toHaveClass(
+      "bg-primary-600"
+    );
   });
 
   it("loads an existing non-THB currency instead of resetting to THB", () => {
@@ -68,8 +70,10 @@ describe("OpeningForm", () => {
     );
 
     expect(screen.getByLabelText(/^currency$/i)).toHaveValue("EUR");
-    expect(screen.getByLabelText(/^pay$/i)).toHaveValue(1200);
-    expect(screen.getByLabelText(/^pay period$/i)).toHaveValue("week");
+    expect(screen.getByLabelText(/pay amount/i)).toHaveValue(1200);
+    expect(screen.getByRole("button", { name: /per week/i })).toHaveClass(
+      "bg-primary-600"
+    );
   });
 
   it("saves one advertised pay amount for a new opening", async () => {
@@ -81,15 +85,13 @@ describe("OpeningForm", () => {
     fireEvent.change(screen.getByLabelText(/^area \*/i), {
       target: { value: "Thonglor" },
     });
-    fireEvent.change(screen.getByLabelText(/^pay$/i), {
+    fireEvent.change(screen.getByLabelText(/pay amount/i), {
       target: { value: "1200" },
     });
     fireEvent.change(screen.getByLabelText(/^currency$/i), {
       target: { value: "USD" },
     });
-    fireEvent.change(screen.getByLabelText(/^pay period$/i), {
-      target: { value: "week" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: /per week/i }));
     fireEvent.click(screen.getByRole("button", { name: /save as draft/i }));
 
     await vi.waitFor(() => {
@@ -108,9 +110,7 @@ describe("OpeningForm", () => {
   it("shows structured custom period controls", async () => {
     render(<OpeningForm mode="create" />);
 
-    fireEvent.change(screen.getByLabelText(/^pay period$/i), {
-      target: { value: "custom" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: /^custom$/i }));
     fireEvent.change(screen.getByLabelText(/^duration$/i), {
       target: { value: "15" },
     });
@@ -143,7 +143,7 @@ describe("OpeningForm", () => {
     );
 
     expect(screen.getByText(LEGACY_PAY_RANGE_MESSAGE)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^pay$/i)).toHaveValue(null);
+    expect(screen.getByLabelText(/pay amount/i)).toHaveValue(null);
 
     const form = screen.getByRole("button", { name: /save changes/i }).closest(
       "form"
@@ -158,7 +158,7 @@ describe("OpeningForm", () => {
     });
     expect(updateOpening).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByLabelText(/^pay$/i), {
+    fireEvent.change(screen.getByLabelText(/pay amount/i), {
       target: { value: "750" },
     });
     fireEvent.submit(form!);
@@ -173,11 +173,13 @@ describe("OpeningForm", () => {
     });
   });
 
-  it("stacks pay fields with min-w-0 for ~390px layouts", () => {
+  it("uses pill chips for pay periods", () => {
     const { container } = render(<OpeningForm mode="create" />);
-    expect(container.querySelector(".sm\\:grid-cols-2")).not.toBeNull();
     expect(container.querySelector(".min-w-0")).not.toBeNull();
     expect(container.innerHTML).not.toContain("Minimum pay");
     expect(container.innerHTML).not.toContain("Maximum pay");
+    expect(screen.getByRole("button", { name: /per night/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /per day/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /per week/i })).toBeInTheDocument();
   });
 });

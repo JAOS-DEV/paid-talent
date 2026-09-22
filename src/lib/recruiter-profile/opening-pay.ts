@@ -179,6 +179,18 @@ function formatPayNumber(value: number): string {
   return value.toLocaleString("en-US");
 }
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  THB: "฿",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  JPY: "¥",
+};
+
+function getCurrencySymbol(currency: string): string {
+  return CURRENCY_SYMBOLS[currency.toUpperCase()] ?? currency;
+}
+
 function resolveDisplayCurrency(value: string | null | undefined): string {
   if (!value) {
     return DEFAULT_OPENING_PAY_CURRENCY;
@@ -209,13 +221,14 @@ function formatAmountWithCurrencyAndPeriod(
   currency: string,
   periodPhrase: string | null
 ): string {
+  const symbol = getCurrencySymbol(currency);
   if (!periodPhrase) {
-    return `${amountLabel} ${currency}`;
+    return `${symbol}${amountLabel}`;
   }
   if (periodPhrase.startsWith("for ")) {
-    return `${amountLabel} ${currency} ${periodPhrase}`;
+    return `${symbol}${amountLabel} ${periodPhrase}`;
   }
-  return `${amountLabel} ${currency} ${periodPhrase}`;
+  return `${symbol}${amountLabel} ${periodPhrase}`;
 }
 
 export function formatOpeningPay(opening: OpeningPayFields): string | null {

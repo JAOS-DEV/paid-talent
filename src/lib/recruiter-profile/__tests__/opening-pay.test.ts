@@ -97,7 +97,7 @@ describe("opening pay helpers", () => {
           payCurrency: "THB",
           payPeriod: "night",
         })
-      ).toBe("1,200 THB / night");
+      ).toBe("฿1,200 / night");
     });
 
     it("formats custom 15 days and engagement wording", () => {
@@ -108,7 +108,7 @@ describe("opening pay helpers", () => {
           payCurrency: "THB",
           payPeriod: "15 days",
         })
-      ).toBe("12,000 THB / 15 days");
+      ).toBe("฿12,000 / 15 days");
       expect(
         formatOpeningPay({
           payMin: 15000,
@@ -116,7 +116,7 @@ describe("opening pay helpers", () => {
           payCurrency: "THB",
           payPeriod: "engagement",
         })
-      ).toBe("15,000 THB for engagement");
+      ).toBe("฿15,000 for engagement");
     });
 
     it("formats USD custom periods", () => {
@@ -127,7 +127,7 @@ describe("opening pay helpers", () => {
           payCurrency: "USD",
           payPeriod: "15 days",
         })
-      ).toBe("18,000 USD / 15 days");
+      ).toBe("$18,000 / 15 days");
     });
 
     it("keeps unequal legacy ranges until they are edited", () => {
@@ -138,16 +138,16 @@ describe("opening pay helpers", () => {
           payCurrency: "THB",
           payPeriod: "night",
         })
-      ).toBe("500 – 1,000 THB / night");
+      ).toBe("฿500 – 1,000 / night");
     });
 
     it("formats payMin-only and payMax-only without From/Up to", () => {
       expect(
         formatOpeningPay({ payMin: 1200, payMax: null, payPeriod: "week" })
-      ).toBe("1,200 THB / week");
+      ).toBe("฿1,200 / week");
       expect(
         formatOpeningPay({ payMin: null, payMax: 900, payPeriod: "month" })
-      ).toBe("900 THB / month");
+      ).toBe("฿900 / month");
     });
 
     it("returns null when no pay is set", () => {
@@ -166,13 +166,13 @@ describe("opening pay helpers", () => {
           payCurrency: "THB",
           payPeriod: "night",
         })
-      ).toBe("Bartender — Sukhumvit · 1,200 THB / night");
+      ).toBe("Bartender — Sukhumvit · ฿1,200 / night");
     });
 
     it("joins opening context and pay", () => {
       expect(
-        joinOpeningContextAndPay("Bartender — Sukhumvit", "1,200 THB / night")
-      ).toBe("Bartender — Sukhumvit · 1,200 THB / night");
+        joinOpeningContextAndPay("Bartender — Sukhumvit", "฿1,200 / night")
+      ).toBe("Bartender — Sukhumvit · ฿1,200 / night");
     });
   });
 });

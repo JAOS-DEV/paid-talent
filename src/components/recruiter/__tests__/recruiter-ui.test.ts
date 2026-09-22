@@ -38,16 +38,16 @@ function mockProfile(
 
 describe("recruiter UI helpers", () => {
   describe("formatOpeningPay", () => {
-    it("formats a single advertised amount as THB / night", () => {
+    it("formats a single advertised amount with currency symbol", () => {
       expect(
         formatOpeningPay({ payMin: 1200, payMax: null, payPeriod: "night" })
-      ).toBe("1,200 THB / night");
+      ).toBe("฿1,200 / night");
     });
 
     it("formats a leftover legacy range until it is edited", () => {
       expect(
         formatOpeningPay({ payMin: 500, payMax: 1000 })
-      ).toBe("500 – 1,000 THB / night");
+      ).toBe("฿500 – 1,000 / night");
     });
 
     it("returns null when no pay", () => {

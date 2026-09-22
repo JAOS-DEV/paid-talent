@@ -3,14 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui";
+import { Badge, Button, Card } from "@/components/ui";
 import {
   deleteOpening,
   publishOpening,
@@ -23,6 +16,24 @@ interface OpeningCardProps {
   opening: RecruiterOpening;
 }
 
+function ChevronRightIcon(): React.ReactElement {
+  return (
+    <svg
+      className="w-5 h-5 text-charcoal-500"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 5l7 7-7 7"
+      />
+    </svg>
+  );
+}
+
 export function OpeningCard({ opening }: OpeningCardProps): React.ReactElement {
   const router = useRouter();
   const [busy, setBusy] = useState<"publish" | "unpublish" | "delete" | null>(
@@ -30,6 +41,7 @@ export function OpeningCard({ opening }: OpeningCardProps): React.ReactElement {
   );
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const payLabel = formatOpeningPay(opening);
 
@@ -69,106 +81,123 @@ export function OpeningCard({ opening }: OpeningCardProps): React.ReactElement {
   };
 
   return (
-    <Card padding="lg" className="min-w-0">
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <CardTitle className="break-words">{opening.role}</CardTitle>
-          <p className="text-sm text-charcoal-400 mt-1 break-words">
-            {opening.area}
-          </p>
+    <Card padding="none" className="min-w-0">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full p-4 flex items-center gap-3 text-left hover:bg-charcoal-800/50 transition-colors rounded-xl"
+      >
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base font-semibold text-charcoal-100 break-words">
+              {opening.role}
+            </h3>
+            <Badge
+              variant={opening.isPublished ? "success" : "warning"}
+              className="text-xs"
+            >
+              {opening.isPublished ? "Published" : "Draft"}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="default" className="text-xs">
+              {opening.area}
+            </Badge>
+            {payLabel ? (
+              <span className="text-lg font-bold text-primary-400">
+                {payLabel}
+              </span>
+            ) : (
+              <span className="text-sm text-charcoal-500">No pay set</span>
+            )}
+          </div>
+          {opening.notes && (
+            <p className="text-sm text-charcoal-500 line-clamp-2 break-words">
+              {opening.notes}
+            </p>
+          )}
         </div>
-        <Badge variant={opening.isPublished ? "success" : "warning"}>
-          {opening.isPublished ? "Published" : "Draft"}
-        </Badge>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {payLabel ? (
-          <p className="text-sm text-charcoal-200">{payLabel}</p>
-        ) : (
-          <p className="text-sm text-charcoal-500">No pay set</p>
-        )}
+        <div
+          className={`transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+        >
+          <ChevronRightIcon />
+        </div>
+      </button>
 
-        {opening.notes && (
-          <p className="text-sm text-charcoal-400 line-clamp-3 break-words">
-            {opening.notes}
-          </p>
-        )}
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 border-t border-charcoal-700 pt-3">
+          {error && (
+            <p className="text-sm text-error" role="alert">
+              {error}
+            </p>
+          )}
 
-        {error && (
-          <p className="text-sm text-error" role="alert">
-            {error}
-          </p>
-        )}
-
-        {confirmDelete ? (
-          <div
-            className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 space-y-3"
-            role="alertdialog"
-            aria-labelledby={`delete-title-${opening.id}`}
-          >
-            <div>
-              <p
-                id={`delete-title-${opening.id}`}
-                className="font-medium text-red-200"
-              >
-                Delete this opening?
-              </p>
-              <p className="text-sm text-red-200/80 mt-1">
-                This removes the opening from your venue. Existing interests
-                will remain, but will no longer be linked to this opening.
-              </p>
+          {confirmDelete ? (
+            <div
+              className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 space-y-3"
+              role="alertdialog"
+              aria-labelledby={`delete-title-${opening.id}`}
+            >
+              <div>
+                <p
+                  id={`delete-title-${opening.id}`}
+                  className="font-medium text-red-300"
+                >
+                  Delete this opening?
+                </p>
+                <p className="text-sm text-charcoal-400 mt-1">
+                  This removes the opening from your venue. Existing interests
+                  will remain, but will no longer be linked to this opening.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  fullWidth
+                  disabled={busy !== null}
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  loading={busy === "delete"}
+                  onClick={() => void runDelete()}
+                  className="border-red-500/30 text-red-300 hover:bg-red-500/10"
+                >
+                  Delete opening
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+          ) : (
+            <div className="flex flex-col gap-2">
+              <Link href={`/recruiter/openings/${opening.id}/edit`}>
+                <Button variant="outline" fullWidth>
+                  Edit opening
+                </Button>
+              </Link>
               <Button
-                variant="outline"
+                variant={opening.isPublished ? "secondary" : "primary"}
+                fullWidth
+                loading={busy === "publish" || busy === "unpublish"}
+                onClick={() => void runPublishToggle()}
+              >
+                {opening.isPublished ? "Unpublish" : "Publish opening"}
+              </Button>
+              <Button
+                variant="ghost"
                 fullWidth
                 disabled={busy !== null}
-                onClick={() => setConfirmDelete(false)}
+                onClick={() => setConfirmDelete(true)}
+                className="text-charcoal-400 hover:text-red-300"
               >
-                Cancel
-              </Button>
-              <Button
-                variant="secondary"
-                fullWidth
-                loading={busy === "delete"}
-                onClick={() => void runDelete()}
-                className="border-red-500/40 text-red-200"
-              >
-                Delete opening
+                Delete
               </Button>
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Link
-              href={`/recruiter/openings/${opening.id}/edit`}
-              className="flex-1"
-            >
-              <Button variant="outline" fullWidth>
-                Edit
-              </Button>
-            </Link>
-            <Button
-              variant={opening.isPublished ? "secondary" : "primary"}
-              fullWidth
-              className="flex-1"
-              loading={busy === "publish" || busy === "unpublish"}
-              onClick={() => void runPublishToggle()}
-            >
-              {opening.isPublished ? "Unpublish" : "Publish"}
-            </Button>
-            <Button
-              variant="ghost"
-              fullWidth
-              className="flex-1"
-              disabled={busy !== null}
-              onClick={() => setConfirmDelete(true)}
-            >
-              Delete
-            </Button>
-          </div>
-        )}
-      </CardContent>
+          )}
+        </div>
+      )}
     </Card>
   );
 }
