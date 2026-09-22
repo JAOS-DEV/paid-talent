@@ -34,7 +34,7 @@ export function Header(): React.ReactElement {
 
   return (
     <header className="h-14 overflow-x-hidden border-b border-charcoal-700 bg-charcoal-900">
-      <div className="mx-auto flex h-full min-w-0 max-w-7xl items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-full min-w-0 max-w-7xl items-center gap-1.5 px-3 sm:gap-3 sm:px-6 lg:px-8">
         <div className="min-w-0 flex-1">
           <Link href={logoHref} className="flex h-8 max-w-full items-center">
             <Image
@@ -49,7 +49,7 @@ export function Header(): React.ReactElement {
           </Link>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <LanguageToggle />
           {status === "loading" ? (
             <div className="h-8 w-8 animate-pulse rounded-full bg-charcoal-700" />
@@ -65,7 +65,7 @@ export function Header(): React.ReactElement {
                 <Link
                   href="/admin"
                   prefetch={false}
-                  className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg bg-gold-500 px-2.5 text-sm font-semibold text-charcoal-950 hover:bg-gold-600"
+                  className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg bg-gold-500 px-2 text-xs font-semibold text-charcoal-950 hover:bg-gold-600 sm:px-2.5 sm:text-sm"
                 >
                   {t("admin")}
                 </Link>
