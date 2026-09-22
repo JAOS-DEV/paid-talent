@@ -112,8 +112,10 @@ test.describe("Admin dashboard authenticated access", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signInAs(page, ADMIN_EMAIL, "/recruiter/dashboard");
     await expect(page.getByText("Admin Dashboard")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Dashboard", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Admin", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open menu" })).toHaveCount(0);
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth
     );

@@ -72,4 +72,38 @@ describe("i18n messages", () => {
       expect(thMessages.worker.verification.title).toBe("การยืนยันตัวตน");
     });
   });
+
+  describe("auth namespace", () => {
+    const signInKeys = [
+      "errorCredentials",
+      "errorOAuthLinked",
+      "errorEmailSignin",
+      "errorEmailNotConfigured",
+      "errorDefault",
+      "continueWithEmailDev",
+      "sendSignInLink",
+      "emailHelper",
+      "continueWithGoogle",
+      "or",
+      "emailLabel",
+      "emailPlaceholder",
+      "emailNotConfigured",
+      "signInSubtitle",
+      "welcomeBack",
+      "noAccount",
+      "getStarted",
+    ] as const;
+
+    it("should resolve every auth key used on the sign-in page", () => {
+      for (const key of signInKeys) {
+        expect(enMessages.auth[key]).toBeTruthy();
+        expect(thMessages.auth[key]).toBeTruthy();
+      }
+    });
+
+    it("should translate the Google/email divider", () => {
+      expect(enMessages.auth.or).toBe("or");
+      expect(thMessages.auth.or).toBe("หรือ");
+    });
+  });
 });

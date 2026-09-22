@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 32" fill="none" role="img" aria-labelledby="paid-talent-mark-title">
+  <title id="paid-talent-mark-title">Paid Talent</title>
+  <rect width="28" height="28" y="2" rx="8" fill="#7C3AED"/>
+  <path fill="#FFFFFF" d="M9.6 8.4h6.3c2.8 0 4.6 1.6 4.6 4 0 2.5-1.9 4.1-4.7 4.1h-3.7V23.6H9.6V8.4zm2.5 6.1h3.5c1.4 0 2.2-.7 2.2-1.9s-.8-1.9-2.2-1.9h-3.5v3.8z"/>
+  <text x="36" y="22" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700">
+    <tspan fill="#A78BFA">Paid</tspan>
+    <tspan dx="6" fill="#D4AF37">Talent</tspan>
+  </text>
+</svg>
