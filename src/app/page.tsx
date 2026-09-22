@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Button, Card, CardContent, TopTalentBadge } from "@/components/ui";
 import { Header, Footer } from "@/components/layout";
 import { AdSense } from "@/components/ads";
@@ -14,6 +15,7 @@ export default async function HomePage(): Promise<React.ReactElement> {
   } catch {
     openAccess = false;
   }
+  const t = await getTranslations("home");
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -25,23 +27,22 @@ export default async function HomePage(): Promise<React.ReactElement> {
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-                <span className="text-charcoal-100">Find </span>
-                <span className="text-primary-400">Talented </span>
-                <span className="text-charcoal-100">Workers</span>
+                <span className="text-charcoal-100">{t("find")}</span>
+                <span className="text-primary-400">{t("talented")}</span>
+                <span className="text-charcoal-100">{t("workers")}</span>
                 <br />
-                <span className="text-charcoal-100">or </span>
-                <span className="text-gold-500">Get Discovered</span>
+                <span className="text-charcoal-100">{t("or")}</span>
+                <span className="text-gold-500">{t("getDiscovered")}</span>
               </h1>
 
               <p className="text-lg md:text-xl text-charcoal-400 mb-8 max-w-2xl mx-auto">
-                Paid Talent connects skilled workers with recruiters looking for
-                top talent. Create your profile or start recruiting today.
+                {t("subtitle")}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/auth/age-gate?role=worker">
                   <Button size="lg" className="w-full sm:w-auto">
-                    Create Worker Profile
+                    {t("createWorkerProfile")}
                   </Button>
                 </Link>
                 <Link href="/auth/age-gate?role=recruiter">
@@ -50,7 +51,7 @@ export default async function HomePage(): Promise<React.ReactElement> {
                     size="lg"
                     className="w-full sm:w-auto"
                   >
-                    Start Recruiting
+                    {t("startRecruiting")}
                   </Button>
                 </Link>
               </div>
@@ -61,7 +62,7 @@ export default async function HomePage(): Promise<React.ReactElement> {
         <section className="py-16 bg-charcoal-950">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 className="text-2xl md:text-3xl font-bold text-center text-charcoal-100 mb-12">
-              How It Works
+              {t("howItWorks")}
             </h2>
 
             <div className="grid md:grid-cols-3 gap-8">
@@ -73,12 +74,9 @@ export default async function HomePage(): Promise<React.ReactElement> {
                     </span>
                   </div>
                   <h3 className="text-lg font-semibold text-charcoal-100 mb-2">
-                    Create Your Profile
+                    {t("step1Title")}
                   </h3>
-                  <p className="text-charcoal-400 text-sm">
-                    Workers build detailed profiles showcasing skills,
-                    experience, and availability.
-                  </p>
+                  <p className="text-charcoal-400 text-sm">{t("step1Body")}</p>
                 </CardContent>
               </Card>
 
@@ -90,12 +88,9 @@ export default async function HomePage(): Promise<React.ReactElement> {
                     </span>
                   </div>
                   <h3 className="text-lg font-semibold text-charcoal-100 mb-2">
-                    Get Discovered
+                    {t("step2Title")}
                   </h3>
-                  <p className="text-charcoal-400 text-sm">
-                    Recruiters search and filter to find the perfect candidates
-                    for their needs.
-                  </p>
+                  <p className="text-charcoal-400 text-sm">{t("step2Body")}</p>
                 </CardContent>
               </Card>
 
@@ -105,12 +100,9 @@ export default async function HomePage(): Promise<React.ReactElement> {
                     <span className="text-2xl font-bold text-gold-400">3</span>
                   </div>
                   <h3 className="text-lg font-semibold text-charcoal-100 mb-2">
-                    Connect & Hire
+                    {t("step3Title")}
                   </h3>
-                  <p className="text-charcoal-400 text-sm">
-                    Recruiters unlock contact details for Top Talent and connect
-                    directly.
-                  </p>
+                  <p className="text-charcoal-400 text-sm">{t("step3Body")}</p>
                 </CardContent>
               </Card>
             </div>
@@ -123,18 +115,16 @@ export default async function HomePage(): Promise<React.ReactElement> {
               <TopTalentBadge />
             </div>
             <h2 className="text-2xl md:text-3xl font-bold text-center text-charcoal-100 mb-4">
-              {openAccess ? "Meet Top Talent" : "Unlock Top Talent"}
+              {openAccess ? t("meetTopTalent") : t("unlockTopTalent")}
             </h2>
             <p className="text-center text-charcoal-400 mb-8 max-w-xl mx-auto">
-              {openAccess
-                ? "Top Talent badges and ranking stay visible so recruiters can see the most in-demand workers. Premium contact access is currently open without a subscription."
-                : "Get access to full contact details for our highest-ranked workers. View LINE, WhatsApp, and phone numbers to connect directly."}
+              {openAccess ? t("openAccessBody") : t("subscribeBody")}
             </p>
 
             <div className="flex justify-center">
               <Link href="/auth/age-gate?role=recruiter">
                 <Button variant="gold" size="lg">
-                  {openAccess ? "Start Recruiting" : "Subscribe to Top Talent"}
+                  {openAccess ? t("startRecruiting") : t("subscribeCta")}
                 </Button>
               </Link>
             </div>

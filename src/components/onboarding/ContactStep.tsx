@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button, Input } from "@/components/ui";
 import { updateProfileContact, publishProfile } from "@/app/worker/actions";
 import {
@@ -24,6 +25,9 @@ export function ContactStep({
   onComplete,
   onBack,
 }: ContactStepProps): React.ReactElement {
+  const profile = useTranslations("worker.profile");
+  const onboarding = useTranslations("worker.onboarding");
+  const common = useTranslations("common");
   const [lineId, setLineId] = useState(initialLineId ?? "");
   const [whatsApp, setWhatsApp] = useState(initialWhatsApp ?? "");
   const [phone, setPhone] = useState(initialPhone ?? "");
@@ -67,7 +71,7 @@ export function ContactStep({
       }
       onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to publish profile");
+      setError(err instanceof Error ? err.message : onboarding("publishFailed"));
       setSaving(false);
     }
   }
@@ -78,35 +82,32 @@ export function ContactStep({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-charcoal-800/50 border border-charcoal-700 rounded-lg p-4 mb-4">
         <p className="text-charcoal-300 text-sm">
-          <span className="text-primary-400 font-medium">Optional:</span> Add
-          contact methods so recruiters can reach you directly. These are only
-          visible to recruiters with Top Talent access or if you&apos;re not a
-          Top Talent worker.
+          {onboarding("contactIntro")}
         </p>
       </div>
 
       <div className="space-y-4">
         <Input
-          label="LINE ID"
-          placeholder="Your LINE ID (optional)"
+          label={profile("lineId")}
+          placeholder={profile("linePlaceholder")}
           value={lineId}
           maxLength={LINE_ID_MAX_LENGTH}
           onChange={(e) => setLineId(e.target.value)}
         />
 
         <Input
-          label="WhatsApp Number"
+          label={onboarding("whatsappNumber")}
           type="tel"
-          placeholder="+66 81 234 5678 (optional)"
+          placeholder={onboarding("phoneExample")}
           value={whatsApp}
           maxLength={WHATSAPP_MAX_LENGTH}
           onChange={(e) => setWhatsApp(e.target.value)}
         />
 
         <Input
-          label="Phone Number"
+          label={profile("phone")}
           type="tel"
-          placeholder="+66 81 234 5678 (optional)"
+          placeholder={onboarding("phoneExample")}
           value={phone}
           maxLength={PHONE_NUMBER_MAX_LENGTH}
           onChange={(e) => setPhone(e.target.value)}
@@ -117,7 +118,7 @@ export function ContactStep({
 
       <div className="flex flex-col gap-3 pt-4">
         <Button type="submit" loading={saving} fullWidth>
-          {hasAnyContact ? "Save & Finish" : "Skip & Finish"}
+          {hasAnyContact ? onboarding("saveAndFinish") : onboarding("skipAndFinish")}
         </Button>
         <Button
           type="button"
@@ -126,7 +127,7 @@ export function ContactStep({
           disabled={saving}
           fullWidth
         >
-          Back
+          {common("back")}
         </Button>
         {hasAnyContact && (
           <button
@@ -135,7 +136,7 @@ export function ContactStep({
             disabled={saving}
             className="text-charcoal-500 text-sm hover:text-charcoal-300 transition-colors"
           >
-            Skip without saving contacts
+            {onboarding("skipContacts")}
           </button>
         )}
       </div>

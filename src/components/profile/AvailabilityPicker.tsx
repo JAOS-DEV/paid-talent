@@ -1,7 +1,12 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { AVAILABILITY_OPTIONS } from "@/lib/profile/availability";
+import {
+  AVAILABILITY_MESSAGE_KEYS,
+  translateCatalogValue,
+} from "@/lib/i18n/labels";
 
 interface AvailabilityPickerProps {
   value: string[];
@@ -14,6 +19,8 @@ export function AvailabilityPicker({
   onChange,
   error,
 }: AvailabilityPickerProps): React.ReactElement {
+  const t = useTranslations("availability");
+
   function toggleOption(option: string): void {
     if (value.includes(option)) {
       onChange(value.filter((item) => item !== option));
@@ -25,11 +32,9 @@ export function AvailabilityPicker({
   return (
     <div>
       <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-        Availability
+        {t("label")}
       </label>
-      <p className="text-charcoal-400 text-xs mb-2">
-        Select every option that applies. You can choose more than one.
-      </p>
+      <p className="text-charcoal-400 text-xs mb-2">{t("hint")}</p>
       <div className="flex flex-wrap gap-2">
         {AVAILABILITY_OPTIONS.map((option) => (
           <button
@@ -45,7 +50,7 @@ export function AvailabilityPicker({
               }
             `}
           >
-            {option}
+            {translateCatalogValue(t, AVAILABILITY_MESSAGE_KEYS, option)}
           </button>
         ))}
       </div>

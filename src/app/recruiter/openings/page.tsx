@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
 import { Button, Card, CardContent } from "@/components/ui";
@@ -19,11 +20,12 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
     redirect("/auth/signin");
   }
 
+  const t = await getTranslations("recruiter.openings");
   const [openings, profile] = await Promise.all([
     getRecruiterOpenings(),
     getRecruiterProfile(),
   ]);
-  const venueName = profile?.organizationName?.trim() || "Your venue";
+  const venueName = profile?.organizationName?.trim() || t("fallbackVenue");
   const venueLogoUrl = toPublicVenueLogoUrl(profile?.logoUrl);
   const publishedCount = openings.filter((o) => o.isPublished).length;
   const draftCount = openings.length - publishedCount;
@@ -35,28 +37,28 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
         <div className="max-w-2xl mx-auto px-4">
           <div className="mb-6 min-w-0">
             <RecruiterBackLink href="/recruiter/dashboard">
-              ← Back to Dashboard
+              {t("backToDashboard")}
             </RecruiterBackLink>
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <VenueLogo logoUrl={venueLogoUrl} name={venueName} />
                 <div className="min-w-0">
-                <h1 className="text-2xl font-semibold text-charcoal-100">
-                  Openings
-                </h1>
-                <p className="text-charcoal-400 mt-1">
-                  Manage your job openings. Workers see these when you express
-                  interest.
-                </p>
-                {openings.length > 0 && (
-                  <p className="text-sm text-charcoal-500 mt-2">
-                    {publishedCount} published · {draftCount} draft
-                  </p>
-                )}
+                  <h1 className="text-2xl font-semibold text-charcoal-100">
+                    {t("title")}
+                  </h1>
+                  <p className="text-charcoal-400 mt-1">{t("subtitle")}</p>
+                  {openings.length > 0 && (
+                    <p className="text-sm text-charcoal-500 mt-2">
+                      {t("publishedDraft", {
+                        published: publishedCount,
+                        draft: draftCount,
+                      })}
+                    </p>
+                  )}
                 </div>
               </div>
               <Link href="/recruiter/openings/new" className="flex-shrink-0">
-                <Button>Add opening</Button>
+                <Button>{t("addOpening")}</Button>
               </Link>
             </div>
           </div>
@@ -80,16 +82,14 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
                   </svg>
                 </div>
                 <p className="text-lg font-medium text-charcoal-100">
-                  No openings yet
+                  {t("emptyTitle")}
                 </p>
-                <p className="text-charcoal-400 mt-2">
-                  Add openings to start hiring
-                </p>
+                <p className="text-charcoal-400 mt-2">{t("emptyBody")}</p>
                 <Link
                   href="/recruiter/openings/new"
                   className="inline-block mt-6"
                 >
-                  <Button>Add your first opening</Button>
+                  <Button>{t("addFirst")}</Button>
                 </Link>
               </CardContent>
             </Card>

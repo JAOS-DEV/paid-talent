@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Input,
@@ -25,10 +26,10 @@ interface RecruiterProfileFormProps {
   initialProfile: RecruiterProfile | null;
 }
 
-const REQUIRED_STEP_LABELS: Record<string, string> = {
-  venue: "Venue / organisation name",
-  area: "Area",
-  blurb: "About your venue",
+const REQUIRED_STEP_KEYS: Record<string, "venueStep" | "areaStep" | "blurbStep"> = {
+  venue: "venueStep",
+  area: "areaStep",
+  blurb: "blurbStep",
 };
 
 const AREA_CHIPS = [
@@ -44,6 +45,8 @@ const AREA_CHIPS = [
 export function RecruiterProfileForm({
   initialProfile,
 }: RecruiterProfileFormProps): React.ReactElement {
+  const t = useTranslations("recruiter.profile");
+  const common = useTranslations("common");
   const [organizationName, setOrganizationName] = useState(
     initialProfile?.organizationName || ""
   );
@@ -70,8 +73,11 @@ export function RecruiterProfileForm({
   const missingRequired = useMemo(() => {
     return ["venue", "area", "blurb"]
       .filter((id) => !completeness.completedSteps.includes(id))
-      .map((id) => REQUIRED_STEP_LABELS[id] || id);
-  }, [completeness.completedSteps]);
+      .map((id) => {
+        const key = REQUIRED_STEP_KEYS[id];
+        return key ? t(key) : id;
+      });
+  }, [completeness.completedSteps, t]);
 
   const handleAreaChipClick = (chipArea: string): void => {
     setArea(chipArea);
@@ -116,12 +122,12 @@ export function RecruiterProfileForm({
     setSaving(false);
 
     if (!result.success) {
-      setError(result.error || "Failed to save profile");
+      setError(result.error || t("saveFailed"));
       return;
     }
 
     setCompleteness(getRecruiterProfileCompleteness(draftProfile(logo)));
-    setSuccess("Venue profile saved");
+    setSuccess(t("saved"));
   };
 
   const blurbRemaining = BLURB_MAX_LENGTH - blurb.length;
@@ -141,23 +147,19 @@ export function RecruiterProfileForm({
               <VenueLogoPicker logoUrl={logo.logoUrl} onChange={handleLogoChange} />
               <div className="pt-1">
                 <h2 className="text-xl font-semibold text-charcoal-100">
-                  Venue profile
+                  {t("title")}
                 </h2>
-                <p className="text-sm text-charcoal-400 mt-1">
-                  This is what workers see when you express interest.
-                </p>
-                <p className="text-xs text-charcoal-500 mt-2">
-                  Optional. Shows on your openings.
-                </p>
+                <p className="text-sm text-charcoal-400 mt-1">{t("subtitle")}</p>
+                <p className="text-xs text-charcoal-500 mt-2">{t("logoHint")}</p>
               </div>
             </div>
             {completeness.isComplete ? (
               <Badge variant="success" className="flex-shrink-0">
-                Complete
+                {common("complete")}
               </Badge>
             ) : (
               <Badge variant="warning" className="flex-shrink-0">
-                Incomplete
+                {common("incomplete")}
               </Badge>
             )}
           </div>
@@ -168,7 +170,7 @@ export function RecruiterProfileForm({
               role="status"
             >
               <p className="text-charcoal-200">
-                <span className="font-medium">Missing:</span>{" "}
+                <span className="font-medium">{common("missing")}:</span>{" "}
                 <span className="text-charcoal-400">
                   {missingRequired.join(", ")}
                 </span>
@@ -178,23 +180,23 @@ export function RecruiterProfileForm({
 
           <CardContent className="space-y-4 !p-0">
             <Input
-              label="Venue / organisation name *"
+              label={t("venueName")}
               value={organizationName}
               onChange={(e) => setOrganizationName(e.target.value)}
               maxLength={100}
               required
               autoComplete="organization"
-              placeholder="e.g. Club Insomnia"
+              placeholder={t("venuePlaceholder")}
             />
 
             <div className="space-y-2">
               <Input
-                label="Area *"
+                label={t("area")}
                 value={area}
                 onChange={(e) => setArea(e.target.value)}
                 maxLength={100}
                 required
-                placeholder="e.g. Sukhumvit"
+                placeholder={t("areaPlaceholder")}
               />
               <div className="flex flex-wrap gap-2">
                 {AREA_CHIPS.map((chipArea) => (
@@ -215,17 +217,17 @@ export function RecruiterProfileForm({
             </div>
 
             <Input
-              label="Sub-area"
+              label={t("subArea")}
               value={subArea}
               onChange={(e) => setSubArea(e.target.value)}
               maxLength={100}
-              helperText="Optional district or soi"
-              placeholder="e.g. Soi 11"
+              helperText={t("subAreaHelp")}
+              placeholder={t("subAreaPlaceholder")}
             />
 
             <div>
               <Textarea
-                label="About your venue *"
+                label={t("about")}
                 value={blurb}
                 onChange={(e) =>
                   setBlurb(e.target.value.slice(0, BLURB_MAX_LENGTH))
@@ -233,7 +235,7 @@ export function RecruiterProfileForm({
                 maxLength={BLURB_MAX_LENGTH}
                 required
                 aria-describedby="blurb-counter"
-                placeholder="What workers should know about your venue"
+                placeholder={t("aboutPlaceholder")}
               />
               <p id="blurb-counter" className={`mt-1.5 text-right text-sm ${blurbCounterColor}`}>
                 {blurb.length}/{BLURB_MAX_LENGTH}
@@ -241,7 +243,7 @@ export function RecruiterProfileForm({
             </div>
 
             <Input
-              label="Contact email"
+              label={t("contactEmail")}
               type="email"
               value={contactEmail}
               onChange={(e) => setContactEmail(e.target.value)}
@@ -250,13 +252,13 @@ export function RecruiterProfileForm({
             />
 
             <Input
-              label="Contact phone"
+              label={t("contactPhone")}
               type="tel"
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
               maxLength={20}
               autoComplete="tel"
-              placeholder="+66..."
+              placeholder={t("phonePlaceholder")}
             />
 
             {error && (
@@ -271,7 +273,7 @@ export function RecruiterProfileForm({
             )}
 
             <Button type="submit" fullWidth loading={saving}>
-              Save profile
+              {t("save")}
             </Button>
           </CardContent>
         </div>

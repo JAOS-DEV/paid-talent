@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button, Input } from "@/components/ui";
 import { updateProfileLocation } from "@/app/worker/actions";
 import { AvailabilityPicker } from "@/components/profile/AvailabilityPicker";
@@ -33,6 +34,9 @@ export function LocationStep({
   onComplete,
   onBack,
 }: LocationStepProps): React.ReactElement {
+  const profile = useTranslations("worker.profile");
+  const onboarding = useTranslations("worker.onboarding");
+  const common = useTranslations("common");
   const [location, setLocation] = useState(initialLocation ?? "");
   const [area, setArea] = useState(initialArea ?? "");
   const [availability, setAvailability] = useState<string[]>(
@@ -50,12 +54,12 @@ export function LocationStep({
     e.preventDefault();
 
     if (!location.trim()) {
-      setError("Location is required");
+      setError(onboarding("locationRequired"));
       return;
     }
 
     if (availability.length === 0) {
-      setError("Availability is required");
+      setError(onboarding("availabilityRequired"));
       return;
     }
 
@@ -76,7 +80,7 @@ export function LocationStep({
       }
       onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(err instanceof Error ? err.message : profile("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -86,8 +90,8 @@ export function LocationStep({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
         <Input
-          label="Location"
-          placeholder="City, Country"
+          label={profile("location")}
+          placeholder={profile("locationPlaceholder")}
           value={location}
           onChange={(e) => {
             setLocation(e.target.value);
@@ -98,15 +102,15 @@ export function LocationStep({
         />
 
         <Input
-          label="Area (optional)"
-          placeholder="e.g., Downtown, Suburbs"
+          label={onboarding("areaOptional")}
+          placeholder={onboarding("areaExample")}
           value={area}
           onChange={(e) => {
             setArea(e.target.value);
             setError(null);
           }}
           maxLength={AREA_MAX_LENGTH}
-          helperText="Specific area or neighborhood"
+          helperText={onboarding("areaHelp")}
         />
 
         <AvailabilityPicker
@@ -119,7 +123,7 @@ export function LocationStep({
 
         <div>
           <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-            Expected Pay (optional)
+            {onboarding("expectedPayOptional")}
           </label>
           <div className="flex gap-2 items-center">
             <select
@@ -135,7 +139,7 @@ export function LocationStep({
             </select>
             <Input
               type="number"
-              placeholder="Min"
+              placeholder={profile("payMin")}
               value={payMin}
               onChange={(e) => setPayMin(e.target.value)}
               className="flex-1"
@@ -143,14 +147,14 @@ export function LocationStep({
             <span className="text-charcoal-500">-</span>
             <Input
               type="number"
-              placeholder="Max"
+              placeholder={profile("payMax")}
               value={payMax}
               onChange={(e) => setPayMax(e.target.value)}
               className="flex-1"
             />
           </div>
           <p className="text-charcoal-500 text-xs mt-1.5">
-            Per hour, day, or as you prefer
+            {onboarding("payHint")}
           </p>
         </div>
 
@@ -164,7 +168,7 @@ export function LocationStep({
           onClick={onBack}
           className="flex-1"
         >
-          Back
+          {common("back")}
         </Button>
         <Button
           type="submit"
@@ -172,7 +176,7 @@ export function LocationStep({
           disabled={!location.trim() || availability.length === 0}
           className="flex-1"
         >
-          Continue
+          {common("continue")}
         </Button>
       </div>
     </form>

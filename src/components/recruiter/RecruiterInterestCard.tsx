@@ -2,6 +2,7 @@
 
 import React, { useCallback } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button, Card, CardContent } from "@/components/ui";
 import {
   HireOutcomeStatusBadge,
@@ -51,6 +52,7 @@ export function RecruiterInterestCard({
     requestedStatus: HireConfirmationRequestedStatus
   ) => void;
 }): React.ReactElement {
+  const t = useTranslations("recruiter.interests");
   const effectiveStatus = getEffectiveStatus(interest);
   const createdDate = new Date(interest.createdAt).toLocaleDateString();
 
@@ -109,7 +111,7 @@ export function RecruiterInterestCard({
                 </div>
 
                 <p className="text-charcoal-500 text-sm mb-2">
-                  Interested on {createdDate}
+                  {t("interestedOn", { date: createdDate })}
                 </p>
 
                 {interest.message && (
@@ -120,13 +122,13 @@ export function RecruiterInterestCard({
 
                 {interest.hireOutcome?.hiredAt && (
                   <p className="text-charcoal-500 text-xs">
-                    Hired:{" "}
+                    {t("hiredOn")}{" "}
                     {new Date(interest.hireOutcome.hiredAt).toLocaleDateString()}
                   </p>
                 )}
                 {interest.hireOutcome?.startedAt && (
                   <p className="text-charcoal-500 text-xs">
-                    Started:{" "}
+                    {t("startedOn")}{" "}
                     {new Date(
                       interest.hireOutcome.startedAt
                     ).toLocaleDateString()}
@@ -152,7 +154,7 @@ export function RecruiterInterestCard({
                   size="sm"
                   className="w-full md:w-auto min-h-11"
                 >
-                  View Profile
+                  {t("viewProfile")}
                 </Button>
               </Link>
             </div>

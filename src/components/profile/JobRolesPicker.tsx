@@ -1,7 +1,12 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { JOB_ROLE_OPTIONS, OTHER_JOB_ROLE } from "@/lib/profile/job-roles";
+import {
+  JOB_ROLE_MESSAGE_KEYS,
+  translateCatalogValue,
+} from "@/lib/i18n/labels";
 import {
   CUSTOM_JOB_ROLE_MAX_LENGTH,
   MAX_JOB_ROLES,
@@ -27,6 +32,8 @@ export function JobRolesPicker({
   onCustomRoleChange,
   error,
 }: JobRolesPickerProps): React.ReactElement {
+  const t = useTranslations("roles");
+  const profile = useTranslations("worker.profile");
   const selectedCount =
     predefined.length + (otherSelected && customRole.trim() ? 1 : 0);
 
@@ -64,7 +71,7 @@ export function JobRolesPicker({
   return (
     <div>
       <p className="text-charcoal-400 text-sm mb-4">
-        Select all the roles you can fill
+        {profile("selectRoles")}
       </p>
       <div className="flex flex-wrap gap-2">
         {JOB_ROLE_OPTIONS.map((role) => (
@@ -81,15 +88,15 @@ export function JobRolesPicker({
               }
             `}
           >
-            {role}
+            {translateCatalogValue(t, JOB_ROLE_MESSAGE_KEYS, role)}
           </button>
         ))}
       </div>
       {otherSelected ? (
         <div className="mt-4">
           <Input
-            label="Other role"
-            placeholder="e.g. Mixologist"
+            label={profile("otherRoleLabel")}
+            placeholder={profile("otherRolePlaceholder")}
             value={customRole}
             maxLength={CUSTOM_JOB_ROLE_MAX_LENGTH}
             onChange={(event) => onCustomRoleChange(event.target.value)}

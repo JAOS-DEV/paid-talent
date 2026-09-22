@@ -4,6 +4,7 @@ import React, { useState, useEffect, use, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, redirect } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Header, Footer } from "@/components/layout";
 import {
   Button,
@@ -45,6 +46,7 @@ export default function ProfileDetailPage({
   const { id } = use(params);
   const { data: session, status } = useSession();
   const router = useRouter();
+  const t = useTranslations("recruiter.workerDetail");
   const [profile, setProfile] = useState<WorkerProfileDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,13 +128,13 @@ export default function ProfileDetailPage({
             });
           }
         } else if (response.status === 404) {
-          setError("Profile not found");
+          setError(t("profileNotFound"));
         } else {
-          setError("Failed to load profile");
+          setError(t("loadFailed"));
         }
       } catch {
         if (!cancelled) {
-          setError("Failed to load profile");
+          setError(t("loadFailed"));
         }
       } finally {
         if (!cancelled) {
@@ -146,7 +148,7 @@ export default function ProfileDetailPage({
     return () => {
       cancelled = true;
     };
-  }, [status, id]);
+  }, [status, id, t]);
 
   const handleExpressInterest = async (): Promise<void> => {
     if (!profile || interestSent || interestLoading) return;
@@ -252,13 +254,13 @@ export default function ProfileDetailPage({
                   />
                 </svg>
                 <h2 className="text-xl font-semibold text-charcoal-100 mb-2">
-                  {error || "Profile not found"}
+                  {error || t("profileNotFound")}
                 </h2>
                 <p className="text-charcoal-400 mb-6">
-                  The profile you&apos;re looking for doesn&apos;t exist or has been removed.
+                  {t("profileRemoved")}
                 </p>
                 <Link href="/recruiter/search">
-                  <Button>Back to Search</Button>
+                  <Button>{t("backToSearch")}</Button>
                 </Link>
               </CardContent>
             </Card>
@@ -292,7 +294,7 @@ export default function ProfileDetailPage({
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Back to search
+            {t("backToSearchLink")}
           </Link>
 
           <div className="mb-6">
@@ -320,11 +322,11 @@ export default function ProfileDetailPage({
                       fullWidth
                       onClick={handleUnlock}
                     >
-                      Unlock to Express Interest
+                      {t("unlockToExpress")}
                     </Button>
                     <Link href="/recruiter/search" className="flex-1">
                       <Button variant="outline" fullWidth>
-                        Back to Search
+                        {t("backToSearch")}
                       </Button>
                     </Link>
                   </>
@@ -339,7 +341,7 @@ export default function ProfileDetailPage({
                       />
                       <Link href="/recruiter/interests" className="flex-1">
                         <Button variant="outline" fullWidth>
-                          View All Interests
+                          {t("viewAllInterests")}
                         </Button>
                       </Link>
                     </div>
@@ -359,11 +361,11 @@ export default function ProfileDetailPage({
                           disabled={interestSent || interestLoading}
                           loading={interestLoading}
                         >
-                          {interestSent ? "Interest Sent" : "I'm Interested"}
+                          {interestSent ? t("interestSent") : t("imInterested")}
                         </Button>
                         <Link href="/recruiter/search" className="flex-1">
                           <Button variant="outline" fullWidth>
-                            Back to Search
+                            {t("backToSearch")}
                           </Button>
                         </Link>
                       </div>
@@ -373,23 +375,23 @@ export default function ProfileDetailPage({
               </div>
               {interestSent && !interestOutcome && (
                 <p className="text-center text-charcoal-400 text-sm mt-3">
-                  Your interest has been sent to this worker.
+                  {t("interestSentBody")}
                 </p>
               )}
               {interestOutcome && (
                 <div className="mt-4 pt-4 border-t border-charcoal-700">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-charcoal-500">Hire Status</span>
+                    <span className="text-charcoal-500">{t("hireStatus")}</span>
                     <HireOutcomeStatusBadge status={interestOutcome.status} />
                   </div>
                   {interestOutcome.hiredAt && (
                     <p className="text-charcoal-500 text-xs mt-2">
-                      Hired: {new Date(interestOutcome.hiredAt).toLocaleDateString()}
+                      {t("hiredOn")} {new Date(interestOutcome.hiredAt).toLocaleDateString()}
                     </p>
                   )}
                   {interestOutcome.startedAt && (
                     <p className="text-charcoal-500 text-xs mt-1">
-                      Started: {new Date(interestOutcome.startedAt).toLocaleDateString()}
+                      {t("startedOn")} {new Date(interestOutcome.startedAt).toLocaleDateString()}
                     </p>
                   )}
                 </div>

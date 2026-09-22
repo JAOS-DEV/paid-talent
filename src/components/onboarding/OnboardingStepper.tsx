@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { ONBOARDING_STEPS } from "@/lib/profile";
 
 interface OnboardingStepperProps {
@@ -10,7 +11,9 @@ interface OnboardingStepperProps {
 export function OnboardingStepper({
   currentStepId,
 }: OnboardingStepperProps): React.ReactElement {
+  const t = useTranslations("worker.onboarding");
   const currentIndex = ONBOARDING_STEPS.findIndex((s) => s.id === currentStepId);
+  const currentStep = ONBOARDING_STEPS[currentIndex];
   const currentPosition = currentIndex + 1;
   const totalSteps = ONBOARDING_STEPS.length;
   const percentComplete = Math.round((currentPosition / totalSteps) * 100);
@@ -19,7 +22,7 @@ export function OnboardingStepper({
     <div className="w-full">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm text-charcoal-400">
-          Step {currentPosition} of {totalSteps}
+          {t("stepProgress", { current: currentPosition, total: totalSteps })}
         </span>
         <span className="text-sm text-charcoal-400">{percentComplete}%</span>
       </div>
@@ -47,10 +50,10 @@ export function OnboardingStepper({
 
       <div className="mt-4">
         <h2 className="text-xl font-semibold text-charcoal-100">
-          {ONBOARDING_STEPS[currentIndex]?.title}
+          {currentStep ? t(`steps.${currentStep.id}.title`) : null}
         </h2>
         <p className="text-sm text-charcoal-400 mt-1">
-          {ONBOARDING_STEPS[currentIndex]?.description}
+          {currentStep ? t(`steps.${currentStep.id}.description`) : null}
         </p>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import React from "react";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
 import { RecruiterBackLink, RecruiterProfileForm } from "@/components/recruiter";
@@ -12,6 +13,7 @@ export default async function RecruiterOwnProfilePage(): Promise<React.ReactElem
     redirect("/auth/signin");
   }
 
+  const t = await getTranslations("recruiter.profile");
   const profile = await getRecruiterProfile();
 
   return (
@@ -21,7 +23,7 @@ export default async function RecruiterOwnProfilePage(): Promise<React.ReactElem
         <div className="max-w-2xl mx-auto px-4">
           <div className="mb-6 min-w-0">
             <RecruiterBackLink href="/recruiter/dashboard">
-              ← Back to Dashboard
+              {t("backToDashboard")}
             </RecruiterBackLink>
           </div>
           <RecruiterProfileForm initialProfile={profile} />

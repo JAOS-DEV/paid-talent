@@ -1,17 +1,10 @@
-import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
-import { locales, defaultLocale, type Locale } from "@/lib/i18n/config";
+import { LOCALE_COOKIE, resolveLocale } from "@/lib/i18n/locale";
 
-export default getRequestConfig(async ({ requestLocale }) => {
-  let locale = await requestLocale;
-
-  if (!locale || !locales.includes(locale as Locale)) {
-    locale = defaultLocale;
-  }
-
-  if (!locales.includes(locale as Locale)) {
-    notFound();
-  }
+export default getRequestConfig(async () => {
+  const store = await cookies();
+  const locale = resolveLocale(store.get(LOCALE_COOKIE)?.value);
 
   return {
     locale,

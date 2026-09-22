@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Header, Footer } from "@/components/layout";
 import {
   Button,
@@ -30,6 +31,8 @@ function StatSkeleton(): React.ReactElement {
 }
 
 export default function WorkerDashboardPage(): React.ReactElement {
+  const t = useTranslations("worker.dashboard");
+  const common = useTranslations("common");
   const { data: session, status } = useSession();
   const router = useRouter();
   const [dashboard, setDashboard] = useState<WorkerDashboardData | null>(null);
@@ -137,11 +140,14 @@ export default function WorkerDashboardPage(): React.ReactElement {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-charcoal-100">
-              Welcome, {session.user.name || profile?.displayName || "Worker"}!
+              {t("welcomeNamed", {
+                name:
+                  session.user.name ||
+                  profile?.displayName ||
+                  t("fallbackName"),
+              })}
             </h1>
-            <p className="text-charcoal-400 mt-1">
-              Manage your profile and see who&apos;s interested
-            </p>
+            <p className="text-charcoal-400 mt-1">{t("subtitle")}</p>
           </div>
 
           {pendingConfirmations.length > 0 && (
@@ -196,17 +202,21 @@ export default function WorkerDashboardPage(): React.ReactElement {
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <h2 className="text-charcoal-100 font-semibold">
-                      Add more photos
+                      {t("addMorePhotosTitle")}
                     </h2>
                     <p className="text-charcoal-400 text-sm mt-1">
-                      Give recruiters a better picture of you by adding up to{" "}
-                      {photoSlots.remainingSlots} more photo
-                      {photoSlots.remainingSlots === 1 ? "" : "s"}.
+                      {photoSlots.remainingSlots === 1
+                        ? t("addMorePhotosOne", {
+                            count: photoSlots.remainingSlots,
+                          })
+                        : t("addMorePhotosOther", {
+                            count: photoSlots.remainingSlots,
+                          })}
                     </p>
                   </div>
                   <Link href="/worker/profile#photos" className="sm:flex-shrink-0">
                     <Button className="w-full sm:w-auto min-h-11">
-                      Add photos
+                      {t("addPhotos")}
                     </Button>
                   </Link>
                 </div>
@@ -226,24 +236,23 @@ export default function WorkerDashboardPage(): React.ReactElement {
                 <CardContent>
                   <div data-testid="dashboard-load-error">
                     <p className="text-charcoal-100 font-medium">
-                      We couldn&apos;t load your dashboard activity.
+                      {t("loadErrorTitle")}
                     </p>
                     <p className="text-charcoal-400 text-sm mt-1">
-                      Your profile is unchanged. Try again to see views and
-                      interest.
+                      {t("loadErrorBody")}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-2 mt-4">
                       <Button onClick={handleRetry}>
-                        Retry
+                        {common("retry")}
                       </Button>
                       <Link href="/worker/profile">
                         <Button variant="outline" className="w-full sm:w-auto">
-                          Edit Profile
+                          {t("editProfile")}
                         </Button>
                       </Link>
                       <Link href="/worker/profile/preview">
                         <Button variant="outline" className="w-full sm:w-auto">
-                          View Profile
+                          {t("viewProfile")}
                         </Button>
                       </Link>
                     </div>
@@ -254,17 +263,17 @@ export default function WorkerDashboardPage(): React.ReactElement {
               <>
                 <Card padding="lg">
                   <CardHeader>
-                    <CardTitle>Your Profile</CardTitle>
+                    <CardTitle>{t("yourProfile")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-charcoal-400 text-sm mb-4">
                       {completeness.isComplete
-                        ? "Your profile is complete. Keep it updated!"
-                        : "Complete your profile to get discovered by recruiters."}
+                        ? t("profileComplete")
+                        : t("profileIncomplete")}
                     </p>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-charcoal-400">Profile status</span>
+                        <span className="text-charcoal-400">{t("profileStatus")}</span>
                         <span
                           className={
                             completeness.isComplete
@@ -273,8 +282,10 @@ export default function WorkerDashboardPage(): React.ReactElement {
                           }
                         >
                           {completeness.isComplete
-                            ? "Complete"
-                            : `${completeness.progress}% complete`}
+                            ? t("complete")
+                            : t("percentComplete", {
+                                progress: completeness.progress,
+                              })}
                         </span>
                       </div>
                       <div className="w-full bg-charcoal-700 rounded-full h-2">
@@ -286,11 +297,15 @@ export default function WorkerDashboardPage(): React.ReactElement {
                     </div>
                     <div className="flex flex-col gap-2 mt-4">
                       <Link href={profileAction.href}>
-                        <Button fullWidth>{profileAction.label}</Button>
+                        <Button fullWidth>
+                          {profileAction.label === "Complete Profile"
+                            ? t("completeProfile")
+                            : t("editProfile")}
+                        </Button>
                       </Link>
                       <Link href="/worker/profile/preview">
                         <Button variant="outline" fullWidth>
-                          View Profile
+                          {t("viewProfile")}
                         </Button>
                       </Link>
                     </div>
@@ -299,7 +314,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
 
                 <Card padding="lg">
                   <CardHeader>
-                    <CardTitle>Profile Views</CardTitle>
+                    <CardTitle>{t("profileViews")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div
@@ -309,21 +324,27 @@ export default function WorkerDashboardPage(): React.ReactElement {
                       {stats.uniqueRecruiterViewersLast30Days}
                     </div>
                     <p className="text-charcoal-400 text-sm">
-                      Unique recruiters in the last 30 days
+                      {t("uniqueRecruiters")}
                     </p>
                     <div className="mt-4 text-sm text-charcoal-500">
                       {stats.profileViewEventsLast30Days > 0
-                        ? `${stats.profileViewEventsLast30Days} total view${stats.profileViewEventsLast30Days === 1 ? "" : "s"} in this window`
+                        ? stats.profileViewEventsLast30Days === 1
+                          ? t("totalViewsOne", {
+                              count: stats.profileViewEventsLast30Days,
+                            })
+                          : t("totalViewsOther", {
+                              count: stats.profileViewEventsLast30Days,
+                            })
                         : completeness.isComplete
-                          ? "Share your profile to get more views"
-                          : "Complete your profile to start getting views"}
+                          ? t("shareProfile")
+                          : t("completeToGetViews")}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card padding="lg">
                   <CardHeader>
-                    <CardTitle>Interest Received</CardTitle>
+                    <CardTitle>{t("interestReceived")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div
@@ -333,10 +354,10 @@ export default function WorkerDashboardPage(): React.ReactElement {
                       {stats.interestReceivedCount}
                     </div>
                     <p className="text-charcoal-400 text-sm">
-                      Recruiters interested in you
+                      {t("recruitersInterested")}
                     </p>
                     <div className="mt-4 text-sm text-charcoal-500">
-                      You&apos;ll be notified when recruiters express interest
+                      {t("interestNotify")}
                     </div>
                   </CardContent>
                 </Card>
@@ -350,7 +371,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
             <div className="mt-8">
               <Card padding="lg">
                 <CardHeader>
-                  <CardTitle>Quick Tips</CardTitle>
+                  <CardTitle>{t("quickTips")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-3">
@@ -359,7 +380,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
                         <span className="text-xs text-primary-400">1</span>
                       </span>
                       <span className="text-charcoal-300 text-sm">
-                        Add a professional photo so venues can recognise you
+                        {t("tipPhoto")}
                       </span>
                     </li>
                     <li className="flex items-start space-x-3">
@@ -367,8 +388,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
                         <span className="text-xs text-primary-400">2</span>
                       </span>
                       <span className="text-charcoal-300 text-sm">
-                        List your job roles and languages to appear in more
-                        searches
+                        {t("tipRoles")}
                       </span>
                     </li>
                     <li className="flex items-start space-x-3">
@@ -376,7 +396,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
                         <span className="text-xs text-primary-400">3</span>
                       </span>
                       <span className="text-charcoal-300 text-sm">
-                        Keep your availability updated to match recruiter needs
+                        {t("tipAvailability")}
                       </span>
                     </li>
                   </ul>

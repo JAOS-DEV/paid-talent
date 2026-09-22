@@ -1,6 +1,8 @@
+"use client";
+
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Badge, Card, CardContent } from "@/components/ui";
-import { EMPTY_STATE_COPY } from "@/lib/interests/copy";
 import type { OpeningTag } from "@/lib/interests/context";
 import { formatOpeningPay } from "@/lib/recruiter-profile/opening-pay";
 
@@ -40,12 +42,14 @@ function WorkerOpeningCard({
 export function WorkerOpeningList({
   openings,
 }: WorkerOpeningListProps): React.ReactElement {
+  const t = useTranslations("worker.interests");
+
   if (openings.length === 0) {
     return (
       <Card padding="lg">
         <CardContent>
           <p className="text-center text-white py-8" role="status">
-            {EMPTY_STATE_COPY.workerNoOpenings}
+            {t("noOpenings")}
           </p>
         </CardContent>
       </Card>

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import type { HireOutcomeStatus } from "@/lib/db/schema";
 import { Badge } from "@/components/ui";
 
@@ -31,11 +32,12 @@ export function HireOutcomeStatusBadge({
   status,
   className = "",
 }: HireOutcomeStatusBadgeProps): React.ReactElement {
+  const t = useTranslations("recruiter.interests");
   const config = statusConfig[status];
 
   return (
     <Badge variant={config.variant} className={className}>
-      {config.label}
+      {t(status)}
     </Badge>
   );
 }

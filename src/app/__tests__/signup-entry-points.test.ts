@@ -8,6 +8,7 @@ import {
 import { resolveMiddlewareGate } from "@/lib/auth/middleware-gate";
 import { getSessionHomePath } from "@/lib/auth/middleware-paths";
 import { meetsMinimumAge } from "@/lib/helpers/age-verification";
+import enMessages from "../../../messages/en.json";
 
 const SRC_ROOT = path.join(process.cwd(), "src");
 
@@ -40,7 +41,8 @@ describe("public signup entry points", () => {
   it("Header Get Started starts signup at role selection", () => {
     const header = readSrc("components/layout/Header.tsx");
     expect(header).toMatch(/href=["']\/auth\/role-select["']/);
-    expect(header).toMatch(/>\s*Get Started\s*</);
+    expect(header).toContain('t("getStarted")');
+    expect(enMessages.navigation.getStarted).toBe("Get Started");
   });
 
   it("Header Sign in goes to /auth/signin", () => {
@@ -50,23 +52,23 @@ describe("public signup entry points", () => {
 
   it("Create Worker Profile goes to age-gate with role=worker", () => {
     const home = readSrc("app/page.tsx");
-    expect(home).toMatch(
-      /href=["']\/auth\/age-gate\?role=worker["'][\s\S]*Create Worker Profile/
-    );
+    expect(home).toMatch(/href=["']\/auth\/age-gate\?role=worker["']/);
+    expect(home).toContain('t("createWorkerProfile")');
+    expect(enMessages.home.createWorkerProfile).toBe("Create Worker Profile");
   });
 
   it("Start Recruiting goes to age-gate with role=recruiter", () => {
     const home = readSrc("app/page.tsx");
-    expect(home).toMatch(
-      /href=["']\/auth\/age-gate\?role=recruiter["'][\s\S]*Start Recruiting/
-    );
+    expect(home).toMatch(/href=["']\/auth\/age-gate\?role=recruiter["']/);
+    expect(home).toContain('t("startRecruiting")');
+    expect(enMessages.home.startRecruiting).toBe("Start Recruiting");
   });
 
   it("Subscribe to Top Talent goes to age-gate with role=recruiter", () => {
     const home = readSrc("app/page.tsx");
-    expect(home).toMatch(
-      /href=["']\/auth\/age-gate\?role=recruiter["'][\s\S]*Subscribe to Top Talent/
-    );
+    expect(home).toMatch(/href=["']\/auth\/age-gate\?role=recruiter["']/);
+    expect(home).toContain('t("subscribeCta")');
+    expect(enMessages.home.subscribeCta).toBe("Subscribe to Top Talent");
   });
 
   it("no public signup CTA links directly to /auth/age-verification", () => {
@@ -112,14 +114,21 @@ describe("public signup entry points", () => {
     const roleSelect = readSrc("app/auth/role-select/page.tsx");
     expect(roleSelect).not.toContain('searchParams.get("email")');
     expect(roleSelect).not.toContain("params.set(\"email\"");
-    expect(roleSelect).toContain("Looks like you're new to Paid Talent");
-    expect(roleSelect).toContain("Let's finish creating your account.");
+    expect(roleSelect).toContain('t("newUserTitle")');
+    expect(roleSelect).toContain('t("newUserSubtitle")');
+    expect(enMessages.roleSelect.newUserTitle).toBe(
+      "Looks like you're new to Paid Talent"
+    );
+    expect(enMessages.roleSelect.newUserSubtitle).toBe(
+      "Let's finish creating your account."
+    );
   });
 
   it("hard DOB page is DOB-only with no second 20+ checkbox", () => {
     const source = readSrc("app/auth/age-verification/page.tsx");
     expect(source).toMatch(/type=["']date["']/);
-    expect(source).toContain("Verify & continue");
+    expect(source).toContain('t("submit")');
+    expect(enMessages.ageVerification.submit).toBe("Verify & continue");
     expect(source).toContain("updateSession({ ageVerified: true })");
     expect(source).not.toMatch(/type=["']checkbox["']/);
     expect(source).not.toMatch(/I confirm I am 20 or older/);

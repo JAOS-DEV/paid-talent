@@ -1,9 +1,12 @@
 import React from "react";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
 import { Button, Card, CardContent } from "@/components/ui";
 
-export default function OpeningNotFound(): React.ReactElement {
+export default async function OpeningNotFound(): Promise<React.ReactElement> {
+  const t = await getTranslations("recruiter.openings");
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -12,13 +15,13 @@ export default function OpeningNotFound(): React.ReactElement {
           <Card padding="lg">
             <CardContent className="text-center space-y-4 py-8">
               <h1 className="text-xl font-semibold text-charcoal-100">
-                Opening not found
+                {t("openingNotFound")}
               </h1>
               <p className="text-charcoal-400 text-sm">
-                This opening is unavailable or you do not have access to it.
+                {t("openingUnavailable")}
               </p>
               <Link href="/recruiter/openings">
-                <Button>Back to openings</Button>
+                <Button>{t("backToOpeningsShort")}</Button>
               </Link>
             </CardContent>
           </Card>

@@ -1,5 +1,6 @@
 import React from "react";
 import { notFound, redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
 import { OpeningForm, RecruiterBackLink } from "@/components/recruiter";
@@ -25,6 +26,8 @@ export default async function EditOpeningPage({
     notFound();
   }
 
+  const t = await getTranslations("recruiter.openings");
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -32,7 +35,7 @@ export default async function EditOpeningPage({
         <div className="max-w-2xl mx-auto px-4">
           <div className="mb-6">
             <RecruiterBackLink href="/recruiter/openings">
-              ← Back to openings
+              {t("backToOpenings")}
             </RecruiterBackLink>
           </div>
           <OpeningForm mode="edit" initialOpening={opening} />

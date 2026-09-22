@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { resolveSessionIsAdmin } from "../allowlist";
 import { canViewContactDetails } from "@/lib/helpers/contact-visibility";
+import enMessages from "../../../../messages/en.json";
 
 const SRC_ROOT = path.join(process.cwd(), "src");
 
@@ -16,7 +17,8 @@ describe("admin capability derivation", () => {
     expect(header).not.toContain("ADMIN_EMAILS");
     expect(header).not.toContain("NEXT_PUBLIC_ADMIN");
     expect(header).toContain("session?.user?.isAdmin");
-    expect(header).toMatch(/>\s*Admin\s*</);
+    expect(header).toContain('t("admin")');
+    expect(enMessages.navigation.admin).toBe("Admin");
     expect(header).not.toContain("Admin Dashboard");
     expect(header).toContain("prefetch={false}");
   });

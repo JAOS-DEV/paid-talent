@@ -3,11 +3,15 @@
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { Button, Card, CardContent } from "@/components/ui";
+import { AuthLocaleBar } from "@/components/i18n";
 import { isPendingSignupUser } from "@/lib/auth/pending-signup";
 import type { UserRole } from "@/types/auth";
 
 function RoleSelectForm(): React.ReactElement {
+  const t = useTranslations("roleSelect");
+  const common = useTranslations("common");
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedRole = searchParams.get("role");
@@ -58,11 +62,10 @@ function RoleSelectForm(): React.ReactElement {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-charcoal-100 mb-1">
-                  I&apos;m a Worker
+                  {t("workerTitle")}
                 </h3>
                 <p className="text-charcoal-400 text-sm">
-                  Create a profile, showcase your skills, and connect with
-                  recruiters looking for talent like you.
+                  {t("workerBody")}
                 </p>
               </div>
             </div>
@@ -98,11 +101,10 @@ function RoleSelectForm(): React.ReactElement {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-charcoal-100 mb-1">
-                  I&apos;m a Recruiter
+                  {t("recruiterTitle")}
                 </h3>
                 <p className="text-charcoal-400 text-sm">
-                  Search for talented workers, view profiles, and unlock
-                  contact details for Top Talent.
+                  {t("recruiterBody")}
                 </p>
               </div>
             </div>
@@ -117,7 +119,7 @@ function RoleSelectForm(): React.ReactElement {
           disabled={!selectedRole}
           onClick={handleContinue}
         >
-          Continue
+          {common("continue")}
         </Button>
       </div>
     </>
@@ -125,26 +127,25 @@ function RoleSelectForm(): React.ReactElement {
 }
 
 function RoleSelectHeader(): React.ReactElement {
+  const t = useTranslations("roleSelect");
   const { data: session } = useSession();
   const pendingSignup = isPendingSignupUser(session?.user);
 
   return (
     <div className="text-center mb-8">
       <h1 className="text-2xl font-bold text-charcoal-100 mb-2">
-        {pendingSignup
-          ? "Looks like you're new to Paid Talent"
-          : "Welcome to Paid Talent"}
+        {pendingSignup ? t("newUserTitle") : t("welcomeTitle")}
       </h1>
       <p className="text-charcoal-400">
-        {pendingSignup
-          ? "Let's finish creating your account."
-          : "Choose how you want to use the platform"}
+        {pendingSignup ? t("newUserSubtitle") : t("welcomeSubtitle")}
       </p>
     </div>
   );
 }
 
 function RoleSelectFooter(): React.ReactElement | null {
+  const t = useTranslations("roleSelect");
+  const nav = useTranslations("navigation");
   const { data: session } = useSession();
   if (isPendingSignupUser(session?.user)) {
     return null;
@@ -152,12 +153,12 @@ function RoleSelectFooter(): React.ReactElement | null {
 
   return (
     <p className="text-center text-charcoal-500 text-sm mt-6">
-      Already have an account?{" "}
+      {t("alreadyHaveAccount")}{" "}
       <a
         href="/auth/signin"
         className="text-primary-400 hover:text-primary-300"
       >
-        Sign in
+        {nav("signInAction")}
       </a>
     </p>
   );
@@ -166,6 +167,7 @@ function RoleSelectFooter(): React.ReactElement | null {
 export default function RoleSelectPage(): React.ReactElement {
   return (
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
+      <AuthLocaleBar />
       <div className="w-full max-w-lg">
         <RoleSelectHeader />
 

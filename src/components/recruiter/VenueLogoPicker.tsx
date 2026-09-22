@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { PROFILE_PHOTO_ACCEPT, type ProfilePhotoUploadStage } from "@/lib/media/profile-photo";
 import {
   clearVenueLogo,
@@ -42,6 +43,7 @@ export function VenueLogoPicker({
   logoUrl,
   onChange,
 }: VenueLogoPickerProps): React.ReactElement {
+  const t = useTranslations("recruiter.profile");
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [stage, setStage] = useState<ProfilePhotoUploadStage | null>(null);
@@ -52,7 +54,7 @@ export function VenueLogoPicker({
 
   const busy = uploading || removing;
   const displayUrl = localPreview ?? logoUrl;
-  const controlLabel = displayUrl ? "Change logo" : "Add logo";
+  const controlLabel = displayUrl ? t("changeLogo") : t("addLogo");
   const statusText = stage ? VENUE_LOGO_STATUS[stage] : null;
 
   useEffect(() => {
@@ -140,7 +142,7 @@ export function VenueLogoPicker({
             // eslint-disable-next-line @next/next/no-img-element -- CDN/R2 URLs are not next/image remotePatterns
             <img
               src={displayUrl}
-              alt="Venue logo preview"
+              alt={t("logoPreviewAlt")}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -179,7 +181,7 @@ export function VenueLogoPicker({
             void handleRemove();
           }}
         >
-          Remove logo
+          {t("removeLogo")}
         </button>
       ) : null}
       {error ? (

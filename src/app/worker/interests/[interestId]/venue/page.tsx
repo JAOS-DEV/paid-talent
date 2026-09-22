@@ -1,5 +1,6 @@
 import React from "react";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import {
   VenuePublicView,
   VenueUnavailable,
@@ -17,6 +18,7 @@ export default async function WorkerVenuePage({
 }: WorkerVenuePageProps): Promise<React.ReactElement> {
   const workerUserId = await requireWorkerUserId();
   const { interestId } = await params;
+  const t = await getTranslations("worker.interests");
   const view = await loadWorkerVenueView(interestId, workerUserId);
 
   if (view.status === "missing") {
@@ -26,8 +28,8 @@ export default async function WorkerVenuePage({
   return (
     <WorkerPageFrame
       backHref="/worker/interests"
-      backLabel="← Back to interests"
-      title={view.status === "ready" ? view.venueName : "Venue"}
+      backLabel={t("backToInterests")}
+      title={view.status === "ready" ? view.venueName : t("venueFallback")}
     >
       {view.status === "unavailable" ? (
         <VenueUnavailable />

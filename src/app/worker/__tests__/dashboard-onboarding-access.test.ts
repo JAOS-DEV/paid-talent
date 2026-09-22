@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
+import enMessages from "../../../../messages/en.json";
 
 describe("worker dashboard incomplete-profile redirect removal", () => {
   const dashboardSource = fs.readFileSync(
@@ -42,7 +43,8 @@ describe("worker dashboard incomplete-profile redirect removal", () => {
 
   it("Finish later still navigates to the worker dashboard", () => {
     expect(onboardingSource).toMatch(/ONBOARDING_FINISH_LATER_HREF/);
-    expect(onboardingSource).toMatch(/Finish later/);
+    expect(onboardingSource).toMatch(/t\("finishLater"\)/);
+    expect(enMessages.worker.onboarding.finishLater).toBe("Finish later");
   });
 
   it("keeps worker/recruiter role protection in middleware", () => {

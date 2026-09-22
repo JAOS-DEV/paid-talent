@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { describe, expect, it } from "vitest";
+import enMessages from "../../../../../messages/en.json";
 
 const SRC_ROOT = path.join(process.cwd(), "src");
 
@@ -22,9 +23,12 @@ describe("worker verification flow security (source)", () => {
 
   it("starts the worker on an ID-first step, not video", () => {
     expect(pageSource).toMatch(/useState<VerificationStep>\("id"\)/);
-    expect(pageSource).toContain("Verify your identity");
-    expect(pageSource).toContain("Step 1 of 2");
-    expect(pageSource).toContain("Upload your ID");
+    expect(pageSource).toContain('t("heading")');
+    expect(pageSource).toContain('t("stepOf"');
+    expect(pageSource).toContain('t("uploadIdTitle")');
+    expect(enMessages.worker.verificationFlow.heading).toBe("Verify your identity");
+    expect(enMessages.worker.verificationFlow.stepOf).toBe("Step {current} of {total}");
+    expect(enMessages.worker.verificationFlow.uploadIdTitle).toBe("Upload your ID");
     expect(pageSource).not.toContain("Start video");
     expect(pageSource).not.toContain("Verify it's you");
     expect(pageSource).not.toContain("Verify it&apos;s you");
@@ -39,7 +43,10 @@ describe("worker verification flow security (source)", () => {
     );
     expect(pageSource).toContain('method: "POST"');
     expect(pageSource).toContain("idDocumentKey");
-    expect(pageSource).toContain("Continue to video verification");
+    expect(pageSource).toContain('t("continueToVideo")');
+    expect(enMessages.worker.verificationFlow.continueToVideo).toBe(
+      "Continue to video verification"
+    );
     expect(challengeSource).toContain("idDocumentKey");
     expect(challengeSource).toContain("ID document must be uploaded");
   });

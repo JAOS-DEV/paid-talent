@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import type { RecruiterOpening } from "@/lib/db/schema";
 import { formatOpeningChoiceLabel } from "@/lib/recruiter-profile/opening-pay";
 
@@ -34,6 +35,7 @@ export function OpeningInterestSelect({
   onChange,
   id = "interest-opening",
 }: OpeningInterestSelectProps): React.ReactElement {
+  const t = useTranslations("recruiter.openings");
   const published = openings.filter((o) => o.isPublished);
 
   return (
@@ -42,7 +44,7 @@ export function OpeningInterestSelect({
         htmlFor={id}
         className="block text-sm font-medium text-charcoal-200 mb-1.5"
       >
-        Interested in hiring for
+        {t("hiringFor")}
       </label>
       <select
         id={id}
@@ -50,7 +52,7 @@ export function OpeningInterestSelect({
         onChange={(e) => onChange(e.target.value)}
         className="w-full min-w-0 max-w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
       >
-        <option value="">General interest</option>
+        <option value="">{t("generalInterest")}</option>
         {published.map((opening) => (
           <option key={opening.id} value={opening.id}>
             {formatOpeningChoiceLabel(opening)}
@@ -59,12 +61,12 @@ export function OpeningInterestSelect({
       </select>
       {published.length === 0 && (
         <p className="mt-2 text-xs text-charcoal-500">
-          No published openings yet.{" "}
+          {t("noPublished")}{" "}
           <Link
             href="/recruiter/openings/new"
             className="text-primary-400 hover:text-primary-300"
           >
-            Create an opening
+            {t("createOpening")}
           </Link>
         </p>
       )}

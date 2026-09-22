@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -29,37 +30,40 @@ interface OutcomeStats {
   started: number;
 }
 
-const FILTER_TABS: { key: FilterTab; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "interested", label: "Interested" },
-  { key: "hired", label: "Hired" },
-  { key: "started", label: "Started" },
+const FILTER_TABS: { key: FilterTab; labelKey: "all" | "interested" | "hired" | "started" }[] = [
+  { key: "all", labelKey: "all" },
+  { key: "interested", labelKey: "interested" },
+  { key: "hired", labelKey: "hired" },
+  { key: "started", labelKey: "started" },
 ];
 
 function StatsBar({ stats }: { stats: OutcomeStats }): React.ReactElement {
+  const t = useTranslations("recruiter.interests");
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
       <div className="bg-charcoal-800 rounded-lg p-4 text-center">
         <div className="text-2xl font-bold text-charcoal-100">{stats.total}</div>
-        <div className="text-charcoal-500 text-sm">Total</div>
+        <div className="text-charcoal-500 text-sm">{t("total")}</div>
       </div>
       <div className="bg-charcoal-800 rounded-lg p-4 text-center">
         <div className="text-2xl font-bold text-primary-400">{stats.interested}</div>
-        <div className="text-charcoal-500 text-sm">Interested</div>
+        <div className="text-charcoal-500 text-sm">{t("interested")}</div>
       </div>
       <div className="bg-charcoal-800 rounded-lg p-4 text-center">
         <div className="text-2xl font-bold text-gold-400">{stats.hired}</div>
-        <div className="text-charcoal-500 text-sm">Hired</div>
+        <div className="text-charcoal-500 text-sm">{t("hired")}</div>
       </div>
       <div className="bg-charcoal-800 rounded-lg p-4 text-center">
         <div className="text-2xl font-bold text-green-400">{stats.started}</div>
-        <div className="text-charcoal-500 text-sm">Started</div>
+        <div className="text-charcoal-500 text-sm">{t("started")}</div>
       </div>
     </div>
   );
 }
 
 function RecruiterInterestsContent(): React.ReactElement {
+  const t = useTranslations("recruiter.interests");
+  const common = useTranslations("common");
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -219,15 +223,13 @@ function RecruiterInterestsContent(): React.ReactElement {
                   d="M15 19l-7-7 7-7"
                 />
               </svg>
-              Back to Dashboard
+              {t("back")}
             </Link>
 
             <h1 className="text-2xl font-bold text-charcoal-100">
-              Your Interests
+              {t("title")}
             </h1>
-            <p className="text-charcoal-400 mt-1">
-              Manage workers you&apos;ve expressed interest in
-            </p>
+            <p className="text-charcoal-400 mt-1">{t("subtitle")}</p>
           </div>
 
           <StatsBar stats={stats} />
@@ -243,7 +245,7 @@ function RecruiterInterestsContent(): React.ReactElement {
                     : "bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700"
                 }`}
               >
-                {tab.label}
+                {tab.labelKey === "all" ? common("all") : t(tab.labelKey)}
                 {tab.key !== "all" && (
                   <span className="ml-1.5 text-xs opacity-70">
                     ({tab.key === "interested"
@@ -261,7 +263,7 @@ function RecruiterInterestsContent(): React.ReactElement {
             <Card padding="lg">
               <CardContent className="text-center py-8">
                 <p className="text-red-400 mb-4">{error}</p>
-                <Button onClick={() => void loadInterests()}>Retry</Button>
+                <Button onClick={() => void loadInterests()}>{common("retry")}</Button>
               </CardContent>
             </Card>
           ) : interests.length === 0 ? (
@@ -282,16 +284,16 @@ function RecruiterInterestsContent(): React.ReactElement {
                 </svg>
                 <h2 className="text-xl font-semibold text-charcoal-100 mb-2">
                   {activeFilter === "all"
-                    ? "No interests yet"
-                    : `No ${activeFilter} workers`}
+                    ? t("empty")
+                    : t("emptyFiltered", { status: t(activeFilter) })}
                 </h2>
                 <p className="text-charcoal-400 mb-6">
                   {activeFilter === "all"
-                    ? "Start by searching for workers and expressing interest."
-                    : `No workers have a confirmed ${activeFilter} status yet.`}
+                    ? t("emptyBody")
+                    : t("emptyFilteredBody", { status: t(activeFilter) })}
                 </p>
                 <Link href="/recruiter/search">
-                  <Button>Search Workers</Button>
+                  <Button>{t("searchWorkers")}</Button>
                 </Link>
               </CardContent>
             </Card>

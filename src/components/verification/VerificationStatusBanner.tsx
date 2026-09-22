@@ -2,6 +2,7 @@
 
 import React, { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button, Badge } from "@/components/ui";
 import type { VerificationStatus } from "@/lib/db/schema";
 import {
@@ -21,14 +22,15 @@ interface VerificationStatusBannerProps {
 function getStatusConfig(
   status: VerificationStatus,
   isPublished: boolean,
-  hasApprovedPrimaryPhoto: boolean
+  hasApprovedPrimaryPhoto: boolean,
+  t: (key: string) => string
 ) {
   if (status === "verified" && isPublished && hasApprovedPrimaryPhoto) {
     return {
       type: "success" as const,
       icon: CheckCircleIcon,
-      title: "Profile Live & Verified",
-      description: "Your profile is visible to recruiters and your identity has been verified.",
+      title: t("profileLiveVerified"),
+      description: t("profileLiveVerifiedBody"),
       showAction: false,
     };
   }
@@ -37,9 +39,8 @@ function getStatusConfig(
     return {
       type: "warning" as const,
       icon: AlertIcon,
-      title: "Identity verified — profile photo awaiting approval.",
-      description:
-        "Your identity is verified. Your profile will appear to recruiters after your profile photo is approved.",
+      title: t("photoAwaiting"),
+      description: t("photoAwaitingBody"),
       showAction: false,
     };
   }
@@ -48,10 +49,10 @@ function getStatusConfig(
     return {
       type: "warning" as const,
       icon: AlertIcon,
-      title: "Profile Not Published",
-      description: "Your identity is verified but your profile is not published. Complete your profile to go live.",
+      title: t("notPublished"),
+      description: t("notPublishedBody"),
       showAction: true,
-      actionText: "Complete Profile",
+      actionText: t("completeProfile"),
       actionHref: "/worker/onboarding",
     };
   }
@@ -60,8 +61,8 @@ function getStatusConfig(
     return {
       type: "info" as const,
       icon: ClockIcon,
-      title: "Verification Pending",
-      description: "Your ID documents are being reviewed. This usually takes 1-2 business days. Your profile will not appear in search until approved.",
+      title: t("pending"),
+      description: t("pendingBody"),
       showAction: false,
     };
   }
@@ -70,10 +71,10 @@ function getStatusConfig(
     return {
       type: "error" as const,
       icon: XCircleIcon,
-      title: "Verification Rejected",
-      description: "Your verification was rejected. Please resubmit with valid documents.",
+      title: t("rejected"),
+      description: t("rejectedBody"),
       showAction: true,
-      actionText: "Resubmit Verification",
+      actionText: t("resubmit"),
       actionHref: "/worker/verification",
     };
   }
@@ -81,10 +82,10 @@ function getStatusConfig(
   return {
     type: "warning" as const,
     icon: ShieldIcon,
-    title: "Verification Required",
-    description: "Complete identity verification to make your profile visible to recruiters. You'll need your ID document and a short video.",
+    title: t("required"),
+    description: t("requiredBody"),
     showAction: true,
-    actionText: "Start Verification",
+    actionText: t("start"),
     actionHref: "/worker/verification",
   };
 }
@@ -172,6 +173,7 @@ export function VerificationStatusBanner({
   hasApprovedPrimaryPhoto = false,
   userId,
 }: VerificationStatusBannerProps): React.ReactElement {
+  const t = useTranslations("worker.verificationBanner");
   const isSuccess = isVerifiedLiveSuccessState(
     status,
     isPublished,
@@ -198,13 +200,13 @@ export function VerificationStatusBanner({
         className="flex flex-wrap items-center gap-2"
         data-testid="verified-live-compact"
       >
-        <Badge variant="success">Verified</Badge>
-        <span className="text-sm text-charcoal-400">Profile live</span>
+        <Badge variant="success">{t("verified")}</Badge>
+        <span className="text-sm text-charcoal-400">{t("profileLive")}</span>
       </div>
     );
   }
 
-  const config = getStatusConfig(status, isPublished, hasApprovedPrimaryPhoto);
+  const config = getStatusConfig(status, isPublished, hasApprovedPrimaryPhoto, t);
   const styles = typeStyles[config.type];
   const Icon = config.icon;
 
@@ -222,7 +224,7 @@ export function VerificationStatusBanner({
             <h3 className={`font-semibold ${styles.title}`}>{config.title}</h3>
             {status !== "verified" && (
               <Badge variant={status === "pending" ? "warning" : status === "rejected" ? "error" : "default"}>
-                Not Live
+                {t("notLive")}
               </Badge>
             )}
           </div>
@@ -242,7 +244,7 @@ export function VerificationStatusBanner({
             type="button"
             onClick={handleDismiss}
             className="flex-shrink-0 min-h-11 min-w-11 rounded-lg text-charcoal-400 hover:text-charcoal-100 hover:bg-charcoal-800 flex items-center justify-center"
-            aria-label="Dismiss verified banner"
+            aria-label={t("dismiss")}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -259,14 +261,15 @@ export function VerificationStatusBadge({
 }: {
   status: VerificationStatus;
 }): React.ReactElement {
+  const t = useTranslations("worker.verificationBanner");
   switch (status) {
     case "verified":
-      return <Badge variant="success">Verified</Badge>;
+      return <Badge variant="success">{t("verified")}</Badge>;
     case "pending":
-      return <Badge variant="warning">Pending Review</Badge>;
+      return <Badge variant="warning">{t("pendingReview")}</Badge>;
     case "rejected":
-      return <Badge variant="error">Rejected</Badge>;
+      return <Badge variant="error">{t("rejectedBadge")}</Badge>;
     default:
-      return <Badge variant="default">Not Verified</Badge>;
+      return <Badge variant="default">{t("notVerified")}</Badge>;
   }
 }

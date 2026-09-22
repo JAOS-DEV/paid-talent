@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import type { WorkerDashboardRecentInterest } from "@/lib/worker-dashboard";
 import { WorkerInterestCard } from "./WorkerInterestCard";
 import { toWorkerInterestCardModel } from "./model";
@@ -13,6 +14,8 @@ interface WorkerRecentInterestsProps {
 export function WorkerRecentInterests({
   interests,
 }: WorkerRecentInterestsProps): React.ReactElement | null {
+  const t = useTranslations("worker.dashboard");
+
   if (interests.length === 0) {
     return null;
   }
@@ -24,13 +27,13 @@ export function WorkerRecentInterests({
           id="recent-interest-heading"
           className="text-lg font-semibold text-white"
         >
-          Recent interest
+          {t("recentInterest")}
         </h2>
         <Link
           href="/worker/interests"
           className="inline-flex items-center min-h-11 text-sm text-primary-400 hover:text-primary-300"
         >
-          View all interests
+          {t("viewAllInterests")}
         </Link>
       </div>
       <ul className="space-y-4">

@@ -2,6 +2,29 @@ import "@testing-library/jest-dom/vitest";
 
 import { vi } from "vitest";
 
+vi.mock("next-intl", async () => {
+  const { createTranslator } = await import("./src/test/intl-translator");
+  return {
+    useTranslations: (namespace?: string) => createTranslator(namespace),
+    useLocale: () => "en",
+    NextIntlClientProvider: ({
+      children,
+    }: {
+      children: React.ReactNode;
+    }): React.ReactNode => children,
+  };
+});
+
+vi.mock("next-intl/server", async () => {
+  const { createTranslator, enMessages } = await import("./src/test/intl-translator");
+  return {
+    getTranslations: async (namespace?: string) => createTranslator(namespace),
+    getLocale: async () => "en",
+    getMessages: async () => enMessages,
+    getRequestConfig: (fn: unknown) => fn,
+  };
+});
+
 vi.mock("@/lib/db", () => ({
   db: {
     select: vi.fn(),

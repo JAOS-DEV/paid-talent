@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
+import {
+  LANGUAGE_MESSAGE_KEYS,
+  translateCatalogValue,
+} from "@/lib/i18n/labels";
 import { updateProfileLanguages } from "@/app/worker/actions";
 import { LANGUAGE_OPTIONS } from "@/lib/profile";
 
@@ -16,6 +21,10 @@ export function LanguagesStep({
   onComplete,
   onBack,
 }: LanguagesStepProps): React.ReactElement {
+  const t = useTranslations("languages");
+  const onboarding = useTranslations("worker.onboarding");
+  const profile = useTranslations("worker.profile");
+  const common = useTranslations("common");
   const [selectedLanguages, setSelectedLanguages] =
     useState<string[]>(initialLanguages);
   const [saving, setSaving] = useState(false);
@@ -34,7 +43,7 @@ export function LanguagesStep({
     e.preventDefault();
 
     if (selectedLanguages.length === 0) {
-      setError("Select at least one language");
+      setError(onboarding("languageRequired"));
       return;
     }
 
@@ -50,7 +59,7 @@ export function LanguagesStep({
       }
       onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(err instanceof Error ? err.message : profile("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -60,7 +69,7 @@ export function LanguagesStep({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <p className="text-charcoal-400 text-sm mb-4">
-          Select all languages you can speak
+          {onboarding("selectLanguages")}
         </p>
         <div className="flex flex-wrap gap-2">
           {LANGUAGE_OPTIONS.map((language) => (
@@ -77,7 +86,7 @@ export function LanguagesStep({
                 }
               `}
             >
-              {language}
+              {translateCatalogValue(t, LANGUAGE_MESSAGE_KEYS, language)}
             </button>
           ))}
         </div>
@@ -91,7 +100,7 @@ export function LanguagesStep({
           onClick={onBack}
           className="flex-1"
         >
-          Back
+          {common("back")}
         </Button>
         <Button
           type="submit"
@@ -99,7 +108,7 @@ export function LanguagesStep({
           disabled={selectedLanguages.length === 0}
           className="flex-1"
         >
-          Continue
+          {common("continue")}
         </Button>
       </div>
     </form>

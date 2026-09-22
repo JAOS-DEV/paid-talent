@@ -2,9 +2,12 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Card, CardContent, Button } from "@/components/ui";
+import { AuthLocaleBar } from "@/components/i18n";
 
 export default function VerifyRequestPage(): React.ReactElement {
+  const t = useTranslations("auth");
   const router = useRouter();
 
   const handleBackToSignIn = (): void => {
@@ -13,6 +16,7 @@ export default function VerifyRequestPage(): React.ReactElement {
 
   return (
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
+      <AuthLocaleBar />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-2 mb-4">
@@ -20,10 +24,10 @@ export default function VerifyRequestPage(): React.ReactElement {
             <span className="text-2xl font-bold text-gold-500">Talent</span>
           </div>
           <h1 className="text-xl font-semibold text-charcoal-100 mb-2">
-            Check your email
+            {t("checkEmail")}
           </h1>
           <p className="text-charcoal-400 text-sm">
-            A sign-in link has been sent to your email address.
+            {t("checkEmailDescription")}
           </p>
         </div>
 
@@ -47,32 +51,30 @@ export default function VerifyRequestPage(): React.ReactElement {
 
             <div className="space-y-2">
               <p className="text-charcoal-200">
-                Click the link in your email to sign in securely.
+                {t("clickEmailLink")}
               </p>
               <p className="text-charcoal-500 text-sm">
-                The link will expire in 24 hours for your security.
+                {t("linkExpiry")}
               </p>
             </div>
 
             <div className="pt-4 border-t border-charcoal-800">
               <p className="text-charcoal-500 text-sm mb-4">
-                Didn&apos;t receive the email? Check your spam folder or try again.
+                {t("checkSpam")}
               </p>
               <Button
                 variant="outline"
                 fullWidth
                 onClick={handleBackToSignIn}
               >
-                Back to Sign In
+                {t("backToSignIn")}
               </Button>
             </div>
           </CardContent>
         </Card>
 
         <p className="text-center text-charcoal-600 text-xs mt-6">
-          For security, we send a unique link instead of using passwords.
-          <br />
-          This protects your account from unauthorized access.
+          {t("passwordlessNote")}
         </p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import type {
   HireConfirmationRequestStatus,
   HireConfirmationRequestedStatus,
@@ -60,6 +61,7 @@ export function HireOutcomeActions({
   onRequestCreated,
   compact = false,
 }: HireOutcomeActionsProps): React.ReactElement | null {
+  const t = useTranslations("recruiter.interests");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,9 +78,24 @@ export function HireOutcomeActions({
     currentStatus,
     pendingRequestedStatus
   );
-  const buttonLabel = getRecruiterRequestButtonLabel(action);
-  const pendingLabel = getRecruiterPendingLabel(pendingRequestedStatus);
-  const rejectionLabel = getRecruiterRejectionLabel(rejectedRequestedStatus);
+  const buttonLabel =
+    action === "request-hire"
+      ? t("requestHire")
+      : action === "request-start"
+        ? t("requestStart")
+        : getRecruiterRequestButtonLabel(action);
+  const pendingLabel =
+    pendingRequestedStatus === "hired"
+      ? t("awaitingHire")
+      : pendingRequestedStatus === "started"
+        ? t("awaitingStart")
+        : getRecruiterPendingLabel(pendingRequestedStatus);
+  const rejectionLabel =
+    rejectedRequestedStatus === "hired"
+      ? t("rejectedHire")
+      : rejectedRequestedStatus === "started"
+        ? t("rejectedStart")
+        : getRecruiterRejectionLabel(rejectedRequestedStatus);
 
   const handleRequest = useCallback(async () => {
     if (!action) return;

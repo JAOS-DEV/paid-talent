@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import { updateProfileRoles } from "@/app/worker/actions";
 import { JobRolesPicker } from "@/components/profile/JobRolesPicker";
@@ -20,6 +21,9 @@ export function RolesStep({
   onComplete,
   onBack,
 }: RolesStepProps): React.ReactElement {
+  const t = useTranslations("worker.profile");
+  const onboarding = useTranslations("worker.onboarding");
+  const common = useTranslations("common");
   const initial = splitStoredJobRoles(initialRoles);
   const [predefined, setPredefined] = useState<string[]>(initial.predefined);
   const [otherSelected, setOtherSelected] = useState(initial.otherSelected);
@@ -37,12 +41,12 @@ export function RolesStep({
     e.preventDefault();
 
     if (otherSelected && !customRole.trim()) {
-      setError("Enter a custom role when Other is selected");
+      setError(t("customRoleRequired"));
       return;
     }
 
     if (persistableRoles.length === 0) {
-      setError("Select at least one role");
+      setError(onboarding("roleRequired"));
       return;
     }
 
@@ -93,7 +97,7 @@ export function RolesStep({
           onClick={onBack}
           className="flex-1"
         >
-          Back
+          {common("back")}
         </Button>
         <Button
           type="submit"
@@ -101,7 +105,7 @@ export function RolesStep({
           disabled={persistableRoles.length === 0 && !otherSelected}
           className="flex-1"
         >
-          Continue
+          {common("continue")}
         </Button>
       </div>
     </form>

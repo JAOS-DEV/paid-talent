@@ -10,6 +10,15 @@ vi.mock("next-auth/react", () => ({
   signOut: (...args: unknown[]) => signOut(...args),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+  usePathname: () => "/",
+}));
+
+vi.mock("@/lib/i18n/actions", () => ({
+  setUserLocale: vi.fn(),
+}));
+
 vi.mock("next/link", () => ({
   default: ({
     children,

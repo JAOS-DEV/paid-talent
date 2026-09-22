@@ -1,29 +1,31 @@
 import React from "react";
+import { getTranslations } from "next-intl/server";
 import { Card, CardContent } from "@/components/ui";
 import {
   WorkerInterestCard,
   WorkerPageFrame,
   toWorkerInterestCardModel,
 } from "@/components/worker-interest";
-import { EMPTY_STATE_COPY, listWorkerInterestContexts } from "@/lib/interests";
+import { listWorkerInterestContexts } from "@/lib/interests";
 import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
 import { requireWorkerUserId } from "./require-worker";
 
 export default async function WorkerInterestsPage(): Promise<React.ReactElement> {
   const workerUserId = await requireWorkerUserId();
+  const t = await getTranslations("worker.interests");
   const interests = await listWorkerInterestContexts(workerUserId);
 
   return (
     <WorkerPageFrame
       backHref="/worker/dashboard"
-      backLabel="← Back to dashboard"
-      title="Interested in you"
+      backLabel={t("back")}
+      title={t("title")}
     >
       {interests.length === 0 ? (
         <Card padding="lg">
           <CardContent>
             <p className="text-center text-charcoal-400 py-12" role="status">
-              {EMPTY_STATE_COPY.workerNoInterests}
+              {t("empty")}
             </p>
           </CardContent>
         </Card>

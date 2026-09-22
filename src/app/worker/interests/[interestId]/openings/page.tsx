@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import {
   VenueUnavailable,
   WorkerOpeningList,
@@ -20,6 +21,7 @@ export default async function WorkerOpeningsPage({
 }: WorkerOpeningsPageProps): Promise<React.ReactElement> {
   const workerUserId = await requireWorkerUserId();
   const { interestId } = await params;
+  const t = await getTranslations("worker.interests");
   const view = await loadWorkerVenueView(interestId, workerUserId);
 
   if (view.status === "missing") {
@@ -27,12 +29,14 @@ export default async function WorkerOpeningsPage({
   }
 
   const title =
-    view.status === "ready" ? `${view.venueName} openings` : "Openings";
+    view.status === "ready"
+      ? t("openingsTitle", { venue: view.venueName })
+      : t("openingsFallback");
 
   return (
     <WorkerPageFrame
       backHref="/worker/interests"
-      backLabel="← Back to interests"
+      backLabel={t("backToInterests")}
       title={title}
     >
       {view.status === "unavailable" ? (
@@ -43,7 +47,7 @@ export default async function WorkerOpeningsPage({
             href={workerInterestVenuePath(view.interestId)}
             className={workerOutlineLinkClass}
           >
-            View venue
+            {t("viewVenue")}
           </Link>
           <WorkerOpeningList openings={view.openings} />
         </div>

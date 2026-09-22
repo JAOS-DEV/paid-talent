@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Badge, Card, CardContent } from "@/components/ui";
 import { workerOutlineLinkClass, workerPrimaryLinkClass } from "./link-styles";
 import {
@@ -20,6 +21,8 @@ interface WorkerInterestCardProps {
 export function WorkerInterestCard({
   interest,
 }: WorkerInterestCardProps): React.ReactElement {
+  const t = useTranslations("worker.interests");
+
   return (
     <article data-testid="worker-interest-card" className="min-w-0">
       <Card padding="md">
@@ -48,7 +51,7 @@ export function WorkerInterestCard({
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge variant="primary">{WORKER_INTEREST_BADGE}</Badge>
+            <Badge variant="primary">{t("badge")}</Badge>
             {interest.openingRole ? (
               <Badge variant="default">{interest.openingRole}</Badge>
             ) : null}
@@ -59,13 +62,13 @@ export function WorkerInterestCard({
               href={workerInterestOpeningsPath(interest.interestId)}
               className={workerPrimaryLinkClass}
             >
-              View openings
+              {t("viewOpenings")}
             </Link>
             <Link
               href={workerInterestVenuePath(interest.interestId)}
               className={workerOutlineLinkClass}
             >
-              View venue
+              {t("viewVenue")}
             </Link>
           </div>
         </CardContent>

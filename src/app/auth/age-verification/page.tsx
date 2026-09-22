@@ -3,10 +3,13 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { Button, Card, CardContent, Input } from "@/components/ui";
+import { AuthLocaleBar } from "@/components/i18n";
 import { meetsMinimumAge } from "@/lib/helpers/age-verification";
 
 export default function AgeVerificationPage(): React.ReactElement {
+  const t = useTranslations("ageVerification");
   const router = useRouter();
   const { data: session, status, update: updateSession } = useSession();
 
@@ -35,7 +38,7 @@ export default function AgeVerificationPage(): React.ReactElement {
     setError(null);
 
     if (!dateOfBirth) {
-      setError("Please enter your date of birth");
+      setError(t("enterDob"));
       return;
     }
 
@@ -43,7 +46,7 @@ export default function AgeVerificationPage(): React.ReactElement {
 
     if (!meetsMinimumAge(dob)) {
       setError(
-        "Paid Talent is for adults 20+. You can't create an account under 20."
+        t("underAge")
       );
       return;
     }
@@ -60,7 +63,7 @@ export default function AgeVerificationPage(): React.ReactElement {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Failed to verify age. Please try again.");
+        setError(data.error || t("failed"));
         setIsLoading(false);
         return;
       }
@@ -70,7 +73,7 @@ export default function AgeVerificationPage(): React.ReactElement {
       router.push(data.redirectUrl || "/");
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t("genericError"));
       setIsLoading(false);
     }
   };
@@ -96,13 +99,14 @@ export default function AgeVerificationPage(): React.ReactElement {
   if (status === "unauthenticated" || !session) {
     return (
       <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
-        <p className="text-charcoal-400">Redirecting to sign in...</p>
+        <p className="text-charcoal-400">{t("redirecting")}</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
+      <AuthLocaleBar />
       <div className="w-full max-w-md min-w-0">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-full bg-primary-600/20 flex items-center justify-center mx-auto mb-4">
@@ -121,10 +125,10 @@ export default function AgeVerificationPage(): React.ReactElement {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-charcoal-100 mb-2">
-            Confirm your date of birth
+            {t("title")}
           </h1>
           <p className="text-charcoal-400">
-            We use this once to verify you&apos;re 20+.
+            {t("subtitle")}
           </p>
         </div>
 
@@ -134,7 +138,7 @@ export default function AgeVerificationPage(): React.ReactElement {
               <div className="w-full min-w-0 max-w-full overflow-hidden">
                 <Input
                   type="date"
-                  label="Date of birth"
+                  label={t("dateLabel")}
                   value={dateOfBirth}
                   onChange={handleDateOfBirthChange}
                   max={maxDate}
@@ -156,14 +160,14 @@ export default function AgeVerificationPage(): React.ReactElement {
                 loading={isLoading}
                 disabled={!dateOfBirth || isLoading}
               >
-                Verify & continue
+                {t("submit")}
               </Button>
             </form>
           </CardContent>
         </Card>
 
         <p className="text-center text-charcoal-500 text-xs mt-6">
-          Stored for age verification only.
+          {t("footnote")}
         </p>
       </div>
     </div>

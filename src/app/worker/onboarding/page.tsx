@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Header, Footer } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui";
 import {
@@ -34,6 +35,7 @@ interface PhotoOnboardingState {
 }
 
 export default function WorkerOnboardingPage(): React.ReactElement {
+  const t = useTranslations("worker.onboarding");
   const { data: session, status } = useSession();
   const router = useRouter();
   const [profile, setProfile] = useState<WorkerProfile | null>(null);
@@ -235,11 +237,9 @@ export default function WorkerOnboardingPage(): React.ReactElement {
         <div className="max-w-md mx-auto px-4">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-charcoal-100">
-              Complete Your Profile
+              {t("title")}
             </h1>
-            <p className="text-charcoal-400 mt-1">
-              Let recruiters know who you are
-            </p>
+            <p className="text-charcoal-400 mt-1">{t("subtitle")}</p>
           </div>
 
           <Card padding="lg">
@@ -255,7 +255,7 @@ export default function WorkerOnboardingPage(): React.ReactElement {
               onClick={handleFinishLater}
               className="text-charcoal-500 text-sm hover:text-charcoal-300 transition-colors"
             >
-              Finish later
+              {t("finishLater")}
             </button>
           </div>
         </div>

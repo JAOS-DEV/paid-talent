@@ -3,9 +3,12 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
+import { LanguageToggle } from "@/components/i18n";
 
 export function Header(): React.ReactElement {
+  const t = useTranslations("navigation");
   const { data: session, status } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -26,16 +29,16 @@ export function Header(): React.ReactElement {
 
   const roleLinks = isRecruiter
     ? [
-        { href: "/recruiter/search", label: "Search Workers" },
-        { href: "/recruiter/openings", label: "Openings" },
-        { href: "/recruiter/profile", label: "Profile" },
-        { href: "/recruiter/interests", label: "Interests" },
+        { href: "/recruiter/search", label: t("searchWorkers") },
+        { href: "/recruiter/openings", label: t("openings") },
+        { href: "/recruiter/profile", label: t("profile") },
+        { href: "/recruiter/interests", label: t("interests") },
       ]
     : isWorker
       ? [
-          { href: "/worker/profile", label: "Profile" },
-          { href: "/worker/interests", label: "Interests" },
-          { href: "/worker/verification", label: "Verification" },
+          { href: "/worker/profile", label: t("profile") },
+          { href: "/worker/interests", label: t("interests") },
+          { href: "/worker/verification", label: t("verification") },
         ]
       : [];
 
@@ -77,12 +80,13 @@ export function Header(): React.ReactElement {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <LanguageToggle />
             {status === "loading" ? (
               <div className="w-8 h-8 rounded-full bg-charcoal-700 animate-pulse" />
             ) : session?.user?.signupPending ? (
               <Link href="/auth/role-select">
                 <Button variant="primary" size="sm">
-                  Finish signup
+                  {t("finishSignup")}
                 </Button>
               </Link>
             ) : isFullUser ? (
@@ -93,7 +97,7 @@ export function Header(): React.ReactElement {
                     prefetch={false}
                     className="inline-flex items-center justify-center min-h-11 px-3 py-1.5 text-sm rounded-lg bg-gold-500 hover:bg-gold-600 text-charcoal-950 font-semibold whitespace-nowrap"
                   >
-                    Admin
+                    {t("admin")}
                   </Link>
                 )}
                 <Link
@@ -101,7 +105,7 @@ export function Header(): React.ReactElement {
                   className={needsMobileMenu ? "hidden md:inline-flex" : "inline-flex"}
                 >
                   <Button variant="ghost" size="sm">
-                    Dashboard
+                    {t("dashboard")}
                   </Button>
                 </Link>
                 <button
@@ -113,7 +117,7 @@ export function Header(): React.ReactElement {
                       : "inline-flex text-charcoal-400 hover:text-charcoal-200 text-sm transition-colors min-h-11 items-center whitespace-nowrap"
                   }
                 >
-                  Sign out
+                  {t("signOutAction")}
                 </button>
                 {needsMobileMenu && (
                   <button
@@ -121,7 +125,7 @@ export function Header(): React.ReactElement {
                     className="md:hidden inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg text-charcoal-300 hover:bg-charcoal-800"
                     aria-expanded={mobileOpen}
                     aria-controls="account-mobile-nav"
-                    aria-label={mobileOpen ? "Close menu" : "Open menu"}
+                    aria-label={mobileOpen ? t("closeMenu") : t("openMenu")}
                     onClick={toggleMobileMenu}
                   >
                     <svg
@@ -154,12 +158,12 @@ export function Header(): React.ReactElement {
               <>
                 <Link href="/auth/signin">
                   <Button variant="ghost" size="sm">
-                    Sign in
+                    {t("signInAction")}
                   </Button>
                 </Link>
                 <Link href="/auth/role-select">
                   <Button variant="primary" size="sm">
-                    Get Started
+                    {t("getStarted")}
                   </Button>
                 </Link>
               </>
@@ -187,14 +191,14 @@ export function Header(): React.ReactElement {
               className="block px-2 py-3 text-charcoal-200 hover:bg-charcoal-800 rounded-lg"
               onClick={closeMobileMenu}
             >
-              Dashboard
+              {t("dashboard")}
             </Link>
             <button
               type="button"
               onClick={handleSignOut}
               className="block w-full text-left px-2 py-3 text-charcoal-200 hover:bg-charcoal-800 rounded-lg"
             >
-              Sign out
+              {t("signOutAction")}
             </button>
           </nav>
         )}

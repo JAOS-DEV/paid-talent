@@ -3,13 +3,17 @@
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { Button, Card, CardContent } from "@/components/ui";
+import { AuthLocaleBar } from "@/components/i18n";
 import { persistSignupIntentRole } from "@/lib/auth/signup-intent-action";
 import { isPendingSignupUser } from "@/lib/auth/pending-signup";
 import { isValidSignupIntentRole } from "@/lib/auth/sign-in-decision";
 import type { UserRole } from "@/types/auth";
 
 function AgeGateForm(): React.ReactElement {
+  const t = useTranslations("ageGate");
+  const common = useTranslations("common");
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
@@ -32,7 +36,7 @@ function AgeGateForm(): React.ReactElement {
 
   const handleContinue = async (): Promise<void> => {
     if (!confirmed) {
-      setError("Confirm you're 20+ to continue.");
+      setError(t("confirmError"));
       return;
     }
 
@@ -79,11 +83,11 @@ function AgeGateForm(): React.ReactElement {
                 htmlFor="age-confirm"
                 className="text-sm text-charcoal-300 leading-relaxed"
               >
-                I confirm I am 20 or older.
+                {t("confirm")}
               </label>
             </div>
             <p className="text-charcoal-500 text-xs">
-              You must be 20+ to use Paid Talent.
+              {t("mustBe20")}
             </p>
           </div>
 
@@ -100,7 +104,7 @@ function AgeGateForm(): React.ReactElement {
             loading={isLoading}
             disabled={isLoading}
           >
-            Continue
+            {common("continue")}
           </Button>
         </div>
       </CardContent>
@@ -109,8 +113,11 @@ function AgeGateForm(): React.ReactElement {
 }
 
 export default function AgeGatePage(): React.ReactElement {
+  const t = useTranslations("ageGate");
+
   return (
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
+      <AuthLocaleBar />
       <div className="w-full max-w-md min-w-0">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-full bg-primary-600/20 flex items-center justify-center mx-auto mb-4">
@@ -129,10 +136,10 @@ export default function AgeGatePage(): React.ReactElement {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-charcoal-100 mb-2">
-            Age Confirmation
+            {t("title")}
           </h1>
           <p className="text-charcoal-400">
-            This platform is for adults only.
+            {t("subtitle")}
           </p>
         </div>
 
@@ -152,7 +159,7 @@ export default function AgeGatePage(): React.ReactElement {
         </Suspense>
 
         <p className="text-center text-charcoal-500 text-xs mt-6">
-          20+ only · Thailand
+          {t("footnote")}
         </p>
       </div>
     </div>

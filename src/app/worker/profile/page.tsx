@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Header, Footer } from "@/components/layout";
 import {
@@ -28,6 +29,10 @@ import {
   toPersistedJobRoles,
 } from "@/lib/profile/job-roles";
 import { normalizeAvailability } from "@/lib/profile/availability";
+import {
+  LANGUAGE_MESSAGE_KEYS,
+  translateCatalogValue,
+} from "@/lib/i18n/labels";
 import {
   AREA_MAX_LENGTH,
   BIO_MAX_LENGTH,
@@ -68,6 +73,8 @@ import { PHOTO_POLICY_COPY } from "@/lib/moderation/photo-policy";
 import { ProfilePhotoGalleryManager } from "@/components/media/ProfilePhotoGalleryManager";
 
 export default function WorkerProfilePage(): React.ReactElement {
+  const t = useTranslations("worker.profile");
+  const languageLabels = useTranslations("languages");
   const { data: session, status } = useSession();
   const router = useRouter();
   const [profile, setProfile] = useState<WorkerProfile | null>(null);
@@ -270,7 +277,7 @@ export default function WorkerProfilePage(): React.ReactElement {
         clearLocalPhotoPreview();
         setPhotoPendingReview(false);
         setPhotoUrl(result.publicUrl);
-        showSuccess("Photo updated");
+        showSuccess(t("photoUpdated"));
         return;
       }
 
@@ -279,7 +286,7 @@ export default function WorkerProfilePage(): React.ReactElement {
       if (localPreview) {
         setPhotoUrl(localPreview);
       }
-      showSuccess("Photo submitted for review");
+      showSuccess(t("photoSubmitted"));
     } catch (error) {
       setPhotoError(
         error instanceof Error
@@ -326,13 +333,13 @@ export default function WorkerProfilePage(): React.ReactElement {
         payCurrency: locationResult.data.payCurrency,
       });
       if (!saved.success) {
-        setBasicError(saved.error || "Failed to save basic info");
+        setBasicError(saved.error || t("saveBasicFailed"));
         return;
       }
-      showSuccess("Basic info saved");
+      showSuccess(t("basicInfoSaved"));
     } catch (error) {
       setBasicError(
-        error instanceof Error ? error.message : "Failed to save basic info"
+        error instanceof Error ? error.message : t("saveBasicFailed")
       );
     } finally {
       setSaving(null);
@@ -344,7 +351,7 @@ export default function WorkerProfilePage(): React.ReactElement {
     setWorkError(null);
     try {
       if (otherRoleSelected && !customJobRole.trim()) {
-        setWorkError("Enter a custom role when Other is selected");
+        setWorkError(t("customRoleRequired"));
         return;
       }
 
@@ -387,13 +394,13 @@ export default function WorkerProfilePage(): React.ReactElement {
         bio: bioResult.data.bio,
       });
       if (!saved.success) {
-        setWorkError(saved.error || "Failed to save work details");
+        setWorkError(saved.error || t("saveWorkFailed"));
         return;
       }
-      showSuccess("Work details saved");
+      showSuccess(t("workDetailsSaved"));
     } catch (error) {
       setWorkError(
-        error instanceof Error ? error.message : "Failed to save work details"
+        error instanceof Error ? error.message : t("saveWorkFailed")
       );
     } finally {
       setSaving(null);
@@ -420,13 +427,13 @@ export default function WorkerProfilePage(): React.ReactElement {
         phoneNumber: parsed.data.phoneNumber || undefined,
       });
       if (!result.success) {
-        setContactError(result.error || "Failed to save contact info");
+        setContactError(result.error || t("saveContactFailed"));
         return;
       }
-      showSuccess("Contact info saved");
+      showSuccess(t("contactInfoSaved"));
     } catch (error) {
       setContactError(
-        error instanceof Error ? error.message : "Failed to save contact info"
+        error instanceof Error ? error.message : t("saveContactFailed")
       );
     } finally {
       setSaving(null);
@@ -478,17 +485,15 @@ export default function WorkerProfilePage(): React.ReactElement {
 
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-charcoal-100">
-              Edit Profile
+              {t("editTitle")}
             </h1>
-            <p className="text-charcoal-400 mt-1">
-              Keep your profile updated to attract more recruiters
-            </p>
+            <p className="text-charcoal-400 mt-1">{t("editSubtitle")}</p>
 
             {!completeness.isComplete && (
               <div className="mt-4 bg-charcoal-800 border border-charcoal-700 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-charcoal-300">
-                    Profile completion
+                    {t("completion")}
                   </span>
                   <span className="text-sm text-primary-400">
                     {completeness.progress}%
@@ -504,7 +509,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                   onClick={() => router.push("/worker/onboarding")}
                   className="text-primary-400 text-sm mt-2 hover:text-primary-300"
                 >
-                  Complete your profile →
+                  {t("completeProfileLink")}
                 </button>
               </div>
             )}
@@ -513,7 +518,7 @@ export default function WorkerProfilePage(): React.ReactElement {
           <div className="space-y-6">
             <Card padding="lg">
               <CardHeader>
-                <CardTitle>Primary photo</CardTitle>
+                <CardTitle>{t("primaryPhoto")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center space-x-6">
@@ -540,7 +545,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                       onClick={handleChoosePhoto}
                       disabled={saving === "photo"}
                     >
-                      {photoUrl || photoPendingReview ? "Change Photo" : "Upload Photo"}
+                      {photoUrl || photoPendingReview ? t("changePhoto") : t("uploadPhoto")}
                     </Button>
                     {photoStage ? (
                       <p
@@ -556,7 +561,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                       </p>
                     ) : null}
                     <p className="text-charcoal-500 text-xs mt-2">
-                      JPG, PNG or WebP. Max 10MB.
+                      {t("photoHint")}
                     </p>
                     <p className="text-charcoal-500 text-xs mt-1">
                       {PHOTO_POLICY_COPY.rules}
@@ -576,7 +581,7 @@ export default function WorkerProfilePage(): React.ReactElement {
 
             <Card padding="lg">
               <CardHeader>
-                <CardTitle>Profile Photos</CardTitle>
+                <CardTitle>{t("profilePhotos")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <ProfilePhotoGalleryManager
@@ -593,12 +598,12 @@ export default function WorkerProfilePage(): React.ReactElement {
 
             <Card padding="lg">
               <CardHeader>
-                <CardTitle>Basic Information</CardTitle>
+                <CardTitle>{t("basicInfo")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Input
-                  label="Display Name"
-                  placeholder="How you want to be called"
+                  label={t("displayName")}
+                  placeholder={t("displayNamePlaceholder")}
                   value={displayName}
                   onChange={(e) => {
                     setDisplayName(e.target.value);
@@ -607,8 +612,8 @@ export default function WorkerProfilePage(): React.ReactElement {
                   maxLength={DISPLAY_NAME_MAX_LENGTH}
                 />
                 <Input
-                  label="Location"
-                  placeholder="City, Country"
+                  label={t("location")}
+                  placeholder={t("locationPlaceholder")}
                   value={location}
                   onChange={(e) => {
                     setLocation(e.target.value);
@@ -617,8 +622,8 @@ export default function WorkerProfilePage(): React.ReactElement {
                   maxLength={LOCATION_MAX_LENGTH}
                 />
                 <Input
-                  label="Area"
-                  placeholder="Your primary work area"
+                  label={t("area")}
+                  placeholder={t("areaPlaceholder")}
                   value={area}
                   onChange={(e) => {
                     setArea(e.target.value);
@@ -637,7 +642,7 @@ export default function WorkerProfilePage(): React.ReactElement {
 
                 <div>
                   <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-                    Expected Pay
+                    {t("expectedPay")}
                   </label>
                   <div className="flex gap-2 items-center">
                     <select
@@ -653,7 +658,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                     </select>
                     <Input
                       type="number"
-                      placeholder="Min"
+                      placeholder={t("payMin")}
                       value={payMin}
                       onChange={(e) => setPayMin(e.target.value)}
                       className="flex-1"
@@ -661,7 +666,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                     <span className="text-charcoal-500">-</span>
                     <Input
                       type="number"
-                      placeholder="Max"
+                      placeholder={t("payMax")}
                       value={payMax}
                       onChange={(e) => setPayMax(e.target.value)}
                       className="flex-1"
@@ -678,7 +683,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                     onClick={handleSaveBasicInfo}
                     loading={saving === "basic"}
                   >
-                    Save Basic Info
+                    {t("saveBasicInfo")}
                   </Button>
                 </div>
               </CardContent>
@@ -686,12 +691,12 @@ export default function WorkerProfilePage(): React.ReactElement {
 
             <Card padding="lg">
               <CardHeader>
-                <CardTitle>Work Details</CardTitle>
+                <CardTitle>{t("workDetails")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-                    Job Roles
+                    {t("jobRoles")}
                   </label>
                   <JobRolesPicker
                     predefined={predefinedRoles}
@@ -714,9 +719,9 @@ export default function WorkerProfilePage(): React.ReactElement {
 
                 <div className="grid grid-cols-2 gap-4">
                   <Input
-                    label="Years of Experience"
+                    label={t("yearsExperience")}
                     type="number"
-                    placeholder="e.g., 3"
+                    placeholder={t("yearsPlaceholder")}
                     value={experienceYears}
                     onChange={(e) => setExperienceYears(e.target.value)}
                   />
@@ -724,11 +729,11 @@ export default function WorkerProfilePage(): React.ReactElement {
 
                 <div>
                   <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-                    Experience Description
+                    {t("experienceDescription")}
                   </label>
                   <textarea
                     className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[80px]"
-                    placeholder="Brief description of your work history..."
+                    placeholder={t("experienceDescriptionPlaceholder")}
                     value={experience}
                     maxLength={EXPERIENCE_DESCRIPTION_MAX_LENGTH}
                     onChange={(e) => {
@@ -746,7 +751,7 @@ export default function WorkerProfilePage(): React.ReactElement {
 
                 <div>
                   <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-                    Languages
+                    {t("languages")}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {LANGUAGE_OPTIONS.map((lang) => (
@@ -763,7 +768,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                           }
                         `}
                       >
-                        {lang}
+                        {translateCatalogValue(languageLabels, LANGUAGE_MESSAGE_KEYS, lang)}
                       </button>
                     ))}
                   </div>
@@ -771,11 +776,11 @@ export default function WorkerProfilePage(): React.ReactElement {
 
                 <div>
                   <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-                    Bio
+                    {t("bioLabel")}
                   </label>
                   <textarea
                     className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[100px]"
-                    placeholder="Tell recruiters about yourself..."
+                    placeholder={t("bioPlaceholder")}
                     value={bio}
                     onChange={(e) => {
                       setBio(e.target.value);
@@ -797,7 +802,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                     onClick={handleSaveWorkDetails}
                     loading={saving === "work"}
                   >
-                    Save Work Details
+                    {t("saveWorkDetails")}
                   </Button>
                 </div>
               </CardContent>
@@ -805,16 +810,15 @@ export default function WorkerProfilePage(): React.ReactElement {
 
             <Card padding="lg">
               <CardHeader>
-                <CardTitle>Contact Information</CardTitle>
+                <CardTitle>{t("contact")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-charcoal-400 text-sm mb-4">
-                  Contact details are only visible to recruiters with Top Talent
-                  access. All fields are optional.
+                  {t("contactHint")}
                 </p>
                 <Input
-                  label="LINE ID"
-                  placeholder="Your LINE ID (optional)"
+                  label={t("lineId")}
+                  placeholder={t("linePlaceholder")}
                   value={lineId}
                   maxLength={LINE_ID_MAX_LENGTH}
                   onChange={(e) => {
@@ -823,8 +827,8 @@ export default function WorkerProfilePage(): React.ReactElement {
                   }}
                 />
                 <Input
-                  label="WhatsApp"
-                  placeholder="Your WhatsApp number (optional)"
+                  label={t("whatsapp")}
+                  placeholder={t("whatsappPlaceholder")}
                   value={whatsApp}
                   maxLength={WHATSAPP_MAX_LENGTH}
                   onChange={(e) => {
@@ -833,8 +837,8 @@ export default function WorkerProfilePage(): React.ReactElement {
                   }}
                 />
                 <Input
-                  label="Phone"
-                  placeholder="Your phone number (optional)"
+                  label={t("phoneShort")}
+                  placeholder={t("phonePlaceholder")}
                   value={phone}
                   maxLength={PHONE_NUMBER_MAX_LENGTH}
                   onChange={(e) => {
@@ -850,7 +854,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                     onClick={handleSaveContact}
                     loading={saving === "contact"}
                   >
-                    Save Contact Info
+                    {t("saveContactInfo")}
                   </Button>
                 </div>
               </CardContent>
