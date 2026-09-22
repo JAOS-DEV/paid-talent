@@ -90,6 +90,7 @@
     "emailPlaceholder": "you@example.com",
     "continueWithEmail": "ดำเนินการต่อด้วยอีเมล",
     "continueWithGoogle": "ดำเนินการต่อด้วย Google",
+    "or": "หรือ",
     "checkEmail": "ตรวจสอบอีเมลของคุณ",
     "checkEmailDescription": "ลิงก์เข้าสู่ระบบถูกส่งไปยังที่อยู่อีเมลของคุณแล้ว",
     "linkExpiry": "ลิงก์จะหมดอายุใน 24 ชั่วโมงเพื่อความปลอดภัยของคุณ",
