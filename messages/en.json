@@ -90,6 +90,7 @@
     "emailPlaceholder": "you@example.com",
     "continueWithEmail": "Continue with Email",
     "continueWithGoogle": "Continue with Google",
+    "or": "or",
     "checkEmail": "Check your email",
     "checkEmailDescription": "A sign-in link has been sent to your email address.",
     "linkExpiry": "The link will expire in 24 hours for your security.",
