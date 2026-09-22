@@ -46,7 +46,7 @@ describe("OpeningInterestSelect", () => {
 
     expect(
       screen.getByRole("option", {
-        name: "Bartender — Sukhumvit · 1,200 THB / night",
+        name: "Bartender — Sukhumvit · ฿1,200 / night",
       })
     ).toBeInTheDocument();
     expect(

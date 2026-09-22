@@ -10,41 +10,25 @@ export type OpeningPayCurrency = (typeof OPENING_PAY_CURRENCIES)[number];
 
 export const DEFAULT_OPENING_PAY_CURRENCY: OpeningPayCurrency = "THB";
 
-export const OPENING_PAY_PERIOD_PRESETS = [
-  "night",
-  "day",
-  "week",
-  "month",
-  "engagement",
-] as const;
+export const OPENING_PAY_PERIOD_PRESETS = ["night", "hour", "shift"] as const;
 
 export type OpeningPayPeriodPreset =
   (typeof OPENING_PAY_PERIOD_PRESETS)[number];
 
 export const DEFAULT_OPENING_PAY_PERIOD: OpeningPayPeriodPreset = "night";
 
-export const CUSTOM_PAY_PERIOD_UNITS = ["days", "weeks", "months"] as const;
-
-export type CustomPayPeriodUnit = (typeof CUSTOM_PAY_PERIOD_UNITS)[number];
-
-export const CUSTOM_PAY_PERIOD_MAX: Record<CustomPayPeriodUnit, number> = {
-  days: 365,
-  weeks: 52,
-  months: 24,
-};
-
 export const OPENING_PAY_AMOUNT_MAX = 10_000_000;
 
 export const LEGACY_PAY_RANGE_MESSAGE =
   "This opening uses the older pay-range format. Enter a single advertised pay amount before saving.";
 
-export const OPENING_PAY_PERIOD_OPTIONS = [
-  { value: "night", label: "Per night" },
-  { value: "day", label: "Per day" },
-  { value: "week", label: "Per week" },
-  { value: "month", label: "Per month" },
-  { value: "engagement", label: "For the whole engagement" },
-  { value: "custom", label: "Custom period" },
+export const OPENING_PAY_PERIOD_OPTIONS: readonly {
+  value: OpeningPayPeriodPreset;
+  label: string;
+}[] = [
+  { value: "night", label: "per night" },
+  { value: "hour", label: "per hour" },
+  { value: "shift", label: "per shift" },
 ] as const;
 
 export interface OpeningPayFields {
@@ -54,23 +38,8 @@ export interface OpeningPayFields {
   payPeriod?: string | null;
 }
 
-const CUSTOM_UNIT_ALIASES: Record<string, CustomPayPeriodUnit> = {
-  day: "days",
-  days: "days",
-  week: "weeks",
-  weeks: "weeks",
-  month: "months",
-  months: "months",
-};
-
 function isPayPeriodPreset(value: string): value is OpeningPayPeriodPreset {
   return (OPENING_PAY_PERIOD_PRESETS as readonly string[]).includes(value);
-}
-
-function singularUnitLabel(unit: CustomPayPeriodUnit): string {
-  if (unit === "days") return "day";
-  if (unit === "weeks") return "week";
-  return "month";
 }
 
 export function hasLegacyPayRange(opening: OpeningPayFields): boolean {
@@ -104,67 +73,30 @@ export function toOpeningPayStorage(payAmount: number | null): {
   };
 }
 
-export function serializeCustomPayPeriod(
-  duration: number,
-  unit: CustomPayPeriodUnit
-): string {
-  const label = duration === 1 ? singularUnitLabel(unit) : unit;
-  return `${duration} ${label}`;
-}
-
 export function canonicalizePayPeriod(value: string): string | null {
-  const trimmed = value.trim().toLowerCase().replace(/\s+/g, " ");
+  const trimmed = value.trim().toLowerCase();
   if (trimmed.length === 0) {
     return DEFAULT_OPENING_PAY_PERIOD;
   }
   if (isPayPeriodPreset(trimmed)) {
     return trimmed;
   }
-
-  const match = trimmed.match(/^(\d+)\s+(day|days|week|weeks|month|months)$/);
-  if (!match) {
-    return null;
-  }
-
-  const duration = Number(match[1]);
-  const unit = CUSTOM_UNIT_ALIASES[match[2]];
-  if (!Number.isInteger(duration) || duration < 1 || !unit) {
-    return null;
-  }
-  if (duration > CUSTOM_PAY_PERIOD_MAX[unit]) {
-    return null;
-  }
-
-  return serializeCustomPayPeriod(duration, unit);
+  return null;
 }
 
-export function parseStoredPayPeriod(value: string | null | undefined):
-  | { kind: "preset"; value: OpeningPayPeriodPreset }
-  | { kind: "custom"; duration: number; unit: CustomPayPeriodUnit }
-  | { kind: "invalid" } {
+export function parseStoredPayPeriod(
+  value: string | null | undefined
+): { kind: "preset"; value: OpeningPayPeriodPreset } | { kind: "invalid" } {
   if (value == null || value.trim() === "") {
     return { kind: "preset", value: DEFAULT_OPENING_PAY_PERIOD };
   }
 
   const canonical = canonicalizePayPeriod(value);
-  if (!canonical) {
+  if (!canonical || !isPayPeriodPreset(canonical)) {
     return { kind: "invalid" };
   }
 
-  if (isPayPeriodPreset(canonical)) {
-    return { kind: "preset", value: canonical };
-  }
-
-  const match = canonical.match(/^(\d+)\s+(day|days|week|weeks|month|months)$/);
-  if (!match) {
-    return { kind: "invalid" };
-  }
-
-  return {
-    kind: "custom",
-    duration: Number(match[1]),
-    unit: CUSTOM_UNIT_ALIASES[match[2]],
-  };
+  return { kind: "preset", value: canonical };
 }
 
 export function emptyPayToNull(value: string): number | undefined {
@@ -177,6 +109,18 @@ export function emptyPayToNull(value: string): number | undefined {
 
 function formatPayNumber(value: number): string {
   return value.toLocaleString("en-US");
+}
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  THB: "฿",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  JPY: "¥",
+};
+
+function getCurrencySymbol(currency: string): string {
+  return CURRENCY_SYMBOLS[currency.toUpperCase()] ?? currency;
 }
 
 function resolveDisplayCurrency(value: string | null | undefined): string {
@@ -193,13 +137,7 @@ function resolveDisplayCurrency(value: string | null | undefined): string {
 function formatPeriodPhrase(period: string | null | undefined): string | null {
   const parsed = parseStoredPayPeriod(period);
   if (parsed.kind === "preset") {
-    if (parsed.value === "engagement") {
-      return "for engagement";
-    }
     return `/ ${parsed.value}`;
-  }
-  if (parsed.kind === "custom") {
-    return `/ ${serializeCustomPayPeriod(parsed.duration, parsed.unit)}`;
   }
   return null;
 }
@@ -209,13 +147,14 @@ function formatAmountWithCurrencyAndPeriod(
   currency: string,
   periodPhrase: string | null
 ): string {
+  const symbol = getCurrencySymbol(currency);
   if (!periodPhrase) {
-    return `${amountLabel} ${currency}`;
+    return `${symbol}${amountLabel}`;
   }
   if (periodPhrase.startsWith("for ")) {
-    return `${amountLabel} ${currency} ${periodPhrase}`;
+    return `${symbol}${amountLabel} ${periodPhrase}`;
   }
-  return `${amountLabel} ${currency} ${periodPhrase}`;
+  return `${symbol}${amountLabel} ${periodPhrase}`;
 }
 
 export function formatOpeningPay(opening: OpeningPayFields): string | null {

@@ -178,6 +178,5 @@ export {
   OPENING_PAY_PERIOD_OPTIONS,
   OPENING_PAY_PERIOD_PRESETS,
   parseStoredPayPeriod,
-  serializeCustomPayPeriod,
   toOpeningPayStorage,
 } from "./opening-pay";

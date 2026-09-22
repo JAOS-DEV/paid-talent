@@ -146,12 +146,12 @@ describe("recruiter opening/profile validation (behavioural)", () => {
         role: "Bartender",
         area: "Sukhumvit",
         payCurrency: "USD",
-        payPeriod: "week",
+        payPeriod: "hour",
       });
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.payCurrency).toBe("USD");
-        expect(result.data.payPeriod).toBe("week");
+        expect(result.data.payPeriod).toBe("hour");
       }
     });
 
@@ -164,16 +164,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
       expect(result.success).toBe(false);
     });
 
-    it.each([
-      "night",
-      "day",
-      "week",
-      "month",
-      "engagement",
-      "10 days",
-      "15 days",
-      "1 month",
-    ])("accepts pay period %s", (payPeriod) => {
+    it.each(["night", "hour", "shift"])("accepts pay period %s", (payPeriod) => {
       const result = createOpeningSchema.safeParse({
         role: "Bartender",
         area: "Sukhumvit",
@@ -185,19 +176,26 @@ describe("recruiter opening/profile validation (behavioural)", () => {
       }
     });
 
-    it("rejects malformed custom period text", () => {
+    it("rejects invalid pay periods", () => {
       expect(
         createOpeningSchema.safeParse({
           role: "Bartender",
           area: "Sukhumvit",
-          payPeriod: "<script>alert(1)</script>",
+          payPeriod: "day",
         }).success
       ).toBe(false);
       expect(
         createOpeningSchema.safeParse({
           role: "Bartender",
           area: "Sukhumvit",
-          payPeriod: "message me on instagram",
+          payPeriod: "week",
+        }).success
+      ).toBe(false);
+      expect(
+        createOpeningSchema.safeParse({
+          role: "Bartender",
+          area: "Sukhumvit",
+          payPeriod: "<script>alert(1)</script>",
         }).success
       ).toBe(false);
     });
