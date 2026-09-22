@@ -130,7 +130,7 @@ describe("recruiter UI helpers", () => {
         area: "Thonglor",
         payAmount: 800,
         payCurrency: "USD",
-        payPeriod: "week",
+        payPeriod: "hour",
         isPublished: true,
       });
       expect(published.success).toBe(true);

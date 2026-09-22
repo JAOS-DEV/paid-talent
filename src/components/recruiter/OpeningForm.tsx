@@ -16,7 +16,6 @@ import {
 } from "@/lib/recruiter-profile/actions";
 import type { RecruiterOpening } from "@/lib/db/schema";
 import {
-  CUSTOM_PAY_PERIOD_UNITS,
   DEFAULT_OPENING_PAY_CURRENCY,
   DEFAULT_OPENING_PAY_PERIOD,
   emptyPayToNull,
@@ -25,9 +24,9 @@ import {
   LEGACY_PAY_RANGE_MESSAGE,
   OPENING_PAY_AMOUNT_MAX,
   OPENING_PAY_CURRENCIES,
+  OPENING_PAY_PERIOD_OPTIONS,
+  OPENING_PAY_PERIOD_PRESETS,
   parseStoredPayPeriod,
-  serializeCustomPayPeriod,
-  type CustomPayPeriodUnit,
   type OpeningPayPeriodPreset,
 } from "@/lib/recruiter-profile/opening-pay";
 
@@ -35,13 +34,6 @@ interface OpeningFormProps {
   mode: "create" | "edit";
   initialOpening?: RecruiterOpening | null;
 }
-
-const PERIOD_CHIPS: { value: OpeningPayPeriodPreset; label: string }[] = [
-  { value: "night", label: "per night" },
-  { value: "day", label: "per day" },
-  { value: "week", label: "per week" },
-  { value: "month", label: "per month" },
-];
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   THB: "฿",
@@ -54,27 +46,12 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 const selectClassName =
   "w-full min-w-0 max-w-full min-h-[44px] px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-xl text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500";
 
-function initialPeriodState(opening?: RecruiterOpening | null): {
-  periodKind: OpeningPayPeriodPreset | "custom";
-  customDuration: string;
-  customUnit: CustomPayPeriodUnit;
-} {
-  const parsed = parseStoredPayPeriod(
-    opening?.payPeriod ?? DEFAULT_OPENING_PAY_PERIOD
-  );
-  if (parsed.kind === "custom") {
-    return {
-      periodKind: "custom",
-      customDuration: String(parsed.duration),
-      customUnit: parsed.unit,
-    };
+function getInitialPeriod(opening?: RecruiterOpening | null): OpeningPayPeriodPreset {
+  const parsed = parseStoredPayPeriod(opening?.payPeriod ?? DEFAULT_OPENING_PAY_PERIOD);
+  if (parsed.kind === "preset" && OPENING_PAY_PERIOD_PRESETS.includes(parsed.value)) {
+    return parsed.value;
   }
-  return {
-    periodKind:
-      parsed.kind === "preset" ? parsed.value : DEFAULT_OPENING_PAY_PERIOD,
-    customDuration: "",
-    customUnit: "days",
-  };
+  return DEFAULT_OPENING_PAY_PERIOD;
 }
 
 export function OpeningForm({
@@ -88,7 +65,6 @@ export function OpeningForm({
   const initialAmount = initialOpening
     ? getOpeningPayAmount(initialOpening)
     : null;
-  const initialPeriod = initialPeriodState(initialOpening);
 
   const [role, setRole] = useState(initialOpening?.role || "");
   const [area, setArea] = useState(initialOpening?.area || "");
@@ -105,14 +81,8 @@ export function OpeningForm({
     }
     return DEFAULT_OPENING_PAY_CURRENCY;
   });
-  const [periodKind, setPeriodKind] = useState<
-    OpeningPayPeriodPreset | "custom"
-  >(initialPeriod.periodKind);
-  const [customDuration, setCustomDuration] = useState(
-    initialPeriod.customDuration
-  );
-  const [customUnit, setCustomUnit] = useState<CustomPayPeriodUnit>(
-    initialPeriod.customUnit
+  const [payPeriod, setPayPeriod] = useState<OpeningPayPeriodPreset>(
+    () => getInitialPeriod(initialOpening)
   );
   const [notes, setNotes] = useState(initialOpening?.notes || "");
   const [isPublished, setIsPublished] = useState(
@@ -122,17 +92,6 @@ export function OpeningForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const resolvePayPeriod = (): string | null => {
-    if (periodKind !== "custom") {
-      return periodKind;
-    }
-    const duration = Number(customDuration.trim());
-    if (!Number.isInteger(duration) || duration < 1) {
-      return null;
-    }
-    return serializeCustomPayPeriod(duration, customUnit);
-  };
-
   const submit = async (publish: boolean): Promise<void> => {
     setSaving(true);
     setError(null);
@@ -141,13 +100,6 @@ export function OpeningForm({
     if (isLegacyRange && payAmount.trim() === "") {
       setSaving(false);
       setError(LEGACY_PAY_RANGE_MESSAGE);
-      return;
-    }
-
-    const payPeriod = resolvePayPeriod();
-    if (!payPeriod) {
-      setSaving(false);
-      setError("Enter a custom period duration of at least 1.");
       return;
     }
 
@@ -194,9 +146,6 @@ export function OpeningForm({
       : notesRemaining <= 50
         ? "text-yellow-400"
         : "text-charcoal-400";
-
-  const isPresetPeriod = PERIOD_CHIPS.some((c) => c.value === periodKind);
-  const showCustomPeriod = periodKind === "custom" || !isPresetPeriod;
 
   return (
     <form
@@ -295,73 +244,22 @@ export function OpeningForm({
                   role="group"
                   aria-label="Pay period"
                 >
-                  {PERIOD_CHIPS.map((chip) => (
+                  {OPENING_PAY_PERIOD_OPTIONS.map((option) => (
                     <button
-                      key={chip.value}
+                      key={option.value}
                       type="button"
-                      onClick={() => setPeriodKind(chip.value)}
+                      onClick={() => setPayPeriod(option.value)}
                       className={`px-4 py-2 text-sm rounded-full transition-colors min-h-[44px] ${
-                        periodKind === chip.value
+                        payPeriod === option.value
                           ? "bg-primary-600 text-white"
                           : "bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700 border border-charcoal-600"
                       }`}
                     >
-                      {chip.label}
+                      {option.label}
                     </button>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => setPeriodKind("custom")}
-                    className={`px-4 py-2 text-sm rounded-full transition-colors min-h-[44px] ${
-                      showCustomPeriod
-                        ? "bg-primary-600 text-white"
-                        : "bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700 border border-charcoal-600"
-                    }`}
-                  >
-                    custom
-                  </button>
                 </div>
               </div>
-
-              {showCustomPeriod && (
-                <div className="flex items-end gap-3">
-                  <div className="w-24">
-                    <Input
-                      id="opening-custom-duration"
-                      label="Duration"
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      step={1}
-                      value={customDuration}
-                      onChange={(e) => setCustomDuration(e.target.value)}
-                      placeholder="15"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label
-                      htmlFor="opening-custom-unit"
-                      className="block text-sm font-medium text-charcoal-200 mb-1.5"
-                    >
-                      Unit
-                    </label>
-                    <select
-                      id="opening-custom-unit"
-                      value={customUnit}
-                      onChange={(e) =>
-                        setCustomUnit(e.target.value as CustomPayPeriodUnit)
-                      }
-                      className={selectClassName}
-                    >
-                      {CUSTOM_PAY_PERIOD_UNITS.map((unit) => (
-                        <option key={unit} value={unit}>
-                          {unit}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div>

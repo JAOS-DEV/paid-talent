@@ -6,8 +6,8 @@ import {
   getOpeningPayAmount,
   hasLegacyPayRange,
   joinOpeningContextAndPay,
+  OPENING_PAY_PERIOD_PRESETS,
   parseStoredPayPeriod,
-  serializeCustomPayPeriod,
   toOpeningPayStorage,
 } from "../opening-pay";
 
@@ -42,54 +42,50 @@ describe("opening pay helpers", () => {
     });
   });
 
-  describe("pay period canonicalization", () => {
-    it("accepts presets", () => {
+  describe("pay period presets", () => {
+    it("only supports night, hour, shift", () => {
+      expect(OPENING_PAY_PERIOD_PRESETS).toEqual(["night", "hour", "shift"]);
+    });
+
+    it("accepts the three preset values", () => {
       expect(canonicalizePayPeriod("night")).toBe("night");
-      expect(canonicalizePayPeriod("day")).toBe("day");
-      expect(canonicalizePayPeriod("week")).toBe("week");
-      expect(canonicalizePayPeriod("month")).toBe("month");
-      expect(canonicalizePayPeriod("engagement")).toBe("engagement");
+      expect(canonicalizePayPeriod("hour")).toBe("hour");
+      expect(canonicalizePayPeriod("shift")).toBe("shift");
     });
 
-    it("accepts useful custom periods", () => {
-      expect(canonicalizePayPeriod("10 days")).toBe("10 days");
-      expect(canonicalizePayPeriod("15 days")).toBe("15 days");
-      expect(canonicalizePayPeriod("1 month")).toBe("1 month");
-      expect(canonicalizePayPeriod("6 weeks")).toBe("6 weeks");
-      expect(canonicalizePayPeriod("1 months")).toBe("1 month");
-    });
-
-    it("rejects malformed or arbitrary text", () => {
+    it("rejects other values including old presets", () => {
+      expect(canonicalizePayPeriod("day")).toBeNull();
+      expect(canonicalizePayPeriod("week")).toBeNull();
+      expect(canonicalizePayPeriod("month")).toBeNull();
+      expect(canonicalizePayPeriod("engagement")).toBeNull();
+      expect(canonicalizePayPeriod("15 days")).toBeNull();
       expect(canonicalizePayPeriod("<script>alert(1)</script>")).toBeNull();
       expect(canonicalizePayPeriod("call me on LINE")).toBeNull();
-      expect(canonicalizePayPeriod("forever")).toBeNull();
-      expect(canonicalizePayPeriod("366 days")).toBeNull();
-      expect(canonicalizePayPeriod("53 weeks")).toBeNull();
-      expect(canonicalizePayPeriod("25 months")).toBeNull();
-      expect(canonicalizePayPeriod("0 days")).toBeNull();
     });
 
-    it("parses stored custom values back into controls", () => {
-      expect(parseStoredPayPeriod("15 days")).toEqual({
-        kind: "custom",
-        duration: 15,
-        unit: "days",
-      });
-      expect(parseStoredPayPeriod("1 month")).toEqual({
-        kind: "custom",
-        duration: 1,
-        unit: "months",
-      });
+    it("parses stored preset values", () => {
       expect(parseStoredPayPeriod("night")).toEqual({
         kind: "preset",
         value: "night",
       });
-      expect(serializeCustomPayPeriod(10, "days")).toBe("10 days");
+      expect(parseStoredPayPeriod("hour")).toEqual({
+        kind: "preset",
+        value: "hour",
+      });
+      expect(parseStoredPayPeriod("shift")).toEqual({
+        kind: "preset",
+        value: "shift",
+      });
+    });
+
+    it("returns invalid for unsupported stored values", () => {
+      expect(parseStoredPayPeriod("15 days")).toEqual({ kind: "invalid" });
+      expect(parseStoredPayPeriod("week")).toEqual({ kind: "invalid" });
     });
   });
 
   describe("formatOpeningPay", () => {
-    it("formats a single advertised amount without From/Up to", () => {
+    it("formats a single amount with currency symbol and period", () => {
       expect(
         formatOpeningPay({
           payMin: 1200,
@@ -100,34 +96,34 @@ describe("opening pay helpers", () => {
       ).toBe("฿1,200 / night");
     });
 
-    it("formats custom 15 days and engagement wording", () => {
+    it("formats hour and shift periods", () => {
       expect(
         formatOpeningPay({
-          payMin: 12000,
+          payMin: 350,
           payMax: null,
           payCurrency: "THB",
-          payPeriod: "15 days",
+          payPeriod: "hour",
         })
-      ).toBe("฿12,000 / 15 days");
+      ).toBe("฿350 / hour");
       expect(
         formatOpeningPay({
-          payMin: 15000,
+          payMin: 2000,
           payMax: null,
           payCurrency: "THB",
-          payPeriod: "engagement",
+          payPeriod: "shift",
         })
-      ).toBe("฿15,000 for engagement");
+      ).toBe("฿2,000 / shift");
     });
 
-    it("formats USD custom periods", () => {
+    it("formats USD amounts", () => {
       expect(
         formatOpeningPay({
-          payMin: 18000,
+          payMin: 50,
           payMax: null,
           payCurrency: "USD",
-          payPeriod: "15 days",
+          payPeriod: "hour",
         })
-      ).toBe("$18,000 / 15 days");
+      ).toBe("$50 / hour");
     });
 
     it("keeps unequal legacy ranges until they are edited", () => {
@@ -139,15 +135,6 @@ describe("opening pay helpers", () => {
           payPeriod: "night",
         })
       ).toBe("฿500 – 1,000 / night");
-    });
-
-    it("formats payMin-only and payMax-only without From/Up to", () => {
-      expect(
-        formatOpeningPay({ payMin: 1200, payMax: null, payPeriod: "week" })
-      ).toBe("฿1,200 / week");
-      expect(
-        formatOpeningPay({ payMin: null, payMax: 900, payPeriod: "month" })
-      ).toBe("฿900 / month");
     });
 
     it("returns null when no pay is set", () => {
