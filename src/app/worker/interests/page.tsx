@@ -1,133 +1,52 @@
-"use client";
+import React from "react";
+import { Card, CardContent } from "@/components/ui";
+import {
+  WorkerInterestCard,
+  WorkerPageFrame,
+  toWorkerInterestCardModel,
+} from "@/components/worker-interest";
+import { EMPTY_STATE_COPY, listWorkerInterestContexts } from "@/lib/interests";
+import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
+import { requireWorkerUserId } from "./require-worker";
 
-import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Header, Footer } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
-import { VenueLogo } from "@/components/media/VenueLogo";
-import type { WorkerDashboardRecentInterest } from "@/lib/worker-dashboard";
-
-export default function WorkerInterestsPage(): React.ReactElement {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const [interests, setInterests] = useState<WorkerDashboardRecentInterest[]>(
-    []
-  );
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load(): Promise<void> {
-      try {
-        const response = await fetch("/api/interests");
-        if (!response.ok) return;
-        const data = (await response.json()) as {
-          interests?: Array<{
-            id: string;
-            venueName?: string;
-            logoUrl?: string | null;
-            recruiterName?: string;
-            openingContext?: string | null;
-            message: string | null;
-            createdAt: string;
-          }>;
-        };
-        setInterests(
-          (data.interests ?? []).map((interest) => ({
-            id: interest.id,
-            venueName: interest.venueName || interest.recruiterName || "A venue",
-            logoUrl: interest.logoUrl ?? null,
-            openingContext: interest.openingContext ?? null,
-            message: interest.message,
-            createdAt: interest.createdAt,
-          }))
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (!session?.user?.id) return;
-    if (session.user.role !== "worker") {
-      router.replace("/auth/signin");
-      return;
-    }
-    void load();
-  }, [session, router]);
-
-  if (status === "loading" || !session || session.user.role !== "worker") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-charcoal-950">
-        <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+export default async function WorkerInterestsPage(): Promise<React.ReactElement> {
+  const workerUserId = await requireWorkerUserId();
+  const interests = await listWorkerInterestContexts(workerUserId);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Link
-            href="/worker/dashboard"
-            className="inline-flex items-center text-charcoal-400 hover:text-charcoal-200 mb-6 min-h-11"
-          >
-            Back to dashboard
-          </Link>
-          <h1 className="text-2xl font-bold text-charcoal-100 mb-6">
-            Interest received
-          </h1>
-          {loading ? (
-            <div className="h-40 rounded-xl bg-charcoal-800 animate-pulse" />
-          ) : interests.length === 0 ? (
-            <Card padding="lg">
-              <CardContent className="text-center py-12 text-charcoal-400">
-                No recruiter interest yet.
-              </CardContent>
-            </Card>
-          ) : (
-            <Card padding="lg">
-              <CardHeader>
-                <CardTitle>Recruiters interested in you</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-4">
-                  {interests.map((interest) => (
-                    <li
-                      key={interest.id}
-                      className="flex items-start gap-3 border-b border-charcoal-800 pb-4 last:border-0 last:pb-0"
-                    >
-                      <VenueLogo
-                        logoUrl={interest.logoUrl}
-                        name={interest.venueName}
-                        size="sm"
-                      />
-                      <div className="min-w-0">
-                      <p className="text-charcoal-100 font-medium">
-                        {interest.venueName}
-                      </p>
-                      <p className="text-charcoal-500 text-sm">
-                        {new Date(interest.createdAt).toLocaleDateString()}
-                        {interest.openingContext
-                          ? ` · ${interest.openingContext}`
-                          : ""}
-                      </p>
-                      {interest.message ? (
-                        <p className="text-charcoal-400 text-sm mt-1 break-words">
-                          {interest.message}
-                        </p>
-                      ) : null}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </main>
-      <Footer />
-    </div>
+    <WorkerPageFrame
+      backHref="/worker/dashboard"
+      backLabel="← Back to dashboard"
+      title="Interested in you"
+    >
+      {interests.length === 0 ? (
+        <Card padding="lg">
+          <CardContent>
+            <p className="text-center text-charcoal-400 py-12" role="status">
+              {EMPTY_STATE_COPY.workerNoInterests}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <ul className="space-y-4">
+          {interests.map((interest) => (
+            <li key={interest.interestId} className="min-w-0">
+              <WorkerInterestCard
+                interest={toWorkerInterestCardModel({
+                  interestId: interest.interestId,
+                  venueName: interest.recruiter.venueName,
+                  displayName: interest.recruiter.displayName,
+                  area: interest.recruiter.area,
+                  subArea: interest.recruiter.subArea,
+                  blurb: interest.recruiter.blurbSnippet,
+                  logoUrl: toPublicVenueLogoUrl(interest.recruiter.logoUrl),
+                  openingRole: interest.opening?.role ?? null,
+                })}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </WorkerPageFrame>
   );
 }

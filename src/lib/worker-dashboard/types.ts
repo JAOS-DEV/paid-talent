@@ -33,6 +33,11 @@ export interface WorkerDashboardRecentInterest {
   openingContext: string | null;
   message: string | null;
   createdAt: string;
+  area: string | null;
+  subArea: string | null;
+  blurb: string | null;
+  /** Published linked opening only. Drafts stay hidden from workers. */
+  openingRole: string | null;
 }
 
 export interface WorkerDashboardPendingConfirmation {

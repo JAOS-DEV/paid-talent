@@ -14,7 +14,7 @@ import {
 } from "@/components/ui";
 import { VerificationStatusBanner } from "@/components/verification";
 import { WorkerConfirmationCard } from "@/components/hire-outcomes";
-import { VenueLogo } from "@/components/media/VenueLogo";
+import { WorkerRecentInterests } from "@/components/worker-interest/WorkerRecentInterests";
 import { getProfileCompleteness } from "@/lib/profile";
 import { getWorkerDashboardProfileAction } from "@/lib/helpers/worker-dashboard-access";
 import type { WorkerDashboardData } from "@/lib/worker-dashboard";
@@ -344,57 +344,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
             ) : null}
           </div>
 
-          {recentInterests.length > 0 ? (
-            <div className="mt-8">
-              <Card padding="lg">
-                <CardHeader>
-                  <div className="flex items-center justify-between gap-3">
-                    <CardTitle>Recent interest</CardTitle>
-                    {dashboard && dashboard.interestReceivedCount > recentInterests.length ? (
-                      <Link
-                        href="/worker/interests"
-                        className="text-sm text-primary-400 hover:text-primary-300"
-                      >
-                        View all interests
-                      </Link>
-                    ) : null}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-4">
-                    {recentInterests.map((interest) => (
-                      <li
-                        key={interest.id}
-                        className="flex items-start gap-3 border-b border-charcoal-800 pb-4 last:border-0 last:pb-0"
-                      >
-                        <VenueLogo
-                          logoUrl={interest.logoUrl}
-                          name={interest.venueName}
-                          size="sm"
-                        />
-                        <div className="min-w-0">
-                        <p className="text-charcoal-100 font-medium">
-                          {interest.venueName}
-                        </p>
-                        <p className="text-charcoal-500 text-sm">
-                          {new Date(interest.createdAt).toLocaleDateString()}
-                          {interest.openingContext
-                            ? ` · ${interest.openingContext}`
-                            : ""}
-                        </p>
-                        {interest.message ? (
-                          <p className="text-charcoal-400 text-sm mt-1 break-words">
-                            {interest.message}
-                          </p>
-                        ) : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-          ) : null}
+          <WorkerRecentInterests interests={recentInterests} />
 
           {profileAction.showIncompleteTips && completeness ? (
             <div className="mt-8">

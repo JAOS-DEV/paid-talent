@@ -7,6 +7,7 @@ import {
   workerProfiles,
 } from "@/lib/db";
 import { and, eq } from "drizzle-orm";
+import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
 import {
   canWorkerAccessInterestContext,
   isOpeningVisibleToWorkers,
@@ -162,7 +163,7 @@ export async function getInterestContextForWorker(
       recruiterUserId: interest.recruiterUserId,
       displayName: user?.name || null,
       venueName: profile?.organizationName || null,
-      logoUrl: profile?.logoUrl || null,
+      logoUrl: toPublicVenueLogoUrl(profile?.logoUrl),
       area: profile?.area || null,
       subArea: profile?.subArea || null,
       blurbSnippet: truncateBlurb(profile?.blurb || null),
@@ -309,7 +310,7 @@ export async function getInterestsForWorkerProfile(
         recruiterUserId: interest.recruiterUserId,
         displayName: user?.name || null,
         venueName: profile?.organizationName || null,
-        logoUrl: profile?.logoUrl || null,
+        logoUrl: toPublicVenueLogoUrl(profile?.logoUrl),
         area: profile?.area || null,
         subArea: profile?.subArea || null,
         blurbSnippet: truncateBlurb(profile?.blurb || null),
@@ -368,6 +369,8 @@ export interface RecruiterVenueInfo {
   area: string | null;
   subArea: string | null;
   blurb: string | null;
+  /** False when the recruiter user exists but their venue profile row is gone. */
+  hasProfile: boolean;
   openings: OpeningTag[];
 }
 
@@ -400,10 +403,11 @@ export async function getRecruiterVenueInfo(
     recruiterUserId,
     displayName: user.name,
     venueName: profile?.organizationName || null,
-    logoUrl: profile?.logoUrl || null,
+    logoUrl: toPublicVenueLogoUrl(profile?.logoUrl),
     area: profile?.area || null,
     subArea: profile?.subArea || null,
     blurb: profile?.blurb || null,
+    hasProfile: Boolean(profile),
     openings,
   };
 }

@@ -6,6 +6,7 @@ export {
   buildPhotoSlots,
   toDashboardSafeProfile,
   toDashboardStats,
+  toWorkerFacingOpeningSummary,
 } from "./queries";
 export {
   PROFILE_VIEW_WINDOW_DAYS,

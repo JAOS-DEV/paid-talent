@@ -34,6 +34,7 @@ export function Header(): React.ReactElement {
     : isWorker
       ? [
           { href: "/worker/profile", label: "Profile" },
+          { href: "/worker/interests", label: "Interests" },
           { href: "/worker/verification", label: "Verification" },
         ]
       : [];
