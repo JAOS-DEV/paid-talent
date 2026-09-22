@@ -132,6 +132,7 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
       .update(recruiterProfiles)
       .set({
         organizationName: "Sky Bar",
+        logoUrl: "https://cdn.example/venues/sky.png",
         updatedAt: new Date(),
       })
       .where(eq(recruiterProfiles.userId, recruiterId));
@@ -191,6 +192,9 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
     expect(first.stats.profileViewEventsLast30Days).toBe(3);
     expect(first.stats.interestReceivedCount).toBe(1);
     expect(first.recentInterests[0]?.venueName).toBe("Sky Bar");
+    expect(first.recentInterests[0]?.logoUrl).toBe(
+      "https://cdn.example/venues/sky.png"
+    );
     expect(first.recentInterests[0]?.message).toBe("Loved your profile");
     expect(first.profile).not.toHaveProperty("idDocumentKey");
     expect(first.profile).not.toHaveProperty("livenessVideoKey");

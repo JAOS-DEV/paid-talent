@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { VerificationStatusBanner } from "@/components/verification";
 import { WorkerConfirmationCard } from "@/components/hire-outcomes";
+import { VenueLogo } from "@/components/media/VenueLogo";
 import { getProfileCompleteness } from "@/lib/profile";
 import { getWorkerDashboardProfileAction } from "@/lib/helpers/worker-dashboard-access";
 import type { WorkerDashboardData } from "@/lib/worker-dashboard";
@@ -150,6 +151,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
                   key={request.id}
                   requestId={request.id}
                   venueName={request.venueName}
+                  logoUrl={request.logoUrl}
                   openingContext={request.openingContext}
                   requestedStatus={request.requestedStatus}
                   requestedAt={request.requestedAt}
@@ -363,8 +365,14 @@ export default function WorkerDashboardPage(): React.ReactElement {
                     {recentInterests.map((interest) => (
                       <li
                         key={interest.id}
-                        className="border-b border-charcoal-800 pb-4 last:border-0 last:pb-0"
+                        className="flex items-start gap-3 border-b border-charcoal-800 pb-4 last:border-0 last:pb-0"
                       >
+                        <VenueLogo
+                          logoUrl={interest.logoUrl}
+                          name={interest.venueName}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
                         <p className="text-charcoal-100 font-medium">
                           {interest.venueName}
                         </p>
@@ -379,6 +387,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
                             {interest.message}
                           </p>
                         ) : null}
+                        </div>
                       </li>
                     ))}
                   </ul>

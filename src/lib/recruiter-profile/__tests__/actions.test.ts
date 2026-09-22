@@ -308,6 +308,21 @@ describe("ownership mutation invariants (documented in actions)", () => {
     expect(actionsSource).toContain("requireActiveRecruiter");
   });
 
+  it("profile saves do not write or clear venue logos", () => {
+    const actionsSource = readFileSync(
+      join(__dirname, "../actions.ts"),
+      "utf8"
+    );
+    const start = actionsSource.indexOf(
+      "export async function updateRecruiterProfile"
+    );
+    const end = actionsSource.indexOf("export async function getRecruiterProfile");
+    const body = actionsSource.slice(start, end);
+    expect(body).not.toContain("logoKey");
+    expect(body).not.toContain("logoUrl");
+    expect(body).toContain("/api/recruiter/logo");
+  });
+
   it("create/update persist payAmount via payMin storage plus currency and period", () => {
     const actionsSource = readFileSync(
       join(__dirname, "../actions.ts"),

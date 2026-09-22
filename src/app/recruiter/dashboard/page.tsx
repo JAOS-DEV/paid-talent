@@ -22,6 +22,8 @@ import {
 import {
   getRecruiterProfileCompleteness,
 } from "@/lib/recruiter-profile";
+import { VenueLogo } from "@/components/media/VenueLogo";
+import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
 
 interface OutcomeStats {
   total: number;
@@ -134,6 +136,8 @@ function VenueStatusCard(): React.ReactElement {
   const [complete, setComplete] = useState(false);
   const [publishedCount, setPublishedCount] = useState(0);
   const [draftCount, setDraftCount] = useState(0);
+  const [venueName, setVenueName] = useState("Your venue");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async (): Promise<void> => {
@@ -143,6 +147,8 @@ function VenueStatusCard(): React.ReactElement {
           getRecruiterOpenings(),
         ]);
         setComplete(getRecruiterProfileCompleteness(profile).isComplete);
+        setVenueName(profile?.organizationName?.trim() || "Your venue");
+        setLogoUrl(toPublicVenueLogoUrl(profile?.logoUrl));
         setPublishedCount(openings.filter((o) => o.isPublished).length);
         setDraftCount(openings.filter((o) => !o.isPublished).length);
       } catch {
@@ -167,6 +173,12 @@ function VenueStatusCard(): React.ReactElement {
         </div>
       </CardHeader>
       <CardContent>
+        {!loading && logoUrl ? (
+          <div className="mb-4 flex items-center gap-3">
+            <VenueLogo logoUrl={logoUrl} name={venueName} />
+            <p className="font-medium text-charcoal-100">{venueName}</p>
+          </div>
+        ) : null}
         <p className="text-charcoal-400 text-sm mb-4">
           Update the venue details workers see when you express interest.
         </p>

@@ -72,12 +72,12 @@ export async function updateRecruiterProfile(
     area,
     subArea,
     blurb,
-    logoKey,
-    logoUrl,
     contactEmail,
     contactPhone,
   } = validation.data;
 
+  // Venue logos are written only by /api/recruiter/logo. Profile saves must
+  // not clear them or accept an arbitrary client-supplied URL.
   await db
     .update(recruiterProfiles)
     .set({
@@ -85,8 +85,6 @@ export async function updateRecruiterProfile(
       area,
       subArea: normalizeOptionalText(subArea),
       blurb,
-      logoKey: normalizeOptionalText(logoKey),
-      logoUrl: logoUrl ? logoUrl : null,
       contactEmail: contactEmail ? contactEmail : null,
       contactPhone: normalizeOptionalText(contactPhone),
       updatedAt: new Date(),

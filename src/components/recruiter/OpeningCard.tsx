@@ -10,10 +10,13 @@ import {
   unpublishOpening,
 } from "@/lib/recruiter-profile/actions";
 import type { RecruiterOpening } from "@/lib/db/schema";
+import { VenueLogo } from "@/components/media/VenueLogo";
 import { formatOpeningPay } from "./format-pay";
 
 interface OpeningCardProps {
   opening: RecruiterOpening;
+  venueLogoUrl?: string | null;
+  venueName?: string | null;
 }
 
 function ChevronRightIcon(): React.ReactElement {
@@ -34,7 +37,11 @@ function ChevronRightIcon(): React.ReactElement {
   );
 }
 
-export function OpeningCard({ opening }: OpeningCardProps): React.ReactElement {
+export function OpeningCard({
+  opening,
+  venueLogoUrl = null,
+  venueName = null,
+}: OpeningCardProps): React.ReactElement {
   const router = useRouter();
   const [busy, setBusy] = useState<"publish" | "unpublish" | "delete" | null>(
     null
@@ -87,6 +94,11 @@ export function OpeningCard({ opening }: OpeningCardProps): React.ReactElement {
         onClick={() => setExpanded(!expanded)}
         className="w-full p-4 flex items-center gap-3 text-left hover:bg-charcoal-800/50 transition-colors rounded-xl"
       >
+        <VenueLogo
+          logoUrl={venueLogoUrl}
+          name={venueName || opening.role}
+          size="sm"
+        />
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-base font-semibold text-charcoal-100 break-words">

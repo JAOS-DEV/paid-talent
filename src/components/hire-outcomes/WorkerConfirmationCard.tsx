@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import { Button, Card, CardContent } from "@/components/ui";
+import { VenueLogo } from "@/components/media/VenueLogo";
 import {
   getWorkerConfirmationCopy,
   type ConfirmationRequestedStatus,
@@ -10,6 +11,7 @@ import {
 export interface WorkerConfirmationCardProps {
   requestId: string;
   venueName: string;
+  logoUrl?: string | null;
   openingContext?: string | null;
   requestedStatus: ConfirmationRequestedStatus;
   requestedAt?: string | Date | null;
@@ -26,6 +28,7 @@ export function getWorkerConfirmationEndpoint(
 export function WorkerConfirmationCard({
   requestId,
   venueName,
+  logoUrl = null,
   openingContext = null,
   requestedStatus,
   requestedAt = null,
@@ -74,13 +77,18 @@ export function WorkerConfirmationCard({
     <Card padding="lg" className="border-gold-500/40 bg-gold-500/5">
       <CardContent>
         <div data-testid="hire-confirmation-card">
+        <div className="mb-3 flex items-start gap-3">
+          <VenueLogo logoUrl={logoUrl} name={venueName} size="sm" />
+          <div className="min-w-0">
         <p className="text-gold-400 text-xs font-semibold uppercase tracking-wide mb-2">
           {copy.heading}
         </p>
         <h2 className="text-lg font-semibold text-charcoal-100 mb-1">
           {copy.statement}
         </h2>
-        <p className="text-charcoal-400 text-sm mb-3">{copy.prompt}</p>
+        <p className="text-charcoal-400 text-sm">{copy.prompt}</p>
+          </div>
+        </div>
         {openingContext && (
           <p className="text-charcoal-300 text-sm mb-1">{openingContext}</p>
         )}

@@ -111,11 +111,12 @@ function mockWorkerSession(): void {
 
 function mockDashboardFetches(options: {
   profile?: WorkerProfile | null;
-  pending?: Array<{
+    pending?: Array<{
     id: string;
     requestedStatus: "hired" | "started";
     requestedAt: string;
     venueName: string;
+    logoUrl?: string | null;
     openingContext: string | null;
   }>;
   stats?: {
@@ -127,6 +128,7 @@ function mockDashboardFetches(options: {
   recentInterests?: Array<{
     id: string;
     venueName: string;
+    logoUrl?: string | null;
     openingContext: string | null;
     message: string | null;
     createdAt: string;
@@ -278,6 +280,32 @@ describe("WorkerDashboardPage", () => {
     expect(screen.getByRole("link", { name: /view profile/i })).toHaveAttribute(
       "href",
       "/worker/profile/preview"
+    );
+  });
+
+  it("shows a venue logo on recent interest when one is saved", async () => {
+    mockWorkerSession();
+    mockDashboardFetches({
+      profile: createMockProfile({
+        photoUrl: "https://example.com/photo.jpg",
+      }),
+      recentInterests: [
+        {
+          id: "int-1",
+          venueName: "Sky Bar",
+          logoUrl: "https://cdn.example/venues/sky.png",
+          openingContext: null,
+          message: null,
+          createdAt: "2026-03-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    render(<WorkerDashboardPage />);
+
+    expect(await screen.findByAltText("Sky Bar logo")).toHaveAttribute(
+      "src",
+      "https://cdn.example/venues/sky.png"
     );
   });
 

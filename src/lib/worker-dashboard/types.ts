@@ -29,6 +29,7 @@ export interface WorkerDashboardPhotoSlots {
 export interface WorkerDashboardRecentInterest {
   id: string;
   venueName: string;
+  logoUrl: string | null;
   openingContext: string | null;
   message: string | null;
   createdAt: string;
@@ -39,6 +40,7 @@ export interface WorkerDashboardPendingConfirmation {
   requestedStatus: HireConfirmationRequestedStatus;
   requestedAt: string;
   venueName: string;
+  logoUrl: string | null;
   openingContext: string | null;
 }
 
