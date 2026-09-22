@@ -25,13 +25,20 @@ vi.mock("next/link", () => ({
     href,
     prefetch,
     className,
+    "aria-label": ariaLabel,
   }: {
     children: React.ReactNode;
     href: string;
     prefetch?: boolean;
     className?: string;
+    "aria-label"?: string;
   }): React.ReactElement => (
-    <a href={href} data-prefetch={prefetch === false ? "false" : undefined} className={className}>
+    <a
+      href={href}
+      data-prefetch={prefetch === false ? "false" : undefined}
+      className={className}
+      aria-label={ariaLabel}
+    >
       {children}
     </a>
   ),
@@ -87,10 +94,12 @@ describe("Header chrome", () => {
 
     const logo = screen.getByRole("link", { name: "Paid Talent" });
     expect(logo).toHaveAttribute("href", "/recruiter/dashboard");
-    expect(screen.getByRole("img", { name: "Paid Talent" })).toHaveAttribute(
-      "src",
-      "/brand/paid-talent-mark.svg"
-    );
+    const images = logo.querySelectorAll("img");
+    expect(images).toHaveLength(2);
+    expect(images[0]).toHaveAttribute("src", "/brand/paid-talent-mark.svg");
+    expect(images[0]).toHaveClass("h-8", "w-8", "min-[380px]:hidden");
+    expect(images[1]).toHaveAttribute("src", "/brand/paid-talent-logo.svg");
+    expect(images[1]).toHaveClass("hidden", "h-7", "max-w-[180px]", "min-[380px]:block");
     expect(screen.getByRole("button", { name: "Language" })).toHaveClass("h-8");
     expect(screen.getByRole("button", { name: "Sign out" })).toHaveClass("h-8");
   });

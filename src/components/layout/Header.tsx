@@ -8,7 +8,39 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import { LanguageToggle } from "@/components/i18n";
 
-const LOGO_SRC = "/brand/paid-talent-mark.svg";
+const MARK_SRC = "/brand/paid-talent-mark.svg";
+const LOCKUP_SRC = "/brand/paid-talent-logo.svg";
+
+function BrandLink({ href }: { href: string }): React.ReactElement {
+  return (
+    <Link
+      href={href}
+      aria-label="Paid Talent"
+      className="inline-flex h-8 shrink-0 items-center"
+    >
+      <Image
+        src={MARK_SRC}
+        alt=""
+        width={32}
+        height={32}
+        priority
+        unoptimized
+        aria-hidden
+        className="h-8 w-8 min-[380px]:hidden"
+      />
+      <Image
+        src={LOCKUP_SRC}
+        alt=""
+        width={200}
+        height={32}
+        priority
+        unoptimized
+        aria-hidden
+        className="hidden h-7 w-auto max-w-[180px] min-[380px]:block"
+      />
+    </Link>
+  );
+}
 
 export function Header(): React.ReactElement {
   const t = useTranslations("navigation");
@@ -34,20 +66,8 @@ export function Header(): React.ReactElement {
 
   return (
     <header className="h-14 overflow-x-hidden border-b border-charcoal-700 bg-charcoal-900">
-      <div className="mx-auto flex h-full min-w-0 max-w-7xl items-center gap-1.5 px-3 sm:gap-3 sm:px-6 lg:px-8">
-        <div className="min-w-0 flex-1">
-          <Link href={logoHref} className="flex h-8 max-w-full items-center">
-            <Image
-              src={LOGO_SRC}
-              alt="Paid Talent"
-              width={168}
-              height={32}
-              priority
-              unoptimized
-              className="h-auto max-h-8 w-auto max-w-full object-contain object-left"
-            />
-          </Link>
-        </div>
+      <div className="mx-auto flex h-full min-w-0 max-w-7xl items-center justify-between gap-1.5 px-3 sm:gap-3 sm:px-6 lg:px-8">
+        <BrandLink href={logoHref} />
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <LanguageToggle />
