@@ -35,6 +35,7 @@ import {
   getProfilePhotoStagingUploadTarget,
   getProfilePhotoUploadTarget,
 } from "@/lib/storage/targets";
+import { contentTypeFromLivenessObjectKey } from "@/lib/verification/liveness-recording";
 
 function createPublicMediaClient(): S3Client {
   const config = getPublicMediaStorageConfig();
@@ -582,6 +583,27 @@ export async function generatePresignedLivenessVideoUploadUrl(
   return { uploadUrl, key: target.key };
 }
 
+/**
+ * Builds GetObject input for admin liveness playback.
+ * ResponseContentType overrides a wrong/missing object Content-Type
+ * (e.g. application/octet-stream). Range is left unsigned so browsers can seek.
+ */
+export function buildLivenessVideoGetObjectInput(
+  key: string,
+  bucketName: string
+): {
+  Bucket: string;
+  Key: string;
+  ResponseContentType?: string;
+} {
+  const contentType = contentTypeFromLivenessObjectKey(key);
+  return {
+    Bucket: bucketName,
+    Key: key,
+    ...(contentType ? { ResponseContentType: contentType } : {}),
+  };
+}
+
 export async function getSignedLivenessVideoUrl(
   adminEmail: string | null | undefined,
   key: string,
@@ -590,11 +612,15 @@ export async function getSignedLivenessVideoUrl(
   assertAdminCanAccessPrivateVerificationMedia(adminEmail);
   assertPrivateVerificationObjectKey(key, "liveness");
   const privateClient = createPrivateVerificationClient();
-  const command = new GetObjectCommand({
-    Bucket: getPrivateVerificationStorageConfig().bucketName,
-    Key: key,
-  });
+  const command = new GetObjectCommand(
+    buildLivenessVideoGetObjectInput(
+      key,
+      getPrivateVerificationStorageConfig().bucketName
+    )
+  );
 
+  // Presigned GetObject leaves the Range header unsigned by default, so
+  // desktop <video> clients can issue HTTP Range requests for seeking.
   return getSignedUrl(privateClient, command, {
     expiresIn: capPrivateSignedGetExpiry(expiresIn),
   });

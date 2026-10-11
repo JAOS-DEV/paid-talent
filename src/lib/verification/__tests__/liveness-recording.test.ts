@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ALLOWED_LIVENESS_VIDEO_TYPES } from "@/lib/storage/s3";
 import {
+  LIVENESS_RECORDER_MIME_CANDIDATES,
   LIVENESS_UPLOAD_CONTENT_TYPES,
   bindRecordedPlaybackElement,
   classifyGetUserMediaError,
+  contentTypeFromLivenessObjectKey,
   detachLivePreviewElement,
+  isDesktopRiskyLivenessContentType,
   isLiveRecordingApiAvailable,
   isLiveRecordingSupported,
   messageForLiveRecordingError,
@@ -18,6 +21,34 @@ describe("liveness recording helpers", () => {
   it("keeps recorder output types aligned with private liveness storage", () => {
     expect([...LIVENESS_UPLOAD_CONTENT_TYPES].sort()).toEqual(
       [...ALLOWED_LIVENESS_VIDEO_TYPES].sort()
+    );
+  });
+
+  it("prefers H.264 MP4 before WebM so desktop browsers can decode recordings", () => {
+    expect(LIVENESS_RECORDER_MIME_CANDIDATES[0]).toMatch(/^video\/mp4;codecs=avc1/);
+    const avc1Index = LIVENESS_RECORDER_MIME_CANDIDATES.findIndex((mime) =>
+      mime.startsWith("video/mp4;codecs=avc1")
+    );
+    const webmIndex = LIVENESS_RECORDER_MIME_CANDIDATES.findIndex((mime) =>
+      mime.startsWith("video/webm")
+    );
+    expect(avc1Index).toBeGreaterThanOrEqual(0);
+    expect(webmIndex).toBeGreaterThan(avc1Index);
+  });
+
+  it("picks H.264 MP4 when both avc1 and webm are supported", () => {
+    const isTypeSupported = (mime: string): boolean =>
+      mime.includes("avc1") || mime.includes("webm");
+    expect(pickSupportedLivenessMimeType(isTypeSupported)).toMatch(
+      /^video\/mp4;codecs=avc1/
+    );
+  });
+
+  it("falls back to WebM when MP4/avc1 is unavailable", () => {
+    const isTypeSupported = (mime: string): boolean =>
+      mime === "video/webm;codecs=vp9" || mime === "video/webm";
+    expect(pickSupportedLivenessMimeType(isTypeSupported)).toBe(
+      "video/webm;codecs=vp9"
     );
   });
 
@@ -38,6 +69,27 @@ describe("liveness recording helpers", () => {
       "video/mp4"
     );
     expect(toAllowedLivenessContentType("video/avi")).toBeNull();
+  });
+
+  it("infers liveness Content-Type from the private object key extension", () => {
+    expect(
+      contentTypeFromLivenessObjectKey(
+        "verification-liveness/user-1/abc.webm"
+      )
+    ).toBe("video/webm");
+    expect(
+      contentTypeFromLivenessObjectKey("verification-liveness/user-1/abc.mp4")
+    ).toBe("video/mp4");
+    expect(
+      contentTypeFromLivenessObjectKey("verification-liveness/user-1/abc.mov")
+    ).toBe("video/quicktime");
+    expect(contentTypeFromLivenessObjectKey("verification-liveness/x")).toBeNull();
+  });
+
+  it("flags QuickTime/MOV as desktop-risky for inline playback", () => {
+    expect(isDesktopRiskyLivenessContentType("video/quicktime")).toBe(true);
+    expect(isDesktopRiskyLivenessContentType("video/mp4")).toBe(false);
+    expect(isDesktopRiskyLivenessContentType("video/webm")).toBe(false);
   });
 
   it("classifies camera permission denial separately from missing hardware", () => {

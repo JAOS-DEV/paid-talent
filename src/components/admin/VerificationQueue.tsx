@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import { Button, Card, CardContent, Badge, Input } from "@/components/ui";
+import { AdminLivenessVideoPlayer } from "@/components/admin/AdminLivenessVideoPlayer";
 import {
   buildVerificationDecisionBody,
   type VerificationDocType,
@@ -25,6 +26,7 @@ export interface PendingWorker {
   challengeIssuedAt: string | null;
   idDocumentUrl: string | null;
   livenessVideoUrl: string | null;
+  livenessVideoContentType?: string | null;
   canApprove: boolean;
 }
 
@@ -78,6 +80,9 @@ function VerificationCard({
   const [livenessVideoUrl, setLivenessVideoUrl] = useState<string | null>(
     worker.livenessVideoUrl
   );
+  const [livenessVideoContentType, setLivenessVideoContentType] = useState<
+    string | null
+  >(worker.livenessVideoContentType ?? null);
 
   const missing = missingMaterials(worker);
 
@@ -97,6 +102,7 @@ function VerificationCard({
       }
       setIdDocumentUrl(data.idDocumentUrl ?? null);
       setLivenessVideoUrl(data.livenessVideoUrl ?? null);
+      setLivenessVideoContentType(data.livenessVideoContentType ?? null);
       setReviewOpen(true);
     } catch {
       setError("Failed to load verification media");
@@ -232,15 +238,10 @@ function VerificationCard({
               Liveness video
             </h3>
             {livenessVideoUrl ? (
-              <video
-                src={livenessVideoUrl}
-                controls
-                playsInline
-                preload="metadata"
-                className="w-full max-h-72 rounded-lg border border-charcoal-700 bg-charcoal-900"
-              >
-                Your browser does not support video playback.
-              </video>
+              <AdminLivenessVideoPlayer
+                url={livenessVideoUrl}
+                contentType={livenessVideoContentType}
+              />
             ) : worker.hasLivenessVideo ? (
               <p className="text-sm text-charcoal-400">
                 Liveness preview unavailable.
