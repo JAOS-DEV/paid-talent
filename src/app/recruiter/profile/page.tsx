@@ -26,7 +26,10 @@ export default async function RecruiterOwnProfilePage(): Promise<React.ReactElem
               {t("backToDashboard")}
             </RecruiterBackLink>
           </div>
-          <RecruiterProfileForm initialProfile={profile} />
+          <RecruiterProfileForm
+            initialProfile={profile}
+            accountEmail={session.user.email}
+          />
         </div>
       </main>
       <Footer />

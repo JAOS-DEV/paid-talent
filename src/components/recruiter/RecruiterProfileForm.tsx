@@ -21,9 +21,11 @@ import {
   VenueLogoPicker,
   type VenueLogoChange,
 } from "@/components/recruiter/VenueLogoPicker";
+import { AccountVisibilityStrip } from "@/components/profile/AccountVisibilityStrip";
 
 interface RecruiterProfileFormProps {
   initialProfile: RecruiterProfile | null;
+  accountEmail?: string | null;
 }
 
 const REQUIRED_STEP_KEYS: Record<string, "venueStep" | "areaStep" | "blurbStep"> = {
@@ -44,6 +46,7 @@ const AREA_CHIPS = [
 
 export function RecruiterProfileForm({
   initialProfile,
+  accountEmail,
 }: RecruiterProfileFormProps): React.ReactElement {
   const t = useTranslations("recruiter.profile");
   const common = useTranslations("common");
@@ -140,6 +143,12 @@ export function RecruiterProfileForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {accountEmail ? (
+        <AccountVisibilityStrip
+          label={t("accountOnlyVisibleToYou")}
+          email={accountEmail}
+        />
+      ) : null}
       <Card padding="lg">
         <div className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

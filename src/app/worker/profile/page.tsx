@@ -60,6 +60,7 @@ import {
   parseProfileName,
   parseProfileRoles,
 } from "@/lib/profile/worker-profile-input";
+import { AccountVisibilityStrip } from "@/components/profile/AccountVisibilityStrip";
 import { AvailabilityPicker } from "@/components/profile/AvailabilityPicker";
 import { CharacterCount } from "@/components/profile/CharacterCount";
 import { JobRolesPicker } from "@/components/profile/JobRolesPicker";
@@ -530,6 +531,14 @@ export default function WorkerProfilePage(): React.ReactElement {
               </div>
             )}
           </div>
+
+          {session.user.email ? (
+            <AccountVisibilityStrip
+              label={t("accountOnlyVisibleToYou")}
+              email={session.user.email}
+              className="mb-6"
+            />
+          ) : null}
 
           <div className="space-y-6">
             <Card padding="lg">

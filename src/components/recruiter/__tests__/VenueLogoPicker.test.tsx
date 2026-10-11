@@ -96,3 +96,41 @@ describe("RecruiterProfileForm logo copy", () => {
     expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument();
   });
 });
+
+describe("RecruiterProfileForm account strip", () => {
+  it("shows the account email above the public profile card, not under the public subtitle", () => {
+    render(
+      <RecruiterProfileForm
+        initialProfile={null}
+        accountEmail="recruiter@example.com"
+      />
+    );
+
+    const strip = screen.getByTestId("account-visibility-strip");
+    expect(strip).toHaveTextContent("Your account · only visible to you");
+    expect(strip).toHaveTextContent("recruiter@example.com");
+
+    const subtitle = screen.getByText(
+      "This is what workers see when you express interest."
+    );
+    expect(subtitle.parentElement).not.toContainElement(strip);
+    expect(subtitle.parentElement).not.toHaveTextContent(
+      "recruiter@example.com"
+    );
+    expect(subtitle.parentElement).toHaveTextContent(
+      "Optional. Shows on your openings."
+    );
+
+    expect(
+      strip.compareDocumentPosition(subtitle) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it("omits the account strip when no account email is provided", () => {
+    render(<RecruiterProfileForm initialProfile={null} />);
+    expect(
+      screen.queryByTestId("account-visibility-strip")
+    ).not.toBeInTheDocument();
+  });
+});
