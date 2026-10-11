@@ -65,6 +65,7 @@ describe("lazy admin moderation media APIs", () => {
     getPendingWorkerMediaForAdmin.mockResolvedValue({
       idDocumentUrl: "https://signed.example/id",
       livenessVideoUrl: "https://signed.example/video",
+      livenessVideoContentType: "video/webm",
       expiresIn: 300,
     });
 
@@ -78,6 +79,7 @@ describe("lazy admin moderation media APIs", () => {
       success: true,
       idDocumentUrl: "https://signed.example/id",
       livenessVideoUrl: "https://signed.example/video",
+      livenessVideoContentType: "video/webm",
       expiresIn: 300,
     });
     expect(getPendingWorkerMediaForAdmin).toHaveBeenCalledWith({

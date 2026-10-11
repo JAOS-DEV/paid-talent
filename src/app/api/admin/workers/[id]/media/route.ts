@@ -31,6 +31,7 @@ export async function GET(
       success: true,
       idDocumentUrl: media.idDocumentUrl,
       livenessVideoUrl: media.livenessVideoUrl,
+      livenessVideoContentType: media.livenessVideoContentType,
       expiresIn: media.expiresIn,
     });
   } catch (error) {

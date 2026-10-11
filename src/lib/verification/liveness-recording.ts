@@ -7,14 +7,30 @@ export const LIVENESS_UPLOAD_CONTENT_TYPES = [
 export type LivenessUploadContentType =
   (typeof LIVENESS_UPLOAD_CONTENT_TYPES)[number];
 
+/**
+ * Prefer H.264 MP4 for broad desktop playback, then VP9/WebM.
+ * Bare video/mp4 and quicktime are last resorts — Safari/iOS may emit HEVC
+ * for those, which Chrome/Firefox desktop often cannot decode.
+ */
 export const LIVENESS_RECORDER_MIME_CANDIDATES = [
-  "video/webm;codecs=vp9,opus",
-  "video/webm;codecs=vp8,opus",
-  "video/webm",
   "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+  "video/mp4;codecs=avc1.42E01E",
+  "video/mp4;codecs=avc1",
+  "video/webm;codecs=vp9,opus",
+  "video/webm;codecs=vp9",
+  "video/webm",
   "video/mp4",
   "video/quicktime",
 ] as const;
+
+const LIVENESS_KEY_EXTENSION_TO_CONTENT_TYPE: Record<
+  string,
+  LivenessUploadContentType
+> = {
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+};
 
 export const LIVE_RECORDING_MAX_SECONDS = 12;
 export const LIVE_RECORDING_MIN_SECONDS = 3;
@@ -108,6 +124,33 @@ export function resolveLivenessUploadContentType(
     toAllowedLivenessContentType(blobType) ||
     toAllowedLivenessContentType(recorderMimeType)
   );
+}
+
+/** Infer stored container MIME from the private object key extension. */
+export function contentTypeFromLivenessObjectKey(
+  key: string | null | undefined
+): LivenessUploadContentType | null {
+  if (!key) {
+    return null;
+  }
+
+  const normalized = key.split("?")[0]?.trim().toLowerCase() ?? "";
+  const extension = normalized.includes(".")
+    ? normalized.slice(normalized.lastIndexOf(".") + 1)
+    : "";
+
+  return LIVENESS_KEY_EXTENSION_TO_CONTENT_TYPE[extension] ?? null;
+}
+
+/**
+ * .mov / QuickTime uploads are commonly HEVC from iPhone and often fail in
+ * desktop Chrome/Firefox even when the <video> element loads metadata.
+ */
+export function isDesktopRiskyLivenessContentType(
+  contentType: string | null | undefined
+): boolean {
+  const allowed = toAllowedLivenessContentType(contentType);
+  return allowed === "video/quicktime";
 }
 
 export function classifyGetUserMediaError(

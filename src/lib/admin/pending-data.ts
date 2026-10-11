@@ -10,6 +10,7 @@ import {
   PrivateStorageConfigError,
 } from "@/lib/storage/config";
 import { formatChallengeCodeForDisplay } from "@/lib/verification";
+import { contentTypeFromLivenessObjectKey } from "@/lib/verification/liveness-recording";
 import { inferPendingPhotoSubmissionKind } from "@/lib/moderation/photo-policy";
 
 export interface PendingPhotoItem {
@@ -50,6 +51,7 @@ export async function listPendingWorkersForAdmin(options: {
     challengeIssuedAt: Date | null;
     idDocumentUrl: string | null;
     livenessVideoUrl: string | null;
+    livenessVideoContentType: string | null;
     canApprove: boolean;
   }>;
   count: number;
@@ -80,6 +82,9 @@ export async function listPendingWorkersForAdmin(options: {
       let idDocumentUrl: string | null = null;
       let livenessVideoUrl: string | null = null;
       const includeSignedMedia = options.includeSignedMedia === true;
+      const livenessVideoContentType = contentTypeFromLivenessObjectKey(
+        worker.livenessVideoKey
+      );
 
       if (includeSignedMedia && worker.idDocumentKey) {
         try {
@@ -133,6 +138,7 @@ export async function listPendingWorkersForAdmin(options: {
         challengeIssuedAt: worker.challengeIssuedAt,
         idDocumentUrl,
         livenessVideoUrl,
+        livenessVideoContentType,
         canApprove:
           !!worker.idDocumentKey &&
           !!worker.livenessVideoKey &&
@@ -241,6 +247,7 @@ export async function getPendingWorkerMediaForAdmin(input: {
 }): Promise<{
   idDocumentUrl: string | null;
   livenessVideoUrl: string | null;
+  livenessVideoContentType: string | null;
   expiresIn: number;
 } | null> {
   const [worker] = await db
@@ -283,6 +290,7 @@ export async function getPendingWorkerMediaForAdmin(input: {
   return {
     idDocumentUrl,
     livenessVideoUrl,
+    livenessVideoContentType: contentTypeFromLivenessObjectKey(livenessVideoKey),
     expiresIn: PRIVATE_SIGNED_GET_MAX_SECONDS,
   };
 }
