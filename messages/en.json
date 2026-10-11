@@ -112,6 +112,8 @@
     "howAccessBody": "Top Talent badges and ranking stay visible to recruiters. Full LINE, WhatsApp, and phone details for Top Talent workers require a subscription (unless the platform is temporarily in open-access mode).",
     "ctaSignup": "Sign up as a recruiter",
     "ctaUpgrade": "Upgrade for Top Talent",
+    "ctaOpenAccess": "Free during beta",
+    "openAccessNote": "Top Talent contact details are currently free for all recruiters while we're in beta.",
     "ctaBrowse": "Browse Top Talent",
     "signedInWorkerNote": "You're signed in as talent. Switch to a recruiter account to subscribe to Top Talent access."
   },
