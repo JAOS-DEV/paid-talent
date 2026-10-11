@@ -15,16 +15,50 @@ const MIDDLEWARE_MATCHER_RE =
 export const WORKER_ONLY_PREFIXES = ["/worker"] as const;
 export const RECRUITER_ONLY_PREFIXES = ["/recruiter", "/search"] as const;
 
+/** Pre-auth signup / sign-in surfaces full users must not stay on. */
+export const SIGNUP_ENTRY_ROUTES = [
+  "/auth/age-gate",
+  "/auth/role-select",
+  "/auth/signin",
+] as const;
+
 export function isAuthApiPath(pathname: string): boolean {
   return pathname === "/api/auth" || pathname.startsWith("/api/auth/");
 }
 
-export function middlewareMatcherHits(pathname: string): boolean {
-  return MIDDLEWARE_MATCHER_RE.test(pathname);
-}
-
 function matchesPrefix(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(`${route}/`);
+}
+
+export function isSignupEntryRoute(pathname: string): boolean {
+  return SIGNUP_ENTRY_ROUTES.some((route) => matchesPrefix(pathname, route));
+}
+
+/**
+ * Full signed-in users hitting signup/sign-in entry points go home.
+ * Users without a role yet stay on (or are sent to) role-select.
+ */
+export function resolveSignedInSignupRedirect(
+  pathname: string,
+  role: string | undefined
+): string | null {
+  if (!isSignupEntryRoute(pathname)) {
+    return null;
+  }
+
+  if (role === "worker" || role === "recruiter") {
+    return getSessionHomePath(role);
+  }
+
+  if (matchesPrefix(pathname, "/auth/role-select")) {
+    return null;
+  }
+
+  return "/auth/role-select";
+}
+
+export function middlewareMatcherHits(pathname: string): boolean {
+  return MIDDLEWARE_MATCHER_RE.test(pathname);
 }
 
 /**
