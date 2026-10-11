@@ -314,7 +314,7 @@
       "title": "My Profile",
       "editTitle": "Edit Profile",
       "editSubtitle": "Keep your profile updated to attract more recruiters",
-      "signedInAs": "Signed in as",
+      "accountOnlyVisibleToYou": "Your account · only visible to you",
       "completion": "Profile completion",
       "completeProfileLink": "Complete your profile →",
       "displayName": "Display Name",
@@ -672,7 +672,7 @@
     "profile": {
       "title": "Venue profile",
       "subtitle": "This is what workers see when you express interest.",
-      "signedInAs": "Signed in as",
+      "accountOnlyVisibleToYou": "Your account · only visible to you",
       "logoHint": "Optional. Shows on your openings.",
       "addLogo": "Add logo",
       "changeLogo": "Change logo",

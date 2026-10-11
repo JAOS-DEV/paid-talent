@@ -21,6 +21,7 @@ import {
   VenueLogoPicker,
   type VenueLogoChange,
 } from "@/components/recruiter/VenueLogoPicker";
+import { AccountVisibilityStrip } from "@/components/profile/AccountVisibilityStrip";
 
 interface RecruiterProfileFormProps {
   initialProfile: RecruiterProfile | null;
@@ -142,6 +143,12 @@ export function RecruiterProfileForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {accountEmail ? (
+        <AccountVisibilityStrip
+          label={t("accountOnlyVisibleToYou")}
+          email={accountEmail}
+        />
+      ) : null}
       <Card padding="lg">
         <div className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -152,15 +159,6 @@ export function RecruiterProfileForm({
                   {t("title")}
                 </h2>
                 <p className="text-sm text-charcoal-400 mt-1">{t("subtitle")}</p>
-                {accountEmail ? (
-                  <p
-                    className="mt-2 text-sm text-charcoal-400"
-                    data-testid="signed-in-as"
-                  >
-                    <span>{t("signedInAs")}</span>{" "}
-                    <span className="text-charcoal-200">{accountEmail}</span>
-                  </p>
-                ) : null}
                 <p className="text-xs text-charcoal-500 mt-2">{t("logoHint")}</p>
               </div>
             </div>
