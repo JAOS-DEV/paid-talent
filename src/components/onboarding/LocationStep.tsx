@@ -12,13 +12,20 @@ import {
   workerPayCurrencyOptions,
 } from "@/lib/profile/limits";
 import { normalizeAvailability } from "@/lib/profile/availability";
+import {
+  DEFAULT_WORKER_EXPECTED_PAY_PERIOD,
+  WORKER_EXPECTED_PAY_AMOUNT_MAX,
+  WORKER_EXPECTED_PAY_PERIOD_OPTIONS,
+  type WorkerExpectedPayPeriod,
+  parseWorkerExpectedPayPeriod,
+} from "@/lib/profile/expected-pay";
 
 interface LocationStepProps {
   initialLocation: string | null;
   initialArea: string | null;
   initialAvailability: string[] | null;
-  initialPayMin: number | null;
-  initialPayMax: number | null;
+  initialPayAmount: number | null;
+  initialPayPeriod: string | null;
   initialPayCurrency: string | null;
   onComplete: () => void;
   onBack: () => void;
@@ -28,8 +35,8 @@ export function LocationStep({
   initialLocation,
   initialArea,
   initialAvailability,
-  initialPayMin,
-  initialPayMax,
+  initialPayAmount,
+  initialPayPeriod,
   initialPayCurrency,
   onComplete,
   onBack,
@@ -42,8 +49,13 @@ export function LocationStep({
   const [availability, setAvailability] = useState<string[]>(
     normalizeAvailability(initialAvailability)
   );
-  const [payMin, setPayMin] = useState(initialPayMin?.toString() ?? "");
-  const [payMax, setPayMax] = useState(initialPayMax?.toString() ?? "");
+  const [payAmount, setPayAmount] = useState(
+    initialPayAmount?.toString() ?? ""
+  );
+  const [payPeriod, setPayPeriod] = useState<WorkerExpectedPayPeriod>(
+    parseWorkerExpectedPayPeriod(initialPayPeriod) ??
+      DEFAULT_WORKER_EXPECTED_PAY_PERIOD
+  );
   const [currency, setCurrency] = useState(
     initialPayCurrency || DEFAULT_WORKER_PAY_CURRENCY
   );
@@ -67,12 +79,15 @@ export function LocationStep({
     setSaving(true);
 
     try {
+      const amount = payAmount.trim()
+        ? parseInt(payAmount, 10)
+        : undefined;
       const result = await updateProfileLocation({
         location: location.trim(),
         area: area.trim() || undefined,
         availability,
-        expectedPayMin: payMin ? parseInt(payMin, 10) : undefined,
-        expectedPayMax: payMax ? parseInt(payMax, 10) : undefined,
+        expectedPayAmount: amount,
+        expectedPayPeriod: amount != null ? payPeriod : undefined,
         payCurrency: currency,
       });
       if (!result.success) {
@@ -139,19 +154,31 @@ export function LocationStep({
             </select>
             <Input
               type="number"
-              placeholder={profile("payMin")}
-              value={payMin}
-              onChange={(e) => setPayMin(e.target.value)}
+              inputMode="numeric"
+              min={0}
+              max={WORKER_EXPECTED_PAY_AMOUNT_MAX}
+              step={1}
+              placeholder={profile("payAmount")}
+              value={payAmount}
+              onChange={(e) => setPayAmount(e.target.value)}
               className="flex-1"
             />
-            <span className="text-charcoal-500">-</span>
-            <Input
-              type="number"
-              placeholder={profile("payMax")}
-              value={payMax}
-              onChange={(e) => setPayMax(e.target.value)}
-              className="flex-1"
-            />
+            <select
+              value={payPeriod}
+              onChange={(e) =>
+                setPayPeriod(e.target.value as WorkerExpectedPayPeriod)
+              }
+              aria-label={profile("payPeriod")}
+              className="px-3 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              {WORKER_EXPECTED_PAY_PERIOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.value === "day"
+                    ? profile("perDay")
+                    : profile("perMonth")}
+                </option>
+              ))}
+            </select>
           </div>
           <p className="text-charcoal-500 text-xs mt-1.5">
             {onboarding("payHint")}

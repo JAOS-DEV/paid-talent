@@ -51,6 +51,7 @@ export interface WorkerProfileDetail {
   availability: string[];
   expectedPayMin: number | null;
   expectedPayMax: number | null;
+  expectedPayPeriod: string | null;
   payCurrency: string | null;
   isVerified: boolean;
   isTopTalent: boolean;
@@ -171,6 +172,7 @@ export async function GET(
       availability: workerProfile.availability ?? [],
       expectedPayMin: workerProfile.expectedPayMin,
       expectedPayMax: workerProfile.expectedPayMax,
+      expectedPayPeriod: workerProfile.expectedPayPeriod,
       payCurrency: workerProfile.payCurrency,
       isVerified: workerProfile.isVerified,
       isTopTalent,

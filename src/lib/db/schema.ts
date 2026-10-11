@@ -89,6 +89,11 @@ export const adminEntitlementKindEnum = pgEnum("admin_entitlement_kind", [
   "top_talent_unlock",
 ]);
 
+export const workerExpectedPayPeriodEnum = pgEnum(
+  "worker_expected_pay_period",
+  ["day", "month"]
+);
+
 export const adminAuditActionEnum = pgEnum("admin_audit_action", [
   "account_suspended",
   "account_reactivated",
@@ -206,8 +211,11 @@ export const workerProfiles = pgTable(
     description: text("description"),
     bio: text("bio"),
     availability: jsonb("availability").$type<string[]>().notNull().default([]),
+    /** Single expected-pay amount (legacy column name kept). */
     expectedPayMin: integer("expected_pay_min"),
+    /** @deprecated Legacy range max; no longer written. */
     expectedPayMax: integer("expected_pay_max"),
+    expectedPayPeriod: workerExpectedPayPeriodEnum("expected_pay_period"),
     payCurrency: text("pay_currency").default("THB"),
     jobRoles: jsonb("job_roles").$type<string[]>().default([]),
     experience: text("experience"),

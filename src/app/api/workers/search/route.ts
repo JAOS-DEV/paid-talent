@@ -26,6 +26,9 @@ export interface SearchWorkerResult {
   availability: string[];
   experienceYears: number | null;
   languages: string[];
+  expectedPayMin: number | null;
+  expectedPayPeriod: string | null;
+  payCurrency: string | null;
   isVerified: boolean;
   isTopTalent: boolean;
 }
@@ -44,6 +47,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       area: searchParams.get("area") || undefined,
       availability: searchParams.get("availability") || undefined,
       verified: searchParams.get("verified") || undefined,
+      maxPay: searchParams.get("maxPay") || undefined,
+      payPeriod: searchParams.get("payPeriod") || undefined,
       limit: searchParams.get("limit") || 20,
       offset: searchParams.get("offset") || 0,
     });
@@ -88,6 +93,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    if (filters.maxPay != null && filters.payPeriod) {
+      conditions.push(eq(workerProfiles.expectedPayPeriod, filters.payPeriod));
+      conditions.push(
+        sql`${workerProfiles.expectedPayMin} IS NOT NULL AND ${workerProfiles.expectedPayMin} <= ${filters.maxPay}`
+      );
+    } else if (filters.payPeriod) {
+      conditions.push(eq(workerProfiles.expectedPayPeriod, filters.payPeriod));
+    }
+
     const profiles = await db
       .select({
         profile: workerProfiles,
@@ -126,6 +140,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         availability: profile.availability ?? [],
         experienceYears: profile.experienceYears,
         languages: (profile.languages as string[]) ?? [],
+        expectedPayMin: profile.expectedPayMin,
+        expectedPayPeriod: profile.expectedPayPeriod,
+        payCurrency: profile.payCurrency,
         isVerified: profile.verificationStatus === "verified",
         isTopTalent: await isProfileTopTalent(profile.id),
       }))

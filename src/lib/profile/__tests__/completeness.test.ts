@@ -24,6 +24,7 @@ function createMockProfile(
     availability: [],
     expectedPayMin: null,
     expectedPayMax: null,
+    expectedPayPeriod: null,
     payCurrency: "THB",
     jobRoles: [],
     experience: null,
@@ -118,10 +119,10 @@ describe("profile completeness", () => {
         expect(result.completedSteps).not.toContain("location");
       });
 
-      it("should NOT mark location step complete with expectedPayMin + expectedPayMax but no location/availability", () => {
+      it("should NOT mark location step complete with expected pay but no location/availability", () => {
         const profile = createMockProfile({
           expectedPayMin: 500,
-          expectedPayMax: 1000,
+          expectedPayPeriod: "day",
         });
         const result = getProfileCompleteness(profile);
         expect(result.completedSteps).not.toContain("location");
@@ -142,6 +143,7 @@ describe("profile completeness", () => {
           availability: ["Part-time"],
           expectedPayMin: null,
           expectedPayMax: null,
+          expectedPayPeriod: null,
         });
         const result = getProfileCompleteness(profile);
         expect(result.completedSteps).toContain("location");
@@ -152,7 +154,7 @@ describe("profile completeness", () => {
           location: "Bangkok, Thailand",
           availability: ["Full-time"],
           expectedPayMin: 500,
-          expectedPayMax: 1000,
+          expectedPayPeriod: "day",
         });
         const result = getProfileCompleteness(profile);
         expect(result.completedSteps).toContain("location");

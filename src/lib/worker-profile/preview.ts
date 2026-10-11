@@ -45,6 +45,7 @@ export async function getOwnWorkerPreview(
     availability: profile.availability ?? [],
     expectedPayMin: profile.expectedPayMin,
     expectedPayMax: profile.expectedPayMax,
+    expectedPayPeriod: profile.expectedPayPeriod,
     payCurrency: profile.payCurrency,
     isVerified: profile.isVerified,
     isTopTalent,

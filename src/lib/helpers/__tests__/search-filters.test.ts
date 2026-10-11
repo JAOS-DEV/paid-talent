@@ -27,6 +27,8 @@ describe("search-filters helpers", () => {
         area: "Bangkok",
         availability: "Full-time",
         verified: "true",
+        maxPay: 1500,
+        payPeriod: "day",
         limit: 50,
         offset: 10,
       });
@@ -37,9 +39,16 @@ describe("search-filters helpers", () => {
         area: "Bangkok",
         availability: "Full-time",
         verified: "true",
+        maxPay: 1500,
+        payPeriod: "day",
         limit: 50,
         offset: 10,
       });
+    });
+
+    it("should require payPeriod when maxPay is set", () => {
+      const result = validateSearchParams({ maxPay: 1500 });
+      expect(result.success).toBe(false);
     });
 
     it("should reject invalid limit (too high)", () => {
@@ -88,6 +97,8 @@ describe("search-filters helpers", () => {
         area: "Pattaya",
         availability: "Weekends",
         verifiedOnly: true,
+        maxPay: undefined,
+        payPeriod: undefined,
       });
     });
 
@@ -99,6 +110,8 @@ describe("search-filters helpers", () => {
         area: undefined,
         availability: undefined,
         verifiedOnly: false,
+        maxPay: undefined,
+        payPeriod: undefined,
       });
     });
 
@@ -271,6 +284,28 @@ describe("search-filters helpers", () => {
         verifiedOnly: false,
       };
       expect(matchesSearchCriteria(profile, criteria)).toBe(false);
+    });
+
+    it("should filter expected pay only within the same period", () => {
+      const profile = {
+        ...baseProfile,
+        expectedPayMin: 1200,
+        expectedPayPeriod: "day",
+      };
+      expect(
+        matchesSearchCriteria(profile, {
+          verifiedOnly: false,
+          maxPay: 1500,
+          payPeriod: "day",
+        })
+      ).toBe(true);
+      expect(
+        matchesSearchCriteria(profile, {
+          verifiedOnly: false,
+          maxPay: 1500,
+          payPeriod: "month",
+        })
+      ).toBe(false);
     });
   });
 

@@ -71,6 +71,7 @@ function createMockProfile(
     availability: [],
     expectedPayMin: null,
     expectedPayMax: null,
+    expectedPayPeriod: null,
     payCurrency: "THB",
     jobRoles: [],
     experience: null,

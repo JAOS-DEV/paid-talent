@@ -10,6 +10,13 @@ import { normalizeAndValidateAvailability } from "./availability";
 import { normalizeAndValidateContactMethods } from "./contact-methods";
 import { normalizeAndValidateJobRoles } from "./job-roles";
 import { validatePublicProfileText } from "./public-text";
+import {
+  DEFAULT_WORKER_EXPECTED_PAY_PERIOD,
+  WORKER_EXPECTED_PAY_AMOUNT_MAX,
+  WORKER_EXPECTED_PAY_PERIODS,
+  type WorkerExpectedPayPeriod,
+  toWorkerExpectedPayStorage,
+} from "./expected-pay";
 
 export type WorkerProfileInputResult<T> =
   | { ok: true; data: T }
@@ -44,22 +51,47 @@ export const bioInputSchema = z.object({
   bio: z.string(),
 });
 
-export const locationInputSchema = z.object({
-  location: z.string(),
-  area: z.string().optional(),
-  availability: z
-    .array(z.enum(AVAILABILITY_OPTIONS))
-    .min(1, "Availability is required")
-    .max(AVAILABILITY_OPTIONS.length),
-  expectedPayMin: z.coerce.number().min(0).optional(),
-  expectedPayMax: z.coerce.number().min(0).optional(),
-  payCurrency: z
-    .string()
-    .trim()
-    .min(1)
-    .max(8)
-    .default(DEFAULT_WORKER_PAY_CURRENCY),
-});
+const optionalPayAmountSchema = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) {
+    return undefined;
+  }
+  return value;
+}, z.coerce
+  .number()
+  .int("Expected pay must be a whole number")
+  .min(0)
+  .max(WORKER_EXPECTED_PAY_AMOUNT_MAX)
+  .optional());
+
+export const locationInputSchema = z
+  .object({
+    location: z.string(),
+    area: z.string().optional(),
+    availability: z
+      .array(z.enum(AVAILABILITY_OPTIONS))
+      .min(1, "Availability is required")
+      .max(AVAILABILITY_OPTIONS.length),
+    expectedPayAmount: optionalPayAmountSchema,
+    /** @deprecated Prefer expectedPayAmount; accepted for older clients. */
+    expectedPayMin: optionalPayAmountSchema,
+    expectedPayPeriod: z.enum(WORKER_EXPECTED_PAY_PERIODS).optional(),
+    payCurrency: z
+      .string()
+      .trim()
+      .min(1)
+      .max(8)
+      .default(DEFAULT_WORKER_PAY_CURRENCY),
+  })
+  .superRefine((data, ctx) => {
+    const amount = data.expectedPayAmount ?? data.expectedPayMin;
+    if (amount != null && data.expectedPayPeriod == null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["expectedPayPeriod"],
+        message: "Select a pay period when entering an amount",
+      });
+    }
+  });
 
 export const contactInputSchema = z.object({
   lineId: z.string().optional(),
@@ -181,10 +213,28 @@ export function parseProfileLocation(
   area: string | null;
   availability: string[];
   expectedPayMin: number | null;
-  expectedPayMax: number | null;
+  expectedPayMax: null;
+  expectedPayPeriod: WorkerExpectedPayPeriod | null;
   payCurrency: string;
 }> {
-  const parsed = locationInputSchema.safeParse(data);
+  const withDefaultPeriod =
+    data && typeof data === "object"
+      ? (() => {
+          const record = data as Record<string, unknown>;
+          const amount = record.expectedPayAmount ?? record.expectedPayMin;
+          const hasAmount =
+            amount !== "" && amount !== null && amount !== undefined;
+          if (hasAmount && record.expectedPayPeriod == null) {
+            return {
+              ...record,
+              expectedPayPeriod: DEFAULT_WORKER_EXPECTED_PAY_PERIOD,
+            };
+          }
+          return record;
+        })()
+      : data;
+
+  const parsed = locationInputSchema.safeParse(withDefaultPeriod);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const path = issue?.path?.[0];
@@ -225,14 +275,22 @@ export function parseProfileLocation(
     return availability;
   }
 
+  const amount =
+    parsed.data.expectedPayAmount ?? parsed.data.expectedPayMin ?? null;
+  const payStorage = toWorkerExpectedPayStorage(
+    amount,
+    amount == null ? null : (parsed.data.expectedPayPeriod ?? null)
+  );
+
   return {
     ok: true,
     data: {
       location: parsed.data.location.trim(),
       area: area || null,
       availability: availability.availability,
-      expectedPayMin: parsed.data.expectedPayMin ?? null,
-      expectedPayMax: parsed.data.expectedPayMax ?? null,
+      expectedPayMin: payStorage.expectedPayMin,
+      expectedPayMax: payStorage.expectedPayMax,
+      expectedPayPeriod: payStorage.expectedPayPeriod,
       payCurrency: parsed.data.payCurrency || DEFAULT_WORKER_PAY_CURRENCY,
     },
   };

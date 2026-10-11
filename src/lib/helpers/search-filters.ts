@@ -1,15 +1,43 @@
 import { z } from "zod";
 import { availabilityMatchesFilter } from "@/lib/profile/availability";
+import {
+  WORKER_EXPECTED_PAY_AMOUNT_MAX,
+  WORKER_EXPECTED_PAY_PERIODS,
+  type WorkerExpectedPayPeriod,
+  matchesExpectedPayFilter,
+} from "@/lib/profile/expected-pay";
 
-export const searchParamsSchema = z.object({
-  query: z.string().optional(),
-  role: z.string().optional(),
-  area: z.string().optional(),
-  availability: z.string().optional(),
-  verified: z.enum(["true", "false"]).optional(),
-  limit: z.coerce.number().min(1).max(100).default(20),
-  offset: z.coerce.number().min(0).default(0),
-});
+export const searchParamsSchema = z
+  .object({
+    query: z.string().optional(),
+    role: z.string().optional(),
+    area: z.string().optional(),
+    availability: z.string().optional(),
+    verified: z.enum(["true", "false"]).optional(),
+    maxPay: z.preprocess((value) => {
+      if (value === "" || value === null || value === undefined) {
+        return undefined;
+      }
+      return value;
+    }, z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(WORKER_EXPECTED_PAY_AMOUNT_MAX)
+      .optional()),
+    payPeriod: z.enum(WORKER_EXPECTED_PAY_PERIODS).optional(),
+    limit: z.coerce.number().min(1).max(100).default(20),
+    offset: z.coerce.number().min(0).default(0),
+  })
+  .superRefine((data, ctx) => {
+    if (data.maxPay != null && data.payPeriod == null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["payPeriod"],
+        message: "payPeriod is required when filtering by maxPay",
+      });
+    }
+  });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
@@ -35,6 +63,8 @@ export interface SearchFilterCriteria {
   area?: string;
   availability?: string;
   verifiedOnly: boolean;
+  maxPay?: number;
+  payPeriod?: WorkerExpectedPayPeriod;
 }
 
 export function buildFilterCriteria(params: SearchParams): SearchFilterCriteria {
@@ -44,6 +74,8 @@ export function buildFilterCriteria(params: SearchParams): SearchFilterCriteria 
     area: params.area || undefined,
     availability: params.availability || undefined,
     verifiedOnly: params.verified === "true",
+    maxPay: params.maxPay,
+    payPeriod: params.payPeriod,
   };
 }
 
@@ -54,6 +86,10 @@ export interface WorkerProfile {
   area: string | null;
   availability: string[] | null;
   isVerified: boolean;
+  expectedPayMin?: number | null;
+  expectedPayMax?: number | null;
+  expectedPayPeriod?: string | null;
+  payCurrency?: string | null;
 }
 
 /**
@@ -97,6 +133,15 @@ export function matchesSearchCriteria(
     if (!availabilityMatchesFilter(profile.availability, criteria.availability)) {
       return false;
     }
+  }
+
+  if (
+    !matchesExpectedPayFilter(profile, {
+      maxPay: criteria.maxPay,
+      payPeriod: criteria.payPeriod,
+    })
+  ) {
+    return false;
   }
 
   return true;

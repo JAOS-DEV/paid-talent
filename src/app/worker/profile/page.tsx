@@ -46,6 +46,13 @@ import {
   workerPayCurrencyOptions,
 } from "@/lib/profile/limits";
 import {
+  DEFAULT_WORKER_EXPECTED_PAY_PERIOD,
+  WORKER_EXPECTED_PAY_AMOUNT_MAX,
+  WORKER_EXPECTED_PAY_PERIOD_OPTIONS,
+  type WorkerExpectedPayPeriod,
+  parseWorkerExpectedPayPeriod,
+} from "@/lib/profile/expected-pay";
+import {
   parseProfileBio,
   parseProfileContact,
   parseProfileExperience,
@@ -99,8 +106,10 @@ export default function WorkerProfilePage(): React.ReactElement {
   const [experienceYears, setExperienceYears] = useState("");
   const [languages, setLanguages] = useState<string[]>([]);
   const [availability, setAvailability] = useState<string[]>([]);
-  const [payMin, setPayMin] = useState("");
-  const [payMax, setPayMax] = useState("");
+  const [payAmount, setPayAmount] = useState("");
+  const [payPeriod, setPayPeriod] = useState<WorkerExpectedPayPeriod>(
+    DEFAULT_WORKER_EXPECTED_PAY_PERIOD
+  );
   const [currency, setCurrency] = useState(DEFAULT_WORKER_PAY_CURRENCY);
   const [lineId, setLineId] = useState("");
   const [whatsApp, setWhatsApp] = useState("");
@@ -147,8 +156,11 @@ export default function WorkerProfilePage(): React.ReactElement {
             setExperienceYears(p.experienceYears?.toString() || "");
             setLanguages((p.languages as string[]) || []);
             setAvailability(normalizeAvailability(p.availability));
-            setPayMin(p.expectedPayMin?.toString() || "");
-            setPayMax(p.expectedPayMax?.toString() || "");
+            setPayAmount(p.expectedPayMin?.toString() || "");
+            setPayPeriod(
+              parseWorkerExpectedPayPeriod(p.expectedPayPeriod) ??
+                DEFAULT_WORKER_EXPECTED_PAY_PERIOD
+            );
             setCurrency(p.payCurrency || DEFAULT_WORKER_PAY_CURRENCY);
             setLineId(p.lineId || "");
             setWhatsApp(p.whatsappNumber || "");
@@ -310,12 +322,15 @@ export default function WorkerProfilePage(): React.ReactElement {
         return;
       }
 
+      const amount = payAmount.trim()
+        ? parseInt(payAmount, 10)
+        : undefined;
       const locationResult = parseProfileLocation({
         location,
         area: area || undefined,
         availability,
-        expectedPayMin: payMin ? parseInt(payMin, 10) : undefined,
-        expectedPayMax: payMax ? parseInt(payMax, 10) : undefined,
+        expectedPayAmount: amount,
+        expectedPayPeriod: amount != null ? payPeriod : undefined,
         payCurrency: currency,
       });
       if (!locationResult.ok) {
@@ -328,8 +343,9 @@ export default function WorkerProfilePage(): React.ReactElement {
         location: locationResult.data.location,
         area: locationResult.data.area || undefined,
         availability: locationResult.data.availability,
-        expectedPayMin: locationResult.data.expectedPayMin ?? undefined,
-        expectedPayMax: locationResult.data.expectedPayMax ?? undefined,
+        expectedPayAmount: locationResult.data.expectedPayMin ?? undefined,
+        expectedPayPeriod:
+          locationResult.data.expectedPayPeriod ?? undefined,
         payCurrency: locationResult.data.payCurrency,
       });
       if (!saved.success) {
@@ -658,20 +674,35 @@ export default function WorkerProfilePage(): React.ReactElement {
                     </select>
                     <Input
                       type="number"
-                      placeholder={t("payMin")}
-                      value={payMin}
-                      onChange={(e) => setPayMin(e.target.value)}
+                      inputMode="numeric"
+                      min={0}
+                      max={WORKER_EXPECTED_PAY_AMOUNT_MAX}
+                      step={1}
+                      placeholder={t("payAmount")}
+                      value={payAmount}
+                      onChange={(e) => setPayAmount(e.target.value)}
                       className="flex-1"
                     />
-                    <span className="text-charcoal-500">-</span>
-                    <Input
-                      type="number"
-                      placeholder={t("payMax")}
-                      value={payMax}
-                      onChange={(e) => setPayMax(e.target.value)}
-                      className="flex-1"
-                    />
+                    <select
+                      value={payPeriod}
+                      onChange={(e) =>
+                        setPayPeriod(e.target.value as WorkerExpectedPayPeriod)
+                      }
+                      aria-label={t("payPeriod")}
+                      className="px-3 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      {WORKER_EXPECTED_PAY_PERIOD_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.value === "day"
+                            ? t("perDay")
+                            : t("perMonth")}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                  <p className="text-charcoal-500 text-xs mt-1.5">
+                    {t("payHint")}
+                  </p>
                 </div>
 
                 {basicError ? (

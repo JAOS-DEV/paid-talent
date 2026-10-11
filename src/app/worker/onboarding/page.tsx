@@ -207,8 +207,8 @@ export default function WorkerOnboardingPage(): React.ReactElement {
             initialLocation={profile?.location ?? null}
             initialArea={profile?.area ?? null}
             initialAvailability={profile?.availability ?? []}
-            initialPayMin={profile?.expectedPayMin ?? null}
-            initialPayMax={profile?.expectedPayMax ?? null}
+            initialPayAmount={profile?.expectedPayMin ?? null}
+            initialPayPeriod={profile?.expectedPayPeriod ?? null}
             initialPayCurrency={profile?.payCurrency ?? null}
             onComplete={handleStepComplete}
             onBack={handleBack}

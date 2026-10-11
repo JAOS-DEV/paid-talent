@@ -241,6 +241,7 @@ export async function updateProfileLocation(
       availability: validation.data.availability,
       expectedPayMin: validation.data.expectedPayMin,
       expectedPayMax: validation.data.expectedPayMax,
+      expectedPayPeriod: validation.data.expectedPayPeriod,
       payCurrency: validation.data.payCurrency,
       updatedAt: new Date(),
     })
@@ -283,6 +284,7 @@ export async function updateProfileBasicInfo(
       availability: location.data.availability,
       expectedPayMin: location.data.expectedPayMin,
       expectedPayMax: location.data.expectedPayMax,
+      expectedPayPeriod: location.data.expectedPayPeriod,
       payCurrency: location.data.payCurrency,
       updatedAt: new Date(),
     })

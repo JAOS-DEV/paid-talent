@@ -19,6 +19,7 @@ import {
   translateCatalogValue,
 } from "@/lib/i18n/labels";
 import type { PublicWorkerProfileView } from "@/lib/worker-profile/public-profile";
+import { formatWorkerExpectedPay } from "@/lib/profile/expected-pay";
 
 function LockIcon(): React.ReactElement {
   return (
@@ -93,6 +94,7 @@ export function WorkerPublicProfileView({
     profile.contact.whatsappNumber ||
     profile.contact.phoneNumber ||
     profile.contact.isLocked;
+  const expectedPayLabel = formatWorkerExpectedPay(profile);
 
   return (
     <div className="space-y-6 min-w-0" data-testid="worker-public-profile">
@@ -226,34 +228,16 @@ export function WorkerPublicProfileView({
         )}
       </div>
 
-      {(profile.expectedPayMin || profile.expectedPayMax) && (
+      {expectedPayLabel ? (
         <Card padding="lg">
           <CardHeader>
             <CardTitle>{t("expectedPay")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-charcoal-300">
-              {profile.expectedPayMin && profile.expectedPayMax ? (
-                <>
-                  {profile.payCurrency || "THB"}{" "}
-                  {profile.expectedPayMin.toLocaleString()} -{" "}
-                  {profile.expectedPayMax.toLocaleString()}
-                </>
-              ) : profile.expectedPayMin ? (
-                t("payFrom", {
-                  currency: profile.payCurrency || "THB",
-                  amount: profile.expectedPayMin.toLocaleString(),
-                })
-              ) : (
-                t("payUpTo", {
-                  currency: profile.payCurrency || "THB",
-                  amount: profile.expectedPayMax?.toLocaleString() ?? "",
-                })
-              )}
-            </p>
+            <p className="text-charcoal-300">{expectedPayLabel}</p>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       {hasAnyContact && (
         <Card padding="lg">
