@@ -25,6 +25,13 @@ import {
   JOB_ROLE_MESSAGE_KEYS,
   translateCatalogValue,
 } from "@/lib/i18n/labels";
+import {
+  DEFAULT_WORKER_EXPECTED_PAY_PERIOD,
+  WORKER_EXPECTED_PAY_AMOUNT_MAX,
+  WORKER_EXPECTED_PAY_PERIOD_OPTIONS,
+  type WorkerExpectedPayPeriod,
+  formatWorkerExpectedPay,
+} from "@/lib/profile/expected-pay";
 
 interface WorkerCardProps {
   worker: SearchWorkerResult;
@@ -44,6 +51,7 @@ function WorkerCard({
   const t = useTranslations("recruiter.search");
   const roleLabels = useTranslations("roles");
   const isLocked = worker.isTopTalent && !hasTopTalentAccess;
+  const expectedPayLabel = formatWorkerExpectedPay(worker);
 
   return (
     <Card hover padding="lg">
@@ -108,6 +116,10 @@ function WorkerCard({
                 <AvailabilityBadges values={worker.availability} />
               </div>
             )}
+
+            {expectedPayLabel ? (
+              <p className="text-charcoal-300 text-sm mt-2">{expectedPayLabel}</p>
+            ) : null}
           </div>
         </div>
 
@@ -176,6 +188,8 @@ interface SearchFilters {
   role: string;
   area: string;
   availability: string;
+  maxPay: string;
+  payPeriod: WorkerExpectedPayPeriod;
 }
 
 export default function SearchPage(): React.ReactElement {
@@ -189,6 +203,8 @@ export default function SearchPage(): React.ReactElement {
     role: "",
     area: "",
     availability: "",
+    maxPay: "",
+    payPeriod: DEFAULT_WORKER_EXPECTED_PAY_PERIOD,
   });
   const [workers, setWorkers] = useState<SearchWorkerResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -218,6 +234,10 @@ export default function SearchPage(): React.ReactElement {
       if (filters.role) params.set("role", filters.role);
       if (filters.area) params.set("area", filters.area);
       if (filters.availability) params.set("availability", filters.availability);
+      if (filters.maxPay.trim()) {
+        params.set("maxPay", filters.maxPay.trim());
+        params.set("payPeriod", filters.payPeriod);
+      }
 
       const response = await fetch(`/api/workers/search?${params.toString()}`);
       if (response.ok) {
@@ -450,6 +470,50 @@ export default function SearchPage(): React.ReactElement {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
+                      {t("maxExpectedPay")}
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={WORKER_EXPECTED_PAY_AMOUNT_MAX}
+                        step={1}
+                        placeholder={t("maxPayPlaceholder")}
+                        value={filters.maxPay}
+                        onChange={(e) =>
+                          setFilters((f) => ({ ...f, maxPay: e.target.value }))
+                        }
+                        className="flex-1"
+                      />
+                      <select
+                        value={filters.payPeriod}
+                        onChange={(e) =>
+                          setFilters((f) => ({
+                            ...f,
+                            payPeriod: e.target
+                              .value as WorkerExpectedPayPeriod,
+                          }))
+                        }
+                        aria-label={t("payPeriod")}
+                        className="px-3 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        {WORKER_EXPECTED_PAY_PERIOD_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.value === "day"
+                              ? t("perDay")
+                              : t("perMonth")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="text-charcoal-500 text-xs mt-1.5">
+                      {t("payFilterHint")}
+                    </p>
                   </div>
 
                   <Button fullWidth onClick={handleApplyFilters}>

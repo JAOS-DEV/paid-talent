@@ -30,7 +30,9 @@ export interface PublicWorkerProfileView {
   languages: string[];
   availability: string[];
   expectedPayMin: number | null;
+  /** @deprecated Legacy range max; prefer expectedPayMin + expectedPayPeriod. */
   expectedPayMax: number | null;
+  expectedPayPeriod: string | null;
   payCurrency: string | null;
   isVerified: boolean;
   isTopTalent: boolean;
@@ -91,7 +93,8 @@ export function buildPublicWorkerProfileView(input: {
   languages: string[] | null;
   availability: string[] | null;
   expectedPayMin: number | null;
-  expectedPayMax: number | null;
+  expectedPayMax?: number | null;
+  expectedPayPeriod: string | null;
   payCurrency: string | null;
   isVerified: boolean;
   isTopTalent: boolean;
@@ -112,7 +115,8 @@ export function buildPublicWorkerProfileView(input: {
     languages: input.languages ?? [],
     availability: input.availability ?? [],
     expectedPayMin: input.expectedPayMin,
-    expectedPayMax: input.expectedPayMax,
+    expectedPayMax: input.expectedPayMax ?? null,
+    expectedPayPeriod: input.expectedPayPeriod,
     payCurrency: input.payCurrency,
     isVerified: input.isVerified,
     isTopTalent: input.isTopTalent,

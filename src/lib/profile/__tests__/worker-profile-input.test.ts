@@ -118,6 +118,9 @@ describe("worker profile input", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.data.payCurrency).toBe(DEFAULT_WORKER_PAY_CURRENCY);
+        expect(result.data.expectedPayMin).toBeNull();
+        expect(result.data.expectedPayMax).toBeNull();
+        expect(result.data.expectedPayPeriod).toBeNull();
       }
     });
 
@@ -131,6 +134,44 @@ describe("worker profile input", () => {
       if (result.ok) {
         expect(result.data.payCurrency).toBe("USD");
       }
+    });
+
+    it("stores a single expected pay amount with period and clears max", () => {
+      const result = parseProfileLocation({
+        location: "Bangkok",
+        availability: ["Full-time"],
+        expectedPayAmount: 15000,
+        expectedPayPeriod: "month",
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.expectedPayMin).toBe(15000);
+        expect(result.data.expectedPayMax).toBeNull();
+        expect(result.data.expectedPayPeriod).toBe("month");
+      }
+    });
+
+    it("defaults period to day when amount is provided without period", () => {
+      const result = parseProfileLocation({
+        location: "Bangkok",
+        availability: ["Full-time"],
+        expectedPayAmount: 800,
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data.expectedPayMin).toBe(800);
+        expect(result.data.expectedPayPeriod).toBe("day");
+      }
+    });
+
+    it("rejects hourly pay period", () => {
+      const result = parseProfileLocation({
+        location: "Bangkok",
+        availability: ["Full-time"],
+        expectedPayAmount: 200,
+        expectedPayPeriod: "hour",
+      });
+      expect(result.ok).toBe(false);
     });
 
     it("accepts multiple availability options", () => {

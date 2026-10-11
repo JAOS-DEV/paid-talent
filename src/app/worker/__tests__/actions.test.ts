@@ -148,4 +148,21 @@ describe("worker profile actions", () => {
       expect.objectContaining({ payCurrency: "USD" })
     );
   });
+
+  it("persists single expected pay amount with period and clears max", async () => {
+    const result = await updateProfileLocation({
+      location: "Bangkok",
+      availability: ["Flexible"],
+      expectedPayAmount: 15000,
+      expectedPayPeriod: "month",
+    });
+    expect(result.success).toBe(true);
+    expect(mocks.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedPayMin: 15000,
+        expectedPayMax: null,
+        expectedPayPeriod: "month",
+      })
+    );
+  });
 });

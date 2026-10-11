@@ -22,6 +22,7 @@ function createMockProfile(
     availability: ["Full-time"],
     expectedPayMin: null,
     expectedPayMax: null,
+    expectedPayPeriod: null,
     payCurrency: "THB",
     jobRoles: ["Bartender"],
     experience: null,
