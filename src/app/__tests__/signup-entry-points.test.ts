@@ -86,11 +86,22 @@ describe("public signup entry points", () => {
     }
   });
 
-  it("footer role CTAs skip role-select and go to age-gate", () => {
+  it("footer role CTAs skip role-select and go to age-gate when signed out", () => {
     const footer = readSrc("components/layout/Footer.tsx");
     expect(footer).toContain('href="/auth/age-gate?role=worker"');
     expect(footer).toContain('href="/auth/age-gate?role=recruiter"');
+    expect(footer).toContain("showSignupCtas");
+    expect(footer).toContain('status !== "authenticated"');
     expect(footer).not.toMatch(/href=["']\/auth\/role-select\?role=/);
+  });
+
+  it("footer content links point at real marketing/legal routes", () => {
+    const footer = readSrc("components/layout/Footer.tsx");
+    expect(footer).toContain('href="/how-it-works"');
+    expect(footer).toContain('href="/top-talent"');
+    expect(footer).toContain('href="/privacy"');
+    expect(footer).toContain('href="/terms"');
+    expect(footer).not.toMatch(/href=["']#["']/);
   });
 
   it("does not put date of birth into the signup-intent cookie helper", () => {

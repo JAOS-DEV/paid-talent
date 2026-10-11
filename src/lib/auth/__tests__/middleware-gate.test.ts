@@ -10,6 +10,10 @@ describe("resolveMiddlewareGate", () => {
     it("allows public pre-auth routes", () => {
       for (const pathname of [
         "/",
+        "/how-it-works",
+        "/top-talent",
+        "/privacy",
+        "/terms",
         "/auth/signin",
         "/auth/role-select",
         "/auth/age-gate",

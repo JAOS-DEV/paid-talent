@@ -6,6 +6,7 @@ import {
   getSessionHomePath,
   isAuthApiPath,
   resolveRoleRouteRedirect,
+  resolveSignedInSignupRedirect,
 } from "@/lib/auth/middleware-paths";
 import {
   SIGNUP_INTENT_COOKIE,
@@ -62,6 +63,11 @@ export default auth((req) => {
 
     if (!session?.user || !user || signupPending) {
       return NextResponse.next();
+    }
+
+    const signupRedirect = resolveSignedInSignupRedirect(pathname, user.role);
+    if (signupRedirect) {
+      return NextResponse.redirect(new URL(signupRedirect, req.url));
     }
 
     if (pathname === "/" && (user.role === "worker" || user.role === "recruiter")) {

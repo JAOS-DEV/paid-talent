@@ -10,6 +10,10 @@ import {
 
 export const AUTH_PUBLIC_ROUTES = [
   "/",
+  "/how-it-works",
+  "/top-talent",
+  "/privacy",
+  "/terms",
   "/auth/signin",
   "/auth/role-select",
   "/auth/age-gate",
