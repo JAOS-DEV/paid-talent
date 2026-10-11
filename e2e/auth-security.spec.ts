@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { findAuthSessionCookie } from "./helpers/session-cookie";
 
 /**
  * Auth Security E2E Tests
@@ -53,9 +54,7 @@ test.describe("Auth Security - Session Creation Guard", () => {
 
       // Get cookies before submission
       const cookiesBefore = await page.context().cookies();
-      const sessionCookieBefore = cookiesBefore.find(
-        (c) => c.name.includes("authjs") || c.name.includes("next-auth")
-      );
+      const sessionCookieBefore = findAuthSessionCookie(cookiesBefore);
 
       // Submit the form
       const submitButton = page.getByRole("button", { name: /continue with email|send.*link/i });
@@ -79,13 +78,11 @@ test.describe("Auth Security - Session Creation Guard", () => {
 
       // CRITICAL: Check that no session cookie was created
       const cookiesAfter = await page.context().cookies();
-      const sessionCookieAfter = cookiesAfter.find(
-        (c) => c.name.includes("authjs") || c.name.includes("next-auth")
-      );
+      const sessionCookieAfter = findAuthSessionCookie(cookiesAfter);
 
       // If there was no session before, there should be no session after
       // (Unless magic link was actually clicked, which it wasn't)
-      if (!sessionCookieBefore?.value) {
+      if (!sessionCookieBefore) {
         expect(sessionCookieAfter?.value || "").toBeFalsy();
       }
 
@@ -112,11 +109,9 @@ test.describe("Auth Security - Session Creation Guard", () => {
 
       await expect(page.getByRole("heading", { name: /check your email/i })).toBeVisible();
 
-      // Verify no session cookie exists
+      // Verify no session cookie exists (CSRF / callback-url cookies are not sessions)
       const cookies = await page.context().cookies();
-      const sessionCookie = cookies.find(
-        (c) => (c.name.includes("authjs") || c.name.includes("next-auth")) && c.value
-      );
+      const sessionCookie = findAuthSessionCookie(cookies);
 
       // A user on verify-request should not have an established session
       // (They're waiting for the magic link)
@@ -280,9 +275,7 @@ test.describe("Auth Security - Mobile", () => {
 
     // Same security checks as desktop
     const cookies = await page.context().cookies();
-    const sessionCookie = cookies.find(
-      (c) => c.name.includes("authjs") || c.name.includes("next-auth")
-    );
+    const sessionCookie = findAuthSessionCookie(cookies);
 
     // No session should be created without magic link click
     expect(sessionCookie?.value || "").toBeFalsy();
