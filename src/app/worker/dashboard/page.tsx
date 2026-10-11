@@ -15,10 +15,12 @@ import {
 } from "@/components/ui";
 import { VerificationStatusBanner } from "@/components/verification";
 import { WorkerConfirmationCard } from "@/components/hire-outcomes";
+import { WhatHappensNextCard } from "@/components/worker-dashboard";
 import { WorkerRecentInterests } from "@/components/worker-interest/WorkerRecentInterests";
 import { getProfileCompleteness } from "@/lib/profile";
 import { getWorkerDashboardProfileAction } from "@/lib/helpers/worker-dashboard-access";
 import type { WorkerDashboardData } from "@/lib/worker-dashboard";
+import { emptyPhotoSlots } from "@/lib/worker-dashboard/types";
 
 function StatSkeleton(): React.ReactElement {
   return (
@@ -149,6 +151,16 @@ export default function WorkerDashboardPage(): React.ReactElement {
             </h1>
             <p className="text-charcoal-400 mt-1">{t("subtitle")}</p>
           </div>
+
+          {!loading && completeness ? (
+            <WhatHappensNextCard
+              userId={session.user.id}
+              completeness={completeness}
+              photoSlots={photoSlots ?? emptyPhotoSlots()}
+              verificationStatus={verificationStatus}
+              profile={profile}
+            />
+          ) : null}
 
           {pendingConfirmations.length > 0 && (
             <div className="mb-6 space-y-4">

@@ -504,6 +504,15 @@ export default function WorkerProfilePage(): React.ReactElement {
               {t("editTitle")}
             </h1>
             <p className="text-charcoal-400 mt-1">{t("editSubtitle")}</p>
+            {session.user.email ? (
+              <p
+                className="mt-3 text-sm text-charcoal-400"
+                data-testid="signed-in-as"
+              >
+                <span>{t("signedInAs")}</span>{" "}
+                <span className="text-charcoal-200">{session.user.email}</span>
+              </p>
+            ) : null}
 
             {!completeness.isComplete && (
               <div className="mt-4 bg-charcoal-800 border border-charcoal-700 rounded-lg p-4">

@@ -24,6 +24,7 @@ import {
 
 interface RecruiterProfileFormProps {
   initialProfile: RecruiterProfile | null;
+  accountEmail?: string | null;
 }
 
 const REQUIRED_STEP_KEYS: Record<string, "venueStep" | "areaStep" | "blurbStep"> = {
@@ -44,6 +45,7 @@ const AREA_CHIPS = [
 
 export function RecruiterProfileForm({
   initialProfile,
+  accountEmail,
 }: RecruiterProfileFormProps): React.ReactElement {
   const t = useTranslations("recruiter.profile");
   const common = useTranslations("common");
@@ -150,6 +152,15 @@ export function RecruiterProfileForm({
                   {t("title")}
                 </h2>
                 <p className="text-sm text-charcoal-400 mt-1">{t("subtitle")}</p>
+                {accountEmail ? (
+                  <p
+                    className="mt-2 text-sm text-charcoal-400"
+                    data-testid="signed-in-as"
+                  >
+                    <span>{t("signedInAs")}</span>{" "}
+                    <span className="text-charcoal-200">{accountEmail}</span>
+                  </p>
+                ) : null}
                 <p className="text-xs text-charcoal-500 mt-2">{t("logoHint")}</p>
               </div>
             </div>

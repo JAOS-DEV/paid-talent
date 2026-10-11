@@ -211,13 +211,19 @@ describe("WorkerDashboardPage", () => {
 
     render(<WorkerDashboardPage />);
 
-    expect(await screen.findByText(/14% complete/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText((_content, element) =>
+        element?.tagName === "SPAN" &&
+        Boolean(element.textContent?.match(/^14% complete$/i))
+      )
+    ).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalledWith("/worker/onboarding");
     expect(screen.getByRole("button", { name: /complete profile/i })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /complete profile/i }).closest("a")
     ).toHaveAttribute("href", "/worker/onboarding");
     expect(screen.getByText(/quick tips/i)).toBeInTheDocument();
+    expect(screen.getByTestId("what-happens-next-card")).toBeInTheDocument();
   });
 
   it("keeps complete-profile behaviour for a finished profile", async () => {

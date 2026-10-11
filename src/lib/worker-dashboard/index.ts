@@ -16,6 +16,13 @@ export {
   profileViewWindowStart,
   toSlotCount,
 } from "./types";
+export {
+  readWhatHappensNextDismissed,
+  shouldShowWhatHappensNext,
+  whatHappensNextStorageKey,
+  workerHasPublishedContact,
+  writeWhatHappensNextDismissed,
+} from "./what-happens-next-dismissal";
 export type {
   WorkerDashboardData,
   WorkerDashboardPhotoSlots,
