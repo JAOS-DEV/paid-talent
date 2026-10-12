@@ -693,7 +693,11 @@
       "interestSent": "Interest Sent",
       "expressInterest": "Express Interest",
       "interestHint": "Applies to \"I'm Interested\" on worker cards below. Optional — leave as General interest if you prefer.",
-      "verified": "Verified"
+      "verified": "Verified",
+      "verifyToSeeFull": "Verify to see full profiles",
+      "teaserNameHidden": "Verified talent",
+      "lockedTopTalentHint": "Verified Pro recruiters can view and message Top Talent",
+      "upgradeForTopTalent": "Upgrade for Top Talent"
     },
     "workerDetail": {
       "profileNotFound": "Profile not found",
@@ -707,7 +711,21 @@
       "interestSentBody": "Your interest has been sent to this worker.",
       "hireStatus": "Hire Status",
       "hiredOn": "Hired:",
-      "startedOn": "Started:"
+      "startedOn": "Started:",
+      "verifyToSeeFull": "Verify to see full profiles"
+    },
+    "accessBanner": {
+      "unverifiedTitle": "Browse teaser profiles",
+      "unverifiedBody": "You can see that real verified talent is here. Verify your identity to unlock full profiles and contact requests.",
+      "unverifiedVenueBody": "Your identity is verified. Add a venue link and wait for approval to unlock full profiles.",
+      "verifyCta": "Verify identity",
+      "addVenueCta": "Add venue",
+      "freeTitle": "Verified recruiter",
+      "freeBody": "You can browse full profiles. Upgrade to Verified Pro to view and message Top Talent.",
+      "freeOpenAccessBody": "You can browse full profiles, including Top Talent. Premium messaging limits may still require a subscription later.",
+      "upgradeCta": "Upgrade",
+      "proTitle": "Verified Pro",
+      "proBody": "You can view Top Talent profiles and use premium messaging features."
     },
     "profile": {
       "title": "Venue profile",

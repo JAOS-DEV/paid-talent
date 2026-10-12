@@ -13,10 +13,11 @@ import {
   deniedActiveUserResponse,
   requireActiveRecruiter,
 } from "@/lib/auth/require-active-user";
+import { getRecruiterAccess } from "@/lib/recruiter-access";
 import {
-  toSearchWorkerResult,
+  toRecruiterSearchWorkerDto,
   type SearchWorkerResult,
-} from "@/lib/worker-profile/recruiter-dto";
+} from "@/lib/recruiter-access/worker-dto";
 
 export type { SearchWorkerResult };
 
@@ -27,15 +28,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return deniedActiveUserResponse(actor);
     }
 
+    const access = await getRecruiterAccess(actor.user.userId);
+
     const { searchParams } = new URL(request.url);
+    const rawQuery = searchParams.get("query") || searchParams.get("q") || undefined;
+    const rawMaxPay = searchParams.get("maxPay") || undefined;
+
     const validation = validateSearchParams({
-      query: searchParams.get("query") || searchParams.get("q") || undefined,
+      query: access.canBrowseFull ? rawQuery : undefined,
       role: searchParams.get("role") || searchParams.get("jobRole") || undefined,
       area: searchParams.get("area") || undefined,
       availability: searchParams.get("availability") || undefined,
       verified: searchParams.get("verified") || undefined,
-      maxPay: searchParams.get("maxPay") || undefined,
-      payPeriod: searchParams.get("payPeriod") || undefined,
+      maxPay: access.canBrowseFull ? rawMaxPay : undefined,
+      payPeriod: access.canBrowseFull
+        ? searchParams.get("payPeriod") || undefined
+        : undefined,
       limit: searchParams.get("limit") || 20,
       offset: searchParams.get("offset") || 0,
     });
@@ -116,7 +124,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const results: SearchWorkerResult[] = await Promise.all(
       searchableProfiles.map(async (profile) =>
-        toSearchWorkerResult(profile, await isProfileTopTalent(profile.id))
+        toRecruiterSearchWorkerDto(
+          profile,
+          access,
+          await isProfileTopTalent(profile.id)
+        )
       )
     );
 

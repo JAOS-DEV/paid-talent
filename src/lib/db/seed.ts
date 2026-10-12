@@ -197,7 +197,7 @@ const SEED_USERS: {
       whatsappNumber: null,
       phoneNumber: "+66845678901",
       isTopTalent: false,
-      verificationStatus: "pending" as VerificationStatusType,
+      verificationStatus: "verified" as VerificationStatusType,
     },
     {
       email: "worker5@example.com",
@@ -217,7 +217,7 @@ const SEED_USERS: {
       whatsappNumber: "+66856789012",
       phoneNumber: "+66856789012",
       isTopTalent: false,
-      verificationStatus: "pending" as VerificationStatusType,
+      verificationStatus: "verified" as VerificationStatusType,
     },
     {
       email: "worker6@example.com",
@@ -282,6 +282,32 @@ const SEED_USERS: {
   ],
   recruiters: [
     {
+      email: "recruiter-unverified@example.com",
+      name: "Unverified Recruiter",
+      organizationName: "Teaser Browse Co",
+      organizationType: "Bar",
+      description: "Unverified recruiter for teaser browse testing",
+      location: "Pattaya",
+      area: "Central Pattaya",
+      blurb: "Seed recruiter used to test blurred teaser search before identity verification.",
+      website: "https://www.facebook.com/teaserbrowseco",
+      hasSubscription: false,
+      verificationStatus: "unverified",
+      venues: [
+        {
+          name: "Teaser Browse Co",
+          venueType: "Bar",
+          area: "Central Pattaya",
+          blurb: "Venue pending — recruiter is still unverified.",
+          venueLinkUrl: "https://www.facebook.com/teaserbrowseco",
+          venueLinkKind: "facebook",
+          reviewStatus: "pending",
+          isPrimary: true,
+        },
+      ],
+      openings: [],
+    },
+    {
       email: "recruiter-free@example.com",
       name: "Free Recruiter",
       organizationName: "Small Bar Co",
@@ -294,7 +320,7 @@ const SEED_USERS: {
       website: "https://www.facebook.com/smallbarco",
       lineId: "smallbarco_line",
       hasSubscription: false,
-      verificationStatus: "unverified",
+      verificationStatus: "verified",
       venues: [
         {
           name: "Small Bar Co",
@@ -304,7 +330,7 @@ const SEED_USERS: {
           blurb: "Friendly neighborhood bar with live music and great cocktails.",
           venueLinkUrl: "https://www.facebook.com/smallbarco",
           venueLinkKind: "facebook",
-          reviewStatus: "pending",
+          reviewStatus: "approved",
           isPrimary: true,
         },
       ],
@@ -594,6 +620,14 @@ async function seed(): Promise<void> {
 
       let profileId: string;
 
+      const isWorkerVerified = worker.verificationStatus === "verified";
+      const photoKey = isWorkerVerified
+        ? `profiles/${userId}/seed-avatar.jpg`
+        : null;
+      const photoUrl = isWorkerVerified
+        ? `https://cdn.example/profiles/${userId}/seed-avatar.jpg`
+        : null;
+
       if (existingProfile.length > 0) {
         profileId = existingProfile[0].id;
 
@@ -616,9 +650,11 @@ async function seed(): Promise<void> {
             lineId: worker.lineId,
             whatsappNumber: worker.whatsappNumber,
             phoneNumber: worker.phoneNumber,
+            photoKey,
+            photoUrl,
             isPublished: true,
             verificationStatus: worker.verificationStatus,
-            isVerified: worker.verificationStatus === "verified",
+            isVerified: isWorkerVerified,
             updatedAt: new Date(),
           })
           .where(eq(schema.workerProfiles.id, profileId));
@@ -643,15 +679,36 @@ async function seed(): Promise<void> {
             lineId: worker.lineId,
             whatsappNumber: worker.whatsappNumber,
             phoneNumber: worker.phoneNumber,
+            photoKey,
+            photoUrl,
             isPublished: true,
             verificationStatus: worker.verificationStatus,
-            isVerified: worker.verificationStatus === "verified",
+            isVerified: isWorkerVerified,
             createdAt: new Date(),
             updatedAt: new Date(),
           })
           .returning();
 
         profileId = newProfile.id;
+      }
+
+      if (isWorkerVerified && photoKey && photoUrl) {
+        await db
+          .delete(schema.profilePhotos)
+          .where(eq(schema.profilePhotos.workerProfileId, profileId));
+        await db.insert(schema.profilePhotos).values({
+          userId,
+          workerProfileId: profileId,
+          photoKey,
+          photoUrl,
+          moderationStatus: "approved",
+          moderationReviewedAt: new Date(),
+          moderationReviewedBy: "admin@example.com",
+          displayOrder: 0,
+          isCurrentApproved: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
       }
 
       createdWorkers.push({
@@ -1134,8 +1191,32 @@ async function seed(): Promise<void> {
       console.log("");
     }
 
-    console.log("🏢 RECRUITERS:");
+    // Ensure platform settings exist (default billing mode = enforced).
+    // Toggle to open_access in admin to exercise free + canViewTopTalentFull.
+    await db
+      .insert(schema.platformSettings)
+      .values({
+        id: schema.PLATFORM_SETTINGS_ID,
+        billingAccessMode: "enforced",
+        updatedAt: new Date(),
+      })
+      .onConflictDoNothing();
+
+    console.log("🏢 RECRUITERS (access tiers):");
     console.log("-".repeat(40));
+    console.log(
+      "   unverified → recruiter-unverified@ (teaser browse)"
+    );
+    console.log(
+      "   free       → recruiter-free@ (verified + approved venue)"
+    );
+    console.log(
+      "   pro/paid   → recruiter-pro@ (subscription)"
+    );
+    console.log(
+      "   open_access viewing → set billing mode to open_access; free recruiter keeps tier free"
+    );
+    console.log("");
     for (const recruiter of SEED_USERS.recruiters) {
       const status = recruiter.hasSubscription ? "💳 Subscribed" : "🆓 Free";
       console.log(`${status}`);

@@ -45,6 +45,7 @@ vi.mock("@/lib/db", () => ({
   subscriptions: {},
   verificationEvents: {},
   adminAuditEvents: {},
+  platformSettings: {},
 }));
 
 vi.mock("next/server", () => ({

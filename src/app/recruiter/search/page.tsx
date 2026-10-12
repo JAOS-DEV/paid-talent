@@ -15,8 +15,12 @@ import {
   TopTalentBadge,
 } from "@/components/ui";
 import { AdSense } from "@/components/ads";
-import { OpeningInterestSelect } from "@/components/recruiter";
-import type { SearchWorkerResult } from "@/lib/worker-profile/recruiter-dto";
+import {
+  OpeningInterestSelect,
+  RecruiterAccessBanner,
+} from "@/components/recruiter";
+import type { SearchWorkerResult } from "@/lib/recruiter-access/worker-dto";
+import type { RecruiterAccessDto } from "@/lib/recruiter-access";
 import type { RecruiterOpening } from "@/lib/db/schema";
 import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import { AVAILABILITY_OPTIONS } from "@/lib/profile/availability";
@@ -33,19 +37,138 @@ import {
   formatWorkerExpectedPay,
 } from "@/lib/profile/expected-pay";
 
+function isLockedTopTalent(worker: SearchWorkerResult): boolean {
+  return (
+    worker.mode === "teaser" &&
+    worker.isTopTalent &&
+    worker.firstName == null
+  );
+}
+
+function verifyHref(access: RecruiterAccessDto | null): string {
+  if (access && access.identityStatus === "verified" && !access.hasApprovedVenue) {
+    return "/recruiter/venues";
+  }
+  return "/recruiter/verification";
+}
+
 interface WorkerCardProps {
   worker: SearchWorkerResult;
   interestSent: boolean;
   onExpressInterest: () => void;
+  verifyCtaHref: string;
 }
 
 function WorkerCard({
   worker,
   interestSent,
   onExpressInterest,
+  verifyCtaHref,
 }: WorkerCardProps): React.ReactElement {
   const t = useTranslations("recruiter.search");
   const roleLabels = useTranslations("roles");
+
+  if (worker.mode === "teaser") {
+    const locked = isLockedTopTalent(worker);
+    return (
+      <Card hover padding="lg">
+        <CardContent>
+          <div className="flex items-start space-x-4">
+            <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 bg-charcoal-700">
+              <img
+                src={worker.teaserPhotoPath}
+                alt=""
+                className="w-full h-full object-cover scale-150"
+              />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                {locked ? (
+                  <>
+                    <span className="text-charcoal-400" aria-hidden>
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        />
+                      </svg>
+                    </span>
+                    <TopTalentBadge />
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold text-charcoal-100 truncate">
+                      {worker.firstName ?? t("teaserNameHidden")}
+                    </h3>
+                    {worker.isTopTalent && <TopTalentBadge />}
+                    <Badge variant="success">{t("verified")}</Badge>
+                  </>
+                )}
+              </div>
+
+              {locked ? (
+                <p className="text-charcoal-400 text-sm mb-2">
+                  {t("lockedTopTalentHint")}
+                </p>
+              ) : (
+                <>
+                  {worker.area ? (
+                    <p className="text-charcoal-400 text-sm mb-2">{worker.area}</p>
+                  ) : null}
+                  {worker.jobRoles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {worker.jobRoles.slice(0, 3).map((role) => (
+                        <Badge key={role}>
+                          {translateCatalogValue(
+                            roleLabels,
+                            JOB_ROLE_MESSAGE_KEYS,
+                            role
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {worker.availability.length > 0 && (
+                    <div className="mb-1">
+                      <AvailabilityBadges values={worker.availability} />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-charcoal-700">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <Link href={`/recruiter/profile/${worker.id}`}>
+                <Button variant="outline" size="sm">
+                  {t("viewProfile")}
+                </Button>
+              </Link>
+              {locked ? (
+                <Link href="/recruiter/upgrade">
+                  <Button size="sm">{t("upgradeForTopTalent")}</Button>
+                </Link>
+              ) : (
+                <Link href={verifyCtaHref}>
+                  <Button size="sm">{t("verifyToSeeFull")}</Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const expectedPayLabel = formatWorkerExpectedPay(worker);
 
   return (
@@ -181,6 +304,7 @@ export default function SearchPage(): React.ReactElement {
   const [total, setTotal] = useState(0);
   const [sentInterests, setSentInterests] = useState<Set<string>>(new Set());
   const [selectedOpeningId, setSelectedOpeningId] = useState("");
+  const [access, setAccess] = useState<RecruiterAccessDto | null>(null);
   const [publishedOpenings, setPublishedOpenings] = useState<
     Pick<
       RecruiterOpening,
@@ -195,15 +319,18 @@ export default function SearchPage(): React.ReactElement {
     >[]
   >([]);
 
+  const canBrowseFull = access?.canBrowseFull === true;
+  const verifyCtaHref = verifyHref(access);
+
   const fetchWorkers = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (filters.query) params.set("query", filters.query);
+      if (canBrowseFull && filters.query) params.set("query", filters.query);
       if (filters.role) params.set("role", filters.role);
       if (filters.area) params.set("area", filters.area);
       if (filters.availability) params.set("availability", filters.availability);
-      if (filters.maxPay.trim()) {
+      if (canBrowseFull && filters.maxPay.trim()) {
         params.set("maxPay", filters.maxPay.trim());
         params.set("payPeriod", filters.payPeriod);
       }
@@ -219,7 +346,7 @@ export default function SearchPage(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, canBrowseFull]);
 
   const fetchInterests = useCallback(async () => {
     try {
@@ -265,16 +392,33 @@ export default function SearchPage(): React.ReactElement {
   }, []);
 
   useEffect(() => {
-    if (status === "authenticated") {
-      const loadData = async (): Promise<void> => {
-        await Promise.all([
-          fetchWorkers(),
-          fetchInterests(),
-          fetchPublishedOpenings(),
-        ]);
-      };
-      void loadData();
-    }
+    if (status !== "authenticated") return;
+
+    let cancelled = false;
+
+    const loadData = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/recruiter/access");
+        if (!cancelled && response.ok) {
+          setAccess((await response.json()) as RecruiterAccessDto);
+        }
+      } catch {
+        if (!cancelled) setAccess(null);
+      }
+
+      if (cancelled) return;
+
+      await Promise.all([
+        fetchWorkers(),
+        fetchInterests(),
+        fetchPublishedOpenings(),
+      ]);
+    };
+
+    void loadData();
+    return () => {
+      cancelled = true;
+    };
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleApplyFilters = (): void => {
@@ -317,6 +461,8 @@ export default function SearchPage(): React.ReactElement {
 
       <main className="flex-1 bg-charcoal-950 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <RecruiterAccessBanner />
+
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-charcoal-100">
               {t("pageTitle")}
@@ -330,14 +476,16 @@ export default function SearchPage(): React.ReactElement {
                 <CardContent className="space-y-4">
                   <h3 className="font-semibold text-charcoal-100">{t("filters")}</h3>
 
-                  <Input
-                    label={t("searchLabel")}
-                    placeholder={t("searchPlaceholder")}
-                    value={filters.query}
-                    onChange={(e) =>
-                      setFilters((f) => ({ ...f, query: e.target.value }))
-                    }
-                  />
+                  {canBrowseFull ? (
+                    <Input
+                      label={t("searchLabel")}
+                      placeholder={t("searchPlaceholder")}
+                      value={filters.query}
+                      onChange={(e) =>
+                        setFilters((f) => ({ ...f, query: e.target.value }))
+                      }
+                    />
+                  ) : null}
 
                   <div>
                     <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
@@ -411,49 +559,51 @@ export default function SearchPage(): React.ReactElement {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
-                      {t("maxExpectedPay")}
-                    </label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        max={WORKER_EXPECTED_PAY_AMOUNT_MAX}
-                        step={1}
-                        placeholder={t("maxPayPlaceholder")}
-                        value={filters.maxPay}
-                        onChange={(e) =>
-                          setFilters((f) => ({ ...f, maxPay: e.target.value }))
-                        }
-                        className="flex-1"
-                      />
-                      <select
-                        value={filters.payPeriod}
-                        onChange={(e) =>
-                          setFilters((f) => ({
-                            ...f,
-                            payPeriod: e.target
-                              .value as WorkerExpectedPayPeriod,
-                          }))
-                        }
-                        aria-label={t("payPeriod")}
-                        className="px-3 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      >
-                        {WORKER_EXPECTED_PAY_PERIOD_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.value === "day"
-                              ? t("perDay")
-                              : t("perMonth")}
-                          </option>
-                        ))}
-                      </select>
+                  {canBrowseFull ? (
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal-200 mb-1.5">
+                        {t("maxExpectedPay")}
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={WORKER_EXPECTED_PAY_AMOUNT_MAX}
+                          step={1}
+                          placeholder={t("maxPayPlaceholder")}
+                          value={filters.maxPay}
+                          onChange={(e) =>
+                            setFilters((f) => ({ ...f, maxPay: e.target.value }))
+                          }
+                          className="flex-1"
+                        />
+                        <select
+                          value={filters.payPeriod}
+                          onChange={(e) =>
+                            setFilters((f) => ({
+                              ...f,
+                              payPeriod: e.target
+                                .value as WorkerExpectedPayPeriod,
+                            }))
+                          }
+                          aria-label={t("payPeriod")}
+                          className="px-3 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        >
+                          {WORKER_EXPECTED_PAY_PERIOD_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.value === "day"
+                                ? t("perDay")
+                                : t("perMonth")}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <p className="text-charcoal-500 text-xs mt-1.5">
+                        {t("payFilterHint")}
+                      </p>
                     </div>
-                    <p className="text-charcoal-500 text-xs mt-1.5">
-                      {t("payFilterHint")}
-                    </p>
-                  </div>
+                  ) : null}
 
                   <Button fullWidth onClick={handleApplyFilters}>
                     {t("applyFilters")}
@@ -467,19 +617,21 @@ export default function SearchPage(): React.ReactElement {
             </div>
 
             <div className="lg:col-span-3">
-              <Card padding="md" className="mb-4">
-                <CardContent>
-                  <OpeningInterestSelect
-                    openings={publishedOpenings}
-                    value={selectedOpeningId}
-                    onChange={setSelectedOpeningId}
-                    id="search-interest-opening"
-                  />
-                  <p className="text-xs text-charcoal-500 mt-2">
-                    {t("interestHint")}
-                  </p>
-                </CardContent>
-              </Card>
+              {canBrowseFull ? (
+                <Card padding="md" className="mb-4">
+                  <CardContent>
+                    <OpeningInterestSelect
+                      openings={publishedOpenings}
+                      value={selectedOpeningId}
+                      onChange={setSelectedOpeningId}
+                      id="search-interest-opening"
+                    />
+                    <p className="text-xs text-charcoal-500 mt-2">
+                      {t("interestHint")}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : null}
 
               <div className="flex items-center justify-between mb-4">
                 <p className="text-charcoal-400 text-sm">
@@ -505,6 +657,7 @@ export default function SearchPage(): React.ReactElement {
                       worker={worker}
                       interestSent={sentInterests.has(worker.id)}
                       onExpressInterest={() => handleExpressInterest(worker.id)}
+                      verifyCtaHref={verifyCtaHref}
                     />
                   ))}
                 </div>
