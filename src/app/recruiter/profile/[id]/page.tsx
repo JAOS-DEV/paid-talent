@@ -17,7 +17,7 @@ import {
   HireOutcomeStatusBadge,
   HireOutcomeActions,
 } from "@/components/hire-outcomes";
-import { OpeningInterestSelect } from "@/components/recruiter";
+import { SendContactRequestDialog } from "@/components/contact-requests";
 import { WorkerPublicProfileView } from "@/components/worker-profile";
 import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import {
@@ -30,7 +30,6 @@ import type {
   HireConfirmationRequestStatus,
   HireConfirmationRequestedStatus,
   HireOutcomeStatus,
-  RecruiterOpening,
 } from "@/lib/db/schema";
 
 interface ProfilePageProps {
@@ -165,62 +164,18 @@ export default function ProfileDetailPage({
   const [access, setAccess] = useState<RecruiterAccessDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [interestLoading, setInterestLoading] = useState(false);
   const [interestSent, setInterestSent] = useState(false);
+  const [contactRequestStatus, setContactRequestStatus] = useState<
+    string | null
+  >(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [interestOutcome, setInterestOutcome] =
     useState<InterestOutcomeData | null>(null);
-  const [selectedOpeningId, setSelectedOpeningId] = useState("");
-  const [publishedOpenings, setPublishedOpenings] = useState<
-    Pick<
-      RecruiterOpening,
-      | "id"
-      | "role"
-      | "area"
-      | "isPublished"
-      | "payMin"
-      | "payMax"
-      | "payCurrency"
-      | "payPeriod"
-    >[]
-  >([]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
 
     let cancelled = false;
-
-    const loadOpenings = async (): Promise<void> => {
-      try {
-        const response = await fetch("/api/recruiter/openings");
-        if (cancelled) return;
-        if (!response.ok) {
-          setPublishedOpenings([]);
-          return;
-        }
-        const data = await response.json();
-        const openings = (data.openings || []) as RecruiterOpening[];
-        setPublishedOpenings(
-          openings
-            .filter((o) => o.isPublished)
-            .map((o) => ({
-              id: o.id,
-              role: o.role,
-              area: o.area,
-              isPublished: o.isPublished,
-              payMin: o.payMin,
-              payMax: o.payMax,
-              payCurrency: o.payCurrency,
-              payPeriod: o.payPeriod,
-            }))
-        );
-      } catch {
-        if (!cancelled) {
-          setPublishedOpenings([]);
-        }
-      }
-    };
-
-    void loadOpenings();
 
     const loadProfile = async (): Promise<void> => {
       try {
@@ -242,16 +197,23 @@ export default function ProfileDetailPage({
           const data = await profileRes.json();
           setProfile(data.profile);
           if (data.profile.mode === "full") {
-            setInterestSent(data.profile.hasExpressedInterest);
+            const cr = data.profile.contactRequest as
+              | { id: string; status: string }
+              | null
+              | undefined;
+            setInterestSent(Boolean(cr));
+            setContactRequestStatus(cr?.status ?? null);
 
-            if (data.profile.hasExpressedInterest && data.profile.interestId) {
+            if (cr?.status === "accepted") {
               setInterestOutcome({
-                interestId: data.profile.interestId,
+                interestId: cr.id,
                 status: data.profile.hireOutcomeStatus ?? "interested",
                 hiredAt: data.profile.hiredAt ?? null,
                 startedAt: data.profile.startedAt ?? null,
                 confirmationRequest: data.profile.confirmationRequest ?? null,
               });
+            } else {
+              setInterestOutcome(null);
             }
           }
         } else if (profileRes.status === 404) {
@@ -276,44 +238,6 @@ export default function ProfileDetailPage({
       cancelled = true;
     };
   }, [status, id, t]);
-
-  const handleExpressInterest = async (): Promise<void> => {
-    if (!profile || profile.mode !== "full" || interestSent || interestLoading) {
-      return;
-    }
-
-    try {
-      setInterestLoading(true);
-      const response = await fetch("/api/interests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workerProfileId: profile.id,
-          openingId: selectedOpeningId || null,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setInterestSent(true);
-        if (data.interestId) {
-          setInterestOutcome({
-            interestId: data.interestId,
-            status: "interested",
-            confirmationRequest: null,
-            hiredAt: null,
-            startedAt: null,
-          });
-        }
-      } else if (response.status === 409) {
-        setInterestSent(true);
-      }
-    } catch (err) {
-      console.error("Failed to express interest:", err);
-    } finally {
-      setInterestLoading(false);
-    }
-  };
 
   const handleRequestCreated = useCallback(
     (requestedStatus: HireConfirmationRequestedStatus) => {
@@ -469,9 +393,9 @@ export default function ProfileDetailPage({
                         confirmationRequest={interestOutcome.confirmationRequest}
                         onRequestCreated={handleRequestCreated}
                       />
-                      <Link href="/recruiter/interests" className="flex-1">
+                      <Link href="/recruiter/requests" className="flex-1">
                         <Button variant="outline" fullWidth>
-                          {t("viewAllInterests")}
+                          {t("viewAllRequests")}
                         </Button>
                       </Link>
                     </div>
@@ -479,19 +403,15 @@ export default function ProfileDetailPage({
                 ) : (
                   <>
                     <div className="w-full space-y-3">
-                      <OpeningInterestSelect
-                        openings={publishedOpenings}
-                        value={selectedOpeningId}
-                        onChange={setSelectedOpeningId}
-                      />
                       <div className="flex flex-col sm:flex-row gap-3">
                         <Button
                           fullWidth
-                          onClick={handleExpressInterest}
-                          disabled={interestSent || interestLoading}
-                          loading={interestLoading}
+                          onClick={() => setDialogOpen(true)}
+                          disabled={interestSent}
                         >
-                          {interestSent ? t("interestSent") : t("imInterested")}
+                          {interestSent
+                            ? t("requestSent")
+                            : t("sendContactRequest")}
                         </Button>
                         <Link href="/recruiter/search" className="flex-1">
                           <Button variant="outline" fullWidth>
@@ -505,7 +425,9 @@ export default function ProfileDetailPage({
               </div>
               {interestSent && !interestOutcome && (
                 <p className="text-center text-charcoal-400 text-sm mt-3">
-                  {t("interestSentBody")}
+                  {contactRequestStatus === "queued"
+                    ? t("requestQueuedBody")
+                    : t("requestSentBody")}
                 </p>
               )}
               {interestOutcome && (
@@ -532,6 +454,21 @@ export default function ProfileDetailPage({
       </main>
 
       <Footer />
+
+      {profile?.mode === "full" ? (
+        <SendContactRequestDialog
+          open={dialogOpen}
+          workerProfileId={profile.id}
+          workerDisplayName={profile.displayName}
+          isTopTalent={profile.isTopTalent}
+          onClose={() => setDialogOpen(false)}
+          onSent={() => {
+            setInterestSent(true);
+            setContactRequestStatus("pending");
+            setDialogOpen(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

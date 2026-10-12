@@ -315,9 +315,9 @@ test.describe("Mobile canonical signup", () => {
   });
 });
 
-test.describe("P2: Interest Button State", () => {
-  test.describe("Unit-level: WorkerCard interestSent prop behavior", () => {
-    test("Fresh recruiter sees Express Interest (not Interest Sent) on search page", async ({
+test.describe("P2: Contact Request Button State", () => {
+  test.describe("Unit-level: WorkerCard requestSent prop behavior", () => {
+    test("Fresh recruiter sees Send contact request (not Request Sent) on search page", async ({
       page,
     }) => {
       test.skip(
@@ -328,24 +328,24 @@ test.describe("P2: Interest Button State", () => {
       await page.goto("/recruiter/search");
 
       await expect(
-        page.getByRole("button", { name: /express interest/i }).first()
+        page.getByRole("button", { name: /send contact request/i }).first()
       ).toBeVisible({ timeout: 10000 });
 
-      const interestSentButtons = page.getByRole("button", {
-        name: /interest sent/i,
+      const requestSentButtons = page.getByRole("button", {
+        name: /request sent/i,
       });
-      await expect(interestSentButtons).toHaveCount(0);
+      await expect(requestSentButtons).toHaveCount(0);
 
-      const expressInterestButtons = page.getByRole("button", {
-        name: /express interest/i,
+      const sendRequestButtons = page.getByRole("button", {
+        name: /send contact request/i,
       });
-      const count = await expressInterestButtons.count();
+      const count = await sendRequestButtons.count();
       expect(count).toBeGreaterThan(0);
     });
   });
 
-  test.describe("Static verification: Seed does not plant interests", () => {
-    test("interestSent defaults to false in WorkerCard placeholder rendering", async ({
+  test.describe("Static verification: Seed does not plant open requests for all", () => {
+    test("requestSent defaults to false in WorkerCard placeholder rendering", async ({
       page,
     }) => {
       test.skip(
@@ -355,13 +355,13 @@ test.describe("P2: Interest Button State", () => {
 
       await page.goto("/recruiter/search");
 
-      const expressButtons = page.getByRole("button", {
-        name: /express interest/i,
+      const sendButtons = page.getByRole("button", {
+        name: /send contact request/i,
       });
 
       await page.waitForTimeout(2000);
 
-      const count = await expressButtons.count();
+      const count = await sendButtons.count();
       expect(count).toBeGreaterThanOrEqual(0);
     });
   });

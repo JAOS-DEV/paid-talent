@@ -90,6 +90,22 @@ export function Header(): React.ReactElement {
                   {t("admin")}
                 </Link>
               )}
+              {session?.user?.role === "worker" ? (
+                <Link
+                  href="/worker/requests"
+                  className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
+                >
+                  {t("requests")}
+                </Link>
+              ) : null}
+              {session?.user?.role === "recruiter" ? (
+                <Link
+                  href="/recruiter/requests"
+                  className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
+                >
+                  {t("requests")}
+                </Link>
+              ) : null}
               <Button
                 variant="ghost"
                 size="header"

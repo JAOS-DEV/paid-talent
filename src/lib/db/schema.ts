@@ -64,6 +64,21 @@ export const hireOutcomeStatusEnum = pgEnum("hire_outcome_status", [
   "started",
 ]);
 
+export const contactRequestStatusEnum = pgEnum("contact_request_status", [
+  "queued",
+  "pending",
+  "accepted",
+  "declined",
+  "withdrawn",
+  "expired",
+]);
+
+export const conversationStatusEnum = pgEnum("conversation_status", [
+  "open",
+  "closed",
+  "blocked",
+]);
+
 export const hireConfirmationRequestedStatusEnum = pgEnum(
   "hire_confirmation_requested_status",
   ["hired", "started"]
@@ -477,6 +492,122 @@ export const profileInterests = pgTable(
   ]
 );
 
+export const contactRequests = pgTable(
+  "contact_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recruiterUserId: uuid("recruiter_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recruiterProfileId: uuid("recruiter_profile_id")
+      .notNull()
+      .references(() => recruiterProfiles.id, { onDelete: "cascade" }),
+    venueId: uuid("venue_id").references(() => venues.id, {
+      onDelete: "set null",
+    }),
+    workerProfileId: uuid("worker_profile_id")
+      .notNull()
+      .references(() => workerProfiles.id, { onDelete: "cascade" }),
+    workerUserId: uuid("worker_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    openingId: uuid("opening_id").references(() => recruiterOpenings.id, {
+      onDelete: "set null",
+    }),
+    openerText: text("opener_text").notNull(),
+    followUpText: text("follow_up_text"),
+    followUpSentAt: timestamp("follow_up_sent_at", { mode: "date" }),
+    status: contactRequestStatusEnum("status").notNull().default("pending"),
+    isPro: boolean("is_pro").notNull().default(false),
+    isTopTalentTarget: boolean("is_top_talent_target").notNull().default(false),
+    countsTowardCaps: boolean("counts_toward_caps").notNull().default(true),
+    isFlagged: boolean("is_flagged").notNull().default(false),
+    deliveredAt: timestamp("delivered_at", { mode: "date" }),
+    respondedAt: timestamp("responded_at", { mode: "date" }),
+    expiresAt: timestamp("expires_at", { mode: "date" }),
+    workerHiddenAt: timestamp("worker_hidden_at", { mode: "date" }),
+    legacyInterestId: uuid("legacy_interest_id").unique(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("contact_requests_recruiter_created_idx").on(
+      table.recruiterUserId,
+      table.createdAt
+    ),
+    index("contact_requests_worker_status_delivered_idx").on(
+      table.workerProfileId,
+      table.status,
+      table.deliveredAt
+    ),
+    index("contact_requests_status_expires_idx").on(
+      table.status,
+      table.expiresAt
+    ),
+    uniqueIndex("contact_requests_open_pair_uidx")
+      .on(table.recruiterUserId, table.workerProfileId)
+      .where(sql`${table.status} IN ('queued', 'pending', 'accepted')`),
+  ]
+);
+
+export const conversations = pgTable(
+  "conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contactRequestId: uuid("contact_request_id")
+      .notNull()
+      .unique()
+      .references(() => contactRequests.id, { onDelete: "cascade" }),
+    recruiterUserId: uuid("recruiter_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workerUserId: uuid("worker_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workerProfileId: uuid("worker_profile_id")
+      .notNull()
+      .references(() => workerProfiles.id, { onDelete: "cascade" }),
+    venueId: uuid("venue_id").references(() => venues.id, {
+      onDelete: "set null",
+    }),
+    status: conversationStatusEnum("status").notNull().default("open"),
+    lastMessageAt: timestamp("last_message_at", { mode: "date" }),
+    lastActivityAt: timestamp("last_activity_at", { mode: "date" })
+      .notNull()
+      .defaultNow(),
+    retentionExpiresAt: timestamp("retention_expires_at", { mode: "date" }),
+    legalHoldUntil: timestamp("legal_hold_until", { mode: "date" }),
+    workerHiddenAt: timestamp("worker_hidden_at", { mode: "date" }),
+    recruiterHiddenAt: timestamp("recruiter_hidden_at", { mode: "date" }),
+    workerLastReadAt: timestamp("worker_last_read_at", { mode: "date" }),
+    recruiterLastReadAt: timestamp("recruiter_last_read_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("conversations_worker_last_message_idx").on(
+      table.workerUserId,
+      table.lastMessageAt
+    ),
+    index("conversations_recruiter_last_message_idx").on(
+      table.recruiterUserId,
+      table.lastMessageAt
+    ),
+    index("conversations_retention_expires_idx").on(table.retentionExpiresAt),
+  ]
+);
+
+export const userNotificationPrefs = pgTable("user_notification_prefs", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  emailEnabled: boolean("email_enabled").notNull().default(true),
+  lineEnabled: boolean("line_enabled").notNull().default(true),
+  locale: text("locale").notNull().default("th"),
+  inboundDailyLimit: integer("inbound_daily_limit"),
+  inboundPaused: boolean("inbound_paused").notNull().default(false),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+});
+
 export const hireOutcomes = pgTable(
   "hire_outcomes",
   {
@@ -485,6 +616,10 @@ export const hireOutcomes = pgTable(
       .notNull()
       .unique()
       .references(() => profileInterests.id, { onDelete: "cascade" }),
+    contactRequestId: uuid("contact_request_id").references(
+      () => contactRequests.id,
+      { onDelete: "set null" }
+    ),
     status: hireOutcomeStatusEnum("status").notNull().default("interested"),
     hiredAt: timestamp("hired_at", { mode: "date" }),
     startedAt: timestamp("started_at", { mode: "date" }),
@@ -494,6 +629,7 @@ export const hireOutcomes = pgTable(
   },
   (table) => [
     index("hire_outcomes_interest_id_idx").on(table.interestId),
+    index("hire_outcomes_contact_request_id_idx").on(table.contactRequestId),
     index("hire_outcomes_status_idx").on(table.status),
   ]
 );
@@ -505,6 +641,10 @@ export const hireOutcomeConfirmationRequests = pgTable(
     interestId: uuid("interest_id")
       .notNull()
       .references(() => profileInterests.id, { onDelete: "cascade" }),
+    contactRequestId: uuid("contact_request_id").references(
+      () => contactRequests.id,
+      { onDelete: "cascade" }
+    ),
     requestedStatus: hireConfirmationRequestedStatusEnum("requested_status").notNull(),
     requestStatus: hireConfirmationRequestStatusEnum("request_status")
       .notNull()
@@ -524,6 +664,7 @@ export const hireOutcomeConfirmationRequests = pgTable(
   },
   (table) => [
     index("hire_conf_req_interest_id_idx").on(table.interestId),
+    index("hire_conf_req_contact_request_id_idx").on(table.contactRequestId),
     index("hire_conf_req_request_status_idx").on(table.requestStatus),
     index("hire_conf_req_requested_by_idx").on(table.requestedByRecruiterUserId),
     index("hire_conf_req_pending_requested_at_idx").on(
@@ -806,6 +947,16 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   accounts: many(accounts),
   sessions: many(sessions),
   sentInterests: many(profileInterests),
+  sentContactRequests: many(contactRequests, {
+    relationName: "contactRequestRecruiter",
+  }),
+  receivedContactRequests: many(contactRequests, {
+    relationName: "contactRequestWorker",
+  }),
+  notificationPrefs: one(userNotificationPrefs, {
+    fields: [users.id],
+    references: [userNotificationPrefs.userId],
+  }),
   adminEntitlements: many(adminEntitlements),
 }));
 
@@ -832,6 +983,7 @@ export const workerProfilesRelations = relations(
     }),
     views: many(profileViews),
     interests: many(profileInterests),
+    contactRequests: many(contactRequests),
     photos: many(profilePhotos),
   })
 );
@@ -916,10 +1068,85 @@ export const profileInterestsRelations = relations(
   })
 );
 
+export const contactRequestsRelations = relations(
+  contactRequests,
+  ({ one }) => ({
+    recruiter: one(users, {
+      fields: [contactRequests.recruiterUserId],
+      references: [users.id],
+      relationName: "contactRequestRecruiter",
+    }),
+    worker: one(users, {
+      fields: [contactRequests.workerUserId],
+      references: [users.id],
+      relationName: "contactRequestWorker",
+    }),
+    recruiterProfile: one(recruiterProfiles, {
+      fields: [contactRequests.recruiterProfileId],
+      references: [recruiterProfiles.id],
+    }),
+    workerProfile: one(workerProfiles, {
+      fields: [contactRequests.workerProfileId],
+      references: [workerProfiles.id],
+    }),
+    venue: one(venues, {
+      fields: [contactRequests.venueId],
+      references: [venues.id],
+    }),
+    opening: one(recruiterOpenings, {
+      fields: [contactRequests.openingId],
+      references: [recruiterOpenings.id],
+    }),
+    conversation: one(conversations, {
+      fields: [contactRequests.id],
+      references: [conversations.contactRequestId],
+    }),
+  })
+);
+
+export const conversationsRelations = relations(conversations, ({ one }) => ({
+  contactRequest: one(contactRequests, {
+    fields: [conversations.contactRequestId],
+    references: [contactRequests.id],
+  }),
+  recruiter: one(users, {
+    fields: [conversations.recruiterUserId],
+    references: [users.id],
+    relationName: "conversationRecruiter",
+  }),
+  worker: one(users, {
+    fields: [conversations.workerUserId],
+    references: [users.id],
+    relationName: "conversationWorker",
+  }),
+  workerProfile: one(workerProfiles, {
+    fields: [conversations.workerProfileId],
+    references: [workerProfiles.id],
+  }),
+  venue: one(venues, {
+    fields: [conversations.venueId],
+    references: [venues.id],
+  }),
+}));
+
+export const userNotificationPrefsRelations = relations(
+  userNotificationPrefs,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [userNotificationPrefs.userId],
+      references: [users.id],
+    }),
+  })
+);
+
 export const hireOutcomesRelations = relations(hireOutcomes, ({ one }) => ({
   interest: one(profileInterests, {
     fields: [hireOutcomes.interestId],
     references: [profileInterests.id],
+  }),
+  contactRequest: one(contactRequests, {
+    fields: [hireOutcomes.contactRequestId],
+    references: [contactRequests.id],
   }),
 }));
 
@@ -929,6 +1156,10 @@ export const hireOutcomeConfirmationRequestsRelations = relations(
     interest: one(profileInterests, {
       fields: [hireOutcomeConfirmationRequests.interestId],
       references: [profileInterests.id],
+    }),
+    contactRequest: one(contactRequests, {
+      fields: [hireOutcomeConfirmationRequests.contactRequestId],
+      references: [contactRequests.id],
     }),
     requestedByRecruiter: one(users, {
       fields: [hireOutcomeConfirmationRequests.requestedByRecruiterUserId],
@@ -998,6 +1229,16 @@ export type NewProfilePhoto = typeof profilePhotos.$inferInsert;
 export type ProfileView = typeof profileViews.$inferSelect;
 export type ProfileInterest = typeof profileInterests.$inferSelect;
 export type NewProfileInterest = typeof profileInterests.$inferInsert;
+export type ContactRequest = typeof contactRequests.$inferSelect;
+export type NewContactRequest = typeof contactRequests.$inferInsert;
+export type ContactRequestStatus =
+  (typeof contactRequestStatusEnum.enumValues)[number];
+export type Conversation = typeof conversations.$inferSelect;
+export type NewConversation = typeof conversations.$inferInsert;
+export type ConversationStatus =
+  (typeof conversationStatusEnum.enumValues)[number];
+export type UserNotificationPref = typeof userNotificationPrefs.$inferSelect;
+export type NewUserNotificationPref = typeof userNotificationPrefs.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type BillingProduct = (typeof billingProductEnum.enumValues)[number];
 export type BillingPriceSetting = typeof billingPriceSettings.$inferSelect;

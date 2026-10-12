@@ -117,7 +117,9 @@ test.describe("worker dashboard metrics and preview", () => {
     await page.getByRole("link", { name: "View Profile" }).click();
     await expect(page).toHaveURL(/\/worker\/profile\/preview/);
     await expect(page.getByText(/recruiter preview/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /i'm interested/i })).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: /send contact request|i'm interested/i })
+    ).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: /request hire confirmation/i })
     ).toHaveCount(0);

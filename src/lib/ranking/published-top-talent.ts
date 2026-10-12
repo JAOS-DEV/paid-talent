@@ -1,5 +1,10 @@
-import { and, countDistinct, eq, gte, sql } from "drizzle-orm";
-import { db, workerProfiles, profileViews, profileInterests } from "@/lib/db";
+import { and, countDistinct, eq, gte, inArray, sql } from "drizzle-orm";
+import {
+  contactRequests,
+  db,
+  workerProfiles,
+  profileViews,
+} from "@/lib/db";
 import type { WorkerProfile } from "@/lib/db/schema";
 import { getProfileCompleteness } from "@/lib/profile";
 import {
@@ -69,16 +74,21 @@ export async function countPublishedTopTalent(
       .groupBy(profileViews.workerProfileId),
     db
       .select({
-        workerProfileId: profileInterests.workerProfileId,
+        workerProfileId: contactRequests.workerProfileId,
         interestCount: sql<number>`count(*)::int`,
       })
-      .from(profileInterests)
+      .from(contactRequests)
       .innerJoin(
         workerProfiles,
-        eq(profileInterests.workerProfileId, workerProfiles.id)
+        eq(contactRequests.workerProfileId, workerProfiles.id)
       )
-      .where(eq(workerProfiles.isPublished, true))
-      .groupBy(profileInterests.workerProfileId),
+      .where(
+        and(
+          eq(workerProfiles.isPublished, true),
+          inArray(contactRequests.status, ["pending", "accepted"])
+        )
+      )
+      .groupBy(contactRequests.workerProfileId),
   ]);
 
   const uniqueViewsByProfileId = new Map(

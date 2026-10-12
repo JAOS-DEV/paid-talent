@@ -15,13 +15,10 @@ import {
   TopTalentBadge,
 } from "@/components/ui";
 import { AdSense } from "@/components/ads";
-import {
-  OpeningInterestSelect,
-  RecruiterAccessBanner,
-} from "@/components/recruiter";
+import { RecruiterAccessBanner } from "@/components/recruiter";
+import { SendContactRequestDialog } from "@/components/contact-requests";
 import type { SearchWorkerResult } from "@/lib/recruiter-access/worker-dto";
 import type { RecruiterAccessDto } from "@/lib/recruiter-access";
-import type { RecruiterOpening } from "@/lib/db/schema";
 import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import { AVAILABILITY_OPTIONS } from "@/lib/profile/availability";
 import {
@@ -263,11 +260,11 @@ function WorkerCard({
                     d="M5 13l4 4L19 7"
                   />
                 </svg>
-                {t("interestSent")}
+                {t("requestSent")}
               </Button>
             ) : (
               <Button size="sm" onClick={onExpressInterest}>
-                {t("expressInterest")}
+                {t("sendContactRequest")}
               </Button>
             )}
           </div>
@@ -303,21 +300,12 @@ export default function SearchPage(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [sentInterests, setSentInterests] = useState<Set<string>>(new Set());
-  const [selectedOpeningId, setSelectedOpeningId] = useState("");
+  const [dialogWorker, setDialogWorker] = useState<{
+    id: string;
+    displayName?: string;
+    isTopTalent?: boolean;
+  } | null>(null);
   const [access, setAccess] = useState<RecruiterAccessDto | null>(null);
-  const [publishedOpenings, setPublishedOpenings] = useState<
-    Pick<
-      RecruiterOpening,
-      | "id"
-      | "role"
-      | "area"
-      | "isPublished"
-      | "payMin"
-      | "payMax"
-      | "payCurrency"
-      | "payPeriod"
-    >[]
-  >([]);
 
   const canBrowseFull = access?.canBrowseFull === true;
   const verifyCtaHref = verifyHref(access);
@@ -348,46 +336,25 @@ export default function SearchPage(): React.ReactElement {
     }
   }, [filters, canBrowseFull]);
 
-  const fetchInterests = useCallback(async () => {
+  const fetchSentRequests = useCallback(async () => {
     try {
-      const response = await fetch("/api/interests");
+      const response = await fetch("/api/contact-requests?box=sent");
       if (response.ok) {
         const data = await response.json();
-        const interestProfileIds = new Set<string>(
-          data.interests?.map((i: { workerProfileId: string }) => i.workerProfileId) || []
+        const profileIds = new Set<string>(
+          (data.requests ?? [])
+            .filter(
+              (r: { status: string }) =>
+                r.status === "queued" ||
+                r.status === "pending" ||
+                r.status === "accepted"
+            )
+            .map((r: { workerProfileId: string }) => r.workerProfileId)
         );
-        setSentInterests(interestProfileIds);
+        setSentInterests(profileIds);
       }
     } catch {
       setSentInterests(new Set());
-    }
-  }, []);
-
-  const fetchPublishedOpenings = useCallback(async () => {
-    try {
-      const response = await fetch("/api/recruiter/openings");
-      if (!response.ok) {
-        setPublishedOpenings([]);
-        return;
-      }
-      const data = await response.json();
-      const openings = (data.openings || []) as RecruiterOpening[];
-      setPublishedOpenings(
-        openings
-          .filter((o) => o.isPublished)
-          .map((o) => ({
-            id: o.id,
-            role: o.role,
-            area: o.area,
-            isPublished: o.isPublished,
-            payMin: o.payMin,
-            payMax: o.payMax,
-            payCurrency: o.payCurrency,
-            payPeriod: o.payPeriod,
-          }))
-      );
-    } catch {
-      setPublishedOpenings([]);
     }
   }, []);
 
@@ -408,11 +375,7 @@ export default function SearchPage(): React.ReactElement {
 
       if (cancelled) return;
 
-      await Promise.all([
-        fetchWorkers(),
-        fetchInterests(),
-        fetchPublishedOpenings(),
-      ]);
+      await Promise.all([fetchWorkers(), fetchSentRequests()]);
     };
 
     void loadData();
@@ -423,24 +386,6 @@ export default function SearchPage(): React.ReactElement {
 
   const handleApplyFilters = (): void => {
     fetchWorkers();
-  };
-
-  const handleExpressInterest = async (workerProfileId: string): Promise<void> => {
-    try {
-      const response = await fetch("/api/interests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workerProfileId,
-          openingId: selectedOpeningId || null,
-        }),
-      });
-      if (response.ok) {
-        setSentInterests((prev) => new Set([...prev, workerProfileId]));
-      }
-    } catch (error) {
-      console.error("Failed to express interest:", error);
-    }
   };
 
   if (status === "loading") {
@@ -617,21 +562,14 @@ export default function SearchPage(): React.ReactElement {
             </div>
 
             <div className="lg:col-span-3">
-              {canBrowseFull ? (
-                <Card padding="md" className="mb-4">
-                  <CardContent>
-                    <OpeningInterestSelect
-                      openings={publishedOpenings}
-                      value={selectedOpeningId}
-                      onChange={setSelectedOpeningId}
-                      id="search-interest-opening"
-                    />
-                    <p className="text-xs text-charcoal-500 mt-2">
-                      {t("interestHint")}
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : null}
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <Link
+                  href="/recruiter/requests"
+                  className="text-sm text-primary-400 hover:text-primary-300"
+                >
+                  {t("viewRequests")}
+                </Link>
+              </div>
 
               <div className="flex items-center justify-between mb-4">
                 <p className="text-charcoal-400 text-sm">
@@ -656,7 +594,16 @@ export default function SearchPage(): React.ReactElement {
                       key={worker.id}
                       worker={worker}
                       interestSent={sentInterests.has(worker.id)}
-                      onExpressInterest={() => handleExpressInterest(worker.id)}
+                      onExpressInterest={() =>
+                        setDialogWorker({
+                          id: worker.id,
+                          displayName:
+                            worker.mode === "full"
+                              ? worker.displayName
+                              : worker.firstName ?? undefined,
+                          isTopTalent: worker.isTopTalent,
+                        })
+                      }
                       verifyCtaHref={verifyCtaHref}
                     />
                   ))}
@@ -686,6 +633,22 @@ export default function SearchPage(): React.ReactElement {
       </main>
 
       <Footer />
+
+      {dialogWorker ? (
+        <SendContactRequestDialog
+          open
+          workerProfileId={dialogWorker.id}
+          workerDisplayName={dialogWorker.displayName}
+          isTopTalent={dialogWorker.isTopTalent}
+          onClose={() => setDialogWorker(null)}
+          onSent={() => {
+            setSentInterests(
+              (prev) => new Set([...prev, dialogWorker.id])
+            );
+            setDialogWorker(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

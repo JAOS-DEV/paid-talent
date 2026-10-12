@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
+  contactRequests,
   db,
-  workerProfiles,
-  profileInterests,
   hireOutcomes,
   users,
+  workerProfiles,
 } from "@/lib/db";
-import { eq, and } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getLatestConfirmationRequestForInterest } from "@/lib/hire-outcomes/queries";
 import { isProfileTopTalent, recordProfileView } from "@/lib/ranking";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
@@ -88,28 +88,33 @@ export async function GET(
 
     await recordProfileView(workerProfile.id, actor.user.userId);
 
-    const [interestWithOutcome] = await db
+    const [openRequest] = await db
       .select({
-        interestId: profileInterests.id,
+        id: contactRequests.id,
+        status: contactRequests.status,
         outcomeStatus: hireOutcomes.status,
         hiredAt: hireOutcomes.hiredAt,
         startedAt: hireOutcomes.startedAt,
       })
-      .from(profileInterests)
-      .leftJoin(hireOutcomes, eq(profileInterests.id, hireOutcomes.interestId))
+      .from(contactRequests)
+      .leftJoin(
+        hireOutcomes,
+        eq(contactRequests.id, hireOutcomes.contactRequestId)
+      )
       .where(
         and(
-          eq(profileInterests.recruiterUserId, actor.user.userId),
-          eq(profileInterests.workerProfileId, workerProfile.id)
+          eq(contactRequests.recruiterUserId, actor.user.userId),
+          eq(contactRequests.workerProfileId, workerProfile.id),
+          inArray(contactRequests.status, ["queued", "pending", "accepted"])
         )
       )
+      .orderBy(desc(contactRequests.createdAt))
       .limit(1);
 
-    const confirmationRequest = interestWithOutcome
-      ? await getLatestConfirmationRequestForInterest(
-          interestWithOutcome.interestId
-        )
-      : null;
+    const confirmationRequest =
+      openRequest?.status === "accepted"
+        ? await getLatestConfirmationRequestForInterest(openRequest.id)
+        : null;
 
     const approvedPhotos = await getApprovedPhotosForWorker(workerProfile.id);
     const photos = mapApprovedPhotosToPublic(approvedPhotos);
@@ -117,12 +122,13 @@ export async function GET(
     const result = toWorkerProfileDetail(workerProfile, {
       isTopTalent,
       photos,
-      hasExpressedInterest: !!interestWithOutcome,
-      ...(interestWithOutcome && {
-        interestId: interestWithOutcome.interestId,
-        hireOutcomeStatus: interestWithOutcome.outcomeStatus ?? "interested",
-        hiredAt: interestWithOutcome.hiredAt,
-        startedAt: interestWithOutcome.startedAt,
+      contactRequest: openRequest
+        ? { id: openRequest.id, status: openRequest.status }
+        : null,
+      ...(openRequest?.status === "accepted" && {
+        hireOutcomeStatus: openRequest.outcomeStatus ?? "interested",
+        hiredAt: openRequest.hiredAt,
+        startedAt: openRequest.startedAt,
         confirmationRequest: confirmationRequest
           ? {
               id: confirmationRequest.id,

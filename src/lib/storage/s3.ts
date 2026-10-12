@@ -572,6 +572,83 @@ const ALLOWED_LIVENESS_VIDEO_TYPES = [
 ];
 const MAX_LIVENESS_VIDEO_SIZE = 50 * 1024 * 1024;
 
+/** Direct private-bucket put for seed / admin tooling (not a presigned upload). */
+export async function uploadLivenessVideo(
+  file: Buffer,
+  key: string,
+  contentType: string
+): Promise<{ key: string }> {
+  assertPrivateVerificationObjectKey(key, "liveness");
+
+  if (file.length > MAX_LIVENESS_VIDEO_SIZE) {
+    throw new Error(
+      `Liveness video too large. Maximum size: ${MAX_LIVENESS_VIDEO_SIZE / 1024 / 1024}MB`
+    );
+  }
+
+  if (!ALLOWED_LIVENESS_VIDEO_TYPES.includes(contentType)) {
+    throw new Error(
+      `Invalid content type for liveness video. Allowed: ${ALLOWED_LIVENESS_VIDEO_TYPES.join(", ")}`
+    );
+  }
+
+  const privateClient = createPrivateVerificationClient();
+  const command = new PutObjectCommand({
+    Bucket: getPrivateVerificationStorageConfig().bucketName,
+    Key: key,
+    Body: file,
+    ContentType: contentType,
+  });
+
+  await privateClient.send(command);
+
+  return { key };
+}
+
+/** Seed/admin helper: HEAD a public object. */
+export async function headPublicObject(
+  key: string
+): Promise<{ exists: boolean; contentLength?: number }> {
+  assertPublicMediaObjectKey(key);
+  try {
+    const publicClient = createPublicMediaClient();
+    const response = await publicClient.send(
+      new HeadObjectCommand({
+        Bucket: getPublicMediaBucketName(),
+        Key: key,
+      })
+    );
+    return {
+      exists: true,
+      contentLength: response.ContentLength,
+    };
+  } catch {
+    return { exists: false };
+  }
+}
+
+/** Seed/admin helper: HEAD a private verification object. */
+export async function headPrivateVerificationObject(
+  key: string
+): Promise<{ exists: boolean; contentLength?: number }> {
+  assertPrivateVerificationObjectKey(key);
+  try {
+    const privateClient = createPrivateVerificationClient();
+    const response = await privateClient.send(
+      new HeadObjectCommand({
+        Bucket: getPrivateVerificationStorageConfig().bucketName,
+        Key: key,
+      })
+    );
+    return {
+      exists: true,
+      contentLength: response.ContentLength,
+    };
+  } catch {
+    return { exists: false };
+  }
+}
+
 export async function generatePresignedLivenessVideoUploadUrl(
   userId: string,
   contentType: string
