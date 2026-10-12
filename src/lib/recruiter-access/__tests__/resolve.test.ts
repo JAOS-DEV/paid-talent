@@ -6,16 +6,17 @@ function entitlement(
   overrides: Partial<
     Pick<
       EffectiveEntitlement,
-      "paidAccess" | "adminGrantAccess" | "billingAccessMode"
+      "paidAccess" | "adminGrantAccess" | "passAccess" | "billingAccessMode"
     >
   > = {}
 ): Pick<
   EffectiveEntitlement,
-  "paidAccess" | "adminGrantAccess" | "billingAccessMode"
+  "paidAccess" | "adminGrantAccess" | "passAccess" | "billingAccessMode"
 > {
   return {
     paidAccess: false,
     adminGrantAccess: false,
+    passAccess: false,
     billingAccessMode: "enforced",
     ...overrides,
   };
@@ -123,6 +124,24 @@ describe("resolveRecruiterAccess", () => {
         },
       ],
       entitlement: entitlement({ adminGrantAccess: true }),
+    });
+
+    expect(access.tier).toBe("pro");
+    expect(access.canViewTopTalentFull).toBe(true);
+  });
+
+  it("verified + active 7-day pass → pro", () => {
+    const access = resolveRecruiterAccess({
+      ...base,
+      venues: [
+        {
+          id: "v1",
+          reviewStatus: "approved",
+          archivedAt: null,
+          isPrimary: true,
+        },
+      ],
+      entitlement: entitlement({ passAccess: true }),
     });
 
     expect(access.tier).toBe("pro");

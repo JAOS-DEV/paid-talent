@@ -23,6 +23,13 @@ export const AUTH_PUBLIC_ROUTES = [
   "/api/auth",
 ] as const;
 
+/** Machine/webhook routes that authenticate themselves (no session required). */
+export const MACHINE_API_ROUTES = [
+  "/api/stripe/webhook",
+  "/api/line/webhook",
+  "/api/cron",
+] as const;
+
 export const AGE_VERIFICATION_PATH = "/auth/age-verification";
 
 export type MiddlewareGateResult =
@@ -36,6 +43,13 @@ export type MiddlewareGateResult =
 
 export function isPublicAuthRoute(pathname: string): boolean {
   return AUTH_PUBLIC_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+}
+
+/** Prefix match with "/" boundary so `/api/cron` matches `/api/cron/...` but not `/api/cronx`. */
+export function isMachineApiRoute(pathname: string): boolean {
+  return MACHINE_API_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
 }
@@ -65,6 +79,11 @@ export function resolveMiddlewareGate(input: {
 
   // NextAuth routes must always pass (includes /api/auth/verify-age)
   if (isAuthApiRoute) {
+    return { action: "allow" };
+  }
+
+  // Stripe/LINE/cron webhooks authenticate themselves — allow before session check
+  if (isMachineApiRoute(pathname)) {
     return { action: "allow" };
   }
 

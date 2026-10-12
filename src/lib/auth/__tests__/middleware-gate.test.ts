@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   AGE_VERIFICATION_PATH,
+  isMachineApiRoute,
   isPublicAuthRoute,
   resolveMiddlewareGate,
 } from "../middleware-gate";
@@ -310,6 +311,47 @@ describe("isPublicAuthRoute", () => {
   it("treats age-gate as public but not age-verification", () => {
     expect(isPublicAuthRoute("/auth/age-gate")).toBe(true);
     expect(isPublicAuthRoute("/auth/age-verification")).toBe(false);
+  });
+});
+
+describe("machine API routes (webhooks / cron)", () => {
+  it("allows unauthenticated POST /api/stripe/webhook", () => {
+    expect(
+      resolveMiddlewareGate({
+        pathname: "/api/stripe/webhook",
+        hasSession: false,
+        ageVerified: false,
+        isApiRoute: true,
+        isAuthApiRoute: false,
+      })
+    ).toEqual({ action: "allow" });
+  });
+
+  it("still requires a session for /api/stripe/checkout", () => {
+    expect(
+      resolveMiddlewareGate({
+        pathname: "/api/stripe/checkout",
+        hasSession: false,
+        ageVerified: false,
+        isApiRoute: true,
+        isAuthApiRoute: false,
+      })
+    ).toEqual({ action: "json", status: 401, error: "Unauthorized" });
+  });
+
+  it("does not allow /api/cronx (prefix boundary)", () => {
+    expect(isMachineApiRoute("/api/cron")).toBe(true);
+    expect(isMachineApiRoute("/api/cron/retention")).toBe(true);
+    expect(isMachineApiRoute("/api/cronx")).toBe(false);
+    expect(
+      resolveMiddlewareGate({
+        pathname: "/api/cronx",
+        hasSession: false,
+        ageVerified: false,
+        isApiRoute: true,
+        isAuthApiRoute: false,
+      })
+    ).toEqual({ action: "json", status: 401, error: "Unauthorized" });
   });
 });
 

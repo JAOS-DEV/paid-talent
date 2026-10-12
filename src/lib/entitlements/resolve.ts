@@ -8,7 +8,8 @@ export type EntitlementSource =
   | "paid_subscription"
   | "admin_grant"
   | "lifetime_admin_grant"
-  | "open_access";
+  | "open_access"
+  | "pass_7d";
 
 export interface PaidSubscriptionSnapshot extends SubscriptionInfo {
   currentPeriodEnd?: Date | null;
@@ -25,14 +26,20 @@ export interface AdminGrantSnapshot {
   grantedByAdminEmail: string;
 }
 
+export interface ActivePassSnapshot {
+  expiresAt: Date;
+}
+
 export interface EffectiveEntitlement {
   hasPremiumAccess: boolean;
   sources: EntitlementSource[];
   billingAccessMode: BillingAccessMode;
   paidSubscription: PaidSubscriptionSnapshot | null;
   adminGrant: AdminGrantSnapshot | null;
+  activePass: ActivePassSnapshot | null;
   paidAccess: boolean;
   adminGrantAccess: boolean;
+  passAccess: boolean;
 }
 
 export function isAdminGrantActive(
@@ -63,6 +70,16 @@ export function isPaidSubscriptionActive(
   return canAccessTopTalentContact(subscription);
 }
 
+export function isPassActive(
+  pass: ActivePassSnapshot | null,
+  now: Date = new Date()
+): boolean {
+  if (!pass) {
+    return false;
+  }
+  return pass.expiresAt > now;
+}
+
 /**
  * Canonical premium entitlement resolver.
  *
@@ -74,11 +91,13 @@ export function resolveEffectiveEntitlement(input: {
   billingAccessMode: BillingAccessMode;
   paidSubscription: PaidSubscriptionSnapshot | null;
   adminGrant: AdminGrantSnapshot | null;
+  activePass?: ActivePassSnapshot | null;
   now?: Date;
 }): EffectiveEntitlement {
   const now = input.now ?? new Date();
   const paidAccess = isPaidSubscriptionActive(input.paidSubscription);
   const grantActive = isAdminGrantActive(input.adminGrant, now);
+  const passAccess = isPassActive(input.activePass ?? null, now);
   const sources: EntitlementSource[] = [];
 
   if (input.billingAccessMode === "open_access") {
@@ -87,6 +106,9 @@ export function resolveEffectiveEntitlement(input: {
   if (paidAccess) {
     sources.push("paid_subscription");
   }
+  if (passAccess) {
+    sources.push("pass_7d");
+  }
   if (grantActive && input.adminGrant?.isLifetime) {
     sources.push("lifetime_admin_grant");
   } else if (grantActive) {
@@ -94,7 +116,10 @@ export function resolveEffectiveEntitlement(input: {
   }
 
   const hasPremiumAccess =
-    input.billingAccessMode === "open_access" || paidAccess || grantActive;
+    input.billingAccessMode === "open_access" ||
+    paidAccess ||
+    grantActive ||
+    passAccess;
 
   return {
     hasPremiumAccess,
@@ -102,8 +127,10 @@ export function resolveEffectiveEntitlement(input: {
     billingAccessMode: input.billingAccessMode,
     paidSubscription: input.paidSubscription,
     adminGrant: grantActive ? input.adminGrant : input.adminGrant,
+    activePass: passAccess ? (input.activePass ?? null) : null,
     paidAccess,
     adminGrantAccess: grantActive,
+    passAccess,
   };
 }
 

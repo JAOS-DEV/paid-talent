@@ -138,6 +138,32 @@ describe("resolveEffectiveEntitlement", () => {
     });
     expect(enforced.hasPremiumAccess).toBe(false);
   });
+
+  it("grants premium from an active 7-day pass until expiry", () => {
+    const result = resolveEffectiveEntitlement({
+      billingAccessMode: "enforced",
+      paidSubscription: null,
+      adminGrant: null,
+      activePass: { expiresAt: addUtcDays(now, 3) },
+      now,
+    });
+    expect(result.hasPremiumAccess).toBe(true);
+    expect(result.passAccess).toBe(true);
+    expect(result.sources).toEqual(["pass_7d"]);
+  });
+
+  it("denies premium for an expired 7-day pass", () => {
+    const result = resolveEffectiveEntitlement({
+      billingAccessMode: "enforced",
+      paidSubscription: null,
+      adminGrant: null,
+      activePass: { expiresAt: addUtcDays(now, -1) },
+      now,
+    });
+    expect(result.hasPremiumAccess).toBe(false);
+    expect(result.passAccess).toBe(false);
+    expect(result.activePass).toBeNull();
+  });
 });
 
 describe("resolveAdminGrantWindow", () => {

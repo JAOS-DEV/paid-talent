@@ -1,15 +1,16 @@
 import Stripe from "stripe";
-import { db, subscriptions } from "@/lib/db";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
+import { db, subscriptions, topTalentPasses } from "@/lib/db";
+import type { BillingProduct } from "@/lib/db/schema";
 import { getEffectiveEntitlement } from "@/lib/entitlements";
+import {
+  getBillingPriceSettings,
+  priceIdForProduct,
+} from "@/lib/billing/price-settings";
+import { stripe } from "./client";
+import { addUtcDays } from "@/lib/entitlements/resolve";
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-
-export const stripe = stripeSecretKey
-  ? new Stripe(stripeSecretKey, {
-      typescript: true,
-    })
-  : null;
+export { stripe } from "./client";
 
 export const STRIPE_PLANS = {
   TOP_TALENT_UNLOCK: {
@@ -25,13 +26,31 @@ export const STRIPE_PLANS = {
   },
 } as const;
 
+export interface CreateCheckoutSessionInput {
+  userId: string;
+  userEmail: string;
+  priceId: string;
+  mode: "subscription" | "payment";
+  successUrl: string;
+  cancelUrl: string;
+  metadata: Record<string, string>;
+  discounts?: Array<{ coupon: string }>;
+}
+
 export async function createCheckoutSession(
-  userId: string,
-  userEmail: string,
-  priceId: string,
-  successUrl: string,
-  cancelUrl: string
+  input: CreateCheckoutSessionInput
 ): Promise<{ url: string | null; sessionId: string }> {
+  const {
+    userId,
+    userEmail,
+    priceId,
+    mode,
+    successUrl,
+    cancelUrl,
+    metadata,
+    discounts,
+  } = input;
+
   if (!stripe) {
     console.log("[Stripe Stub] Creating mock checkout session");
     return {
@@ -58,7 +77,7 @@ export async function createCheckoutSession(
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
-    mode: "subscription",
+    mode,
     payment_method_types: ["card"],
     line_items: [
       {
@@ -68,7 +87,8 @@ export async function createCheckoutSession(
     ],
     success_url: successUrl,
     cancel_url: cancelUrl,
-    metadata: { userId },
+    metadata,
+    ...(discounts && discounts.length > 0 ? { discounts } : {}),
   });
 
   return { url: session.url, sessionId: session.id };
@@ -114,6 +134,7 @@ export async function handleWebhookEvent(
         break;
       }
 
+      case "customer.subscription.created":
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscriptionUpdated(subscription);
@@ -146,6 +167,73 @@ export async function handleWebhookEvent(
   }
 }
 
+function metadataProduct(
+  metadata: Stripe.Metadata | null | undefined
+): BillingProduct | null {
+  const product = metadata?.product;
+  if (product === "monthly" || product === "annual" || product === "pass_7d") {
+    return product;
+  }
+  return null;
+}
+
+async function resolveSubscriptionPriceId(
+  session: Stripe.Checkout.Session,
+  product: BillingProduct | null
+): Promise<string | null> {
+  if (stripe && session.subscription) {
+    try {
+      const sub = await stripe.subscriptions.retrieve(
+        typeof session.subscription === "string"
+          ? session.subscription
+          : session.subscription.id,
+        { expand: ["items.data.price"] }
+      );
+      const priceId = sub.items.data[0]?.price?.id;
+      if (priceId) return priceId;
+    } catch (error) {
+      console.error("[Stripe] Failed to retrieve subscription for price:", error);
+    }
+  }
+
+  if (product) {
+    const settings = await getBillingPriceSettings();
+    return priceIdForProduct(settings, product);
+  }
+
+  return null;
+}
+
+async function resolveSubscriptionPeriod(subscriptionId: string | null): Promise<{
+  currentPeriodStart?: Date;
+  currentPeriodEnd?: Date;
+}> {
+  if (!stripe || !subscriptionId) {
+    return {};
+  }
+
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const start =
+      "current_period_start" in subscription
+        ? new Date(
+            (subscription as { current_period_start: number }).current_period_start *
+              1000
+          )
+        : undefined;
+    const end =
+      "current_period_end" in subscription
+        ? new Date(
+            (subscription as { current_period_end: number }).current_period_end * 1000
+          )
+        : undefined;
+    return { currentPeriodStart: start, currentPeriodEnd: end };
+  } catch (error) {
+    console.error("[Stripe] Failed to retrieve subscription period:", error);
+    return {};
+  }
+}
+
 async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session
 ): Promise<void> {
@@ -155,8 +243,38 @@ async function handleCheckoutCompleted(
     return;
   }
 
-  const subscriptionId = session.subscription as string;
-  const customerId = session.customer as string;
+  const product = metadataProduct(session.metadata);
+
+  if (session.mode === "payment" && product === "pass_7d") {
+    if (session.payment_status !== "paid") {
+      console.log(
+        `[Stripe] Pass checkout ${session.id} not paid (${session.payment_status})`
+      );
+      return;
+    }
+    await handlePassCheckoutCompleted(session, userId);
+    return;
+  }
+
+  if (session.mode !== "subscription") {
+    console.log(`[Stripe] Ignoring checkout mode ${session.mode}`);
+    return;
+  }
+
+  const subscriptionId =
+    typeof session.subscription === "string"
+      ? session.subscription
+      : session.subscription?.id ?? null;
+  const customerId =
+    typeof session.customer === "string"
+      ? session.customer
+      : session.customer?.id ?? null;
+
+  const stripePriceId = await resolveSubscriptionPriceId(session, product);
+  const period = await resolveSubscriptionPeriod(subscriptionId);
+  const launchDiscountApplied = session.metadata?.launch === "1";
+  const billingProduct =
+    product === "monthly" || product === "annual" ? product : null;
 
   await db
     .insert(subscriptions)
@@ -164,8 +282,13 @@ async function handleCheckoutCompleted(
       userId,
       stripeCustomerId: customerId,
       stripeSubscriptionId: subscriptionId,
+      stripePriceId,
       status: "active",
       plan: "top_talent_unlock",
+      billingProduct,
+      launchDiscountApplied,
+      currentPeriodStart: period.currentPeriodStart,
+      currentPeriodEnd: period.currentPeriodEnd,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -174,13 +297,58 @@ async function handleCheckoutCompleted(
       set: {
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
+        stripePriceId,
         status: "active",
         plan: "top_talent_unlock",
+        billingProduct,
+        launchDiscountApplied,
+        currentPeriodStart: period.currentPeriodStart,
+        currentPeriodEnd: period.currentPeriodEnd,
         updatedAt: new Date(),
       },
     });
 
   console.log(`[Stripe] Subscription activated for user ${userId}`);
+}
+
+async function handlePassCheckoutCompleted(
+  session: Stripe.Checkout.Session,
+  userId: string
+): Promise<void> {
+  const now = new Date();
+  const [latestActive] = await db
+    .select({ expiresAt: topTalentPasses.expiresAt })
+    .from(topTalentPasses)
+    .where(
+      and(eq(topTalentPasses.userId, userId), gt(topTalentPasses.expiresAt, now))
+    )
+    .orderBy(desc(topTalentPasses.expiresAt))
+    .limit(1);
+
+  const startsAt =
+    latestActive && latestActive.expiresAt > now ? latestActive.expiresAt : now;
+  const expiresAt = addUtcDays(startsAt, 7);
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id ?? null;
+
+  await db
+    .insert(topTalentPasses)
+    .values({
+      userId,
+      stripeCheckoutSessionId: session.id,
+      stripePaymentIntentId: paymentIntentId,
+      amountTotal: session.amount_total ?? null,
+      currency: session.currency ?? null,
+      usedFirstPassCoupon: session.metadata?.firstPass === "1",
+      startsAt,
+      expiresAt,
+      createdAt: now,
+    })
+    .onConflictDoNothing({ target: topTalentPasses.stripeCheckoutSessionId });
+
+  console.log(`[Stripe] 7-day pass created for user ${userId}`);
 }
 
 async function handleSubscriptionUpdated(
@@ -193,12 +361,21 @@ async function handleSubscriptionUpdated(
     | "incomplete"
     | "trialing";
 
-  const currentPeriodStart = "current_period_start" in subscription 
-    ? new Date((subscription as { current_period_start: number }).current_period_start * 1000)
-    : undefined;
-  const currentPeriodEnd = "current_period_end" in subscription
-    ? new Date((subscription as { current_period_end: number }).current_period_end * 1000)
-    : undefined;
+  const currentPeriodStart =
+    "current_period_start" in subscription
+      ? new Date(
+          (subscription as { current_period_start: number }).current_period_start *
+            1000
+        )
+      : undefined;
+  const currentPeriodEnd =
+    "current_period_end" in subscription
+      ? new Date(
+          (subscription as { current_period_end: number }).current_period_end * 1000
+        )
+      : undefined;
+
+  const priceId = subscription.items.data[0]?.price?.id;
 
   await db
     .update(subscriptions)
@@ -207,6 +384,7 @@ async function handleSubscriptionUpdated(
       currentPeriodStart,
       currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      ...(priceId ? { stripePriceId: priceId } : {}),
       updatedAt: new Date(),
     })
     .where(eq(subscriptions.stripeSubscriptionId, subscription.id));
@@ -230,9 +408,10 @@ async function handleSubscriptionDeleted(
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
-  const subscriptionId = "subscription" in invoice 
-    ? (invoice as { subscription?: string }).subscription
-    : undefined;
+  const subscriptionId =
+    "subscription" in invoice
+      ? (invoice as { subscription?: string }).subscription
+      : undefined;
   if (!subscriptionId) return;
 
   await db

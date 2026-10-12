@@ -232,7 +232,7 @@ describe("active-account guard coverage", () => {
     for (const file of files) {
       const source = readSrc(file);
       expect(source).toMatch(
-        /requireActiveWorker|requireActiveRecruiter|requireActiveAppUser/
+        /requireActiveWorker|requireActiveRecruiter|requireActiveAppUser|requireVerifiedRecruiter/
       );
     }
   });
