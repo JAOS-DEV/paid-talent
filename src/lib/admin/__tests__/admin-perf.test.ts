@@ -39,7 +39,10 @@ describe("admin performance architecture", () => {
       "includeSignedMedia: false"
     );
     expect(readSrc("components/admin/VerificationQueue.tsx")).toContain(
-      "/api/admin/workers/${worker.id}/media"
+      "${apiBase}/${worker.id}/media"
+    );
+    expect(readSrc("components/admin/VerificationQueue.tsx")).toContain(
+      'subjectType === "recruiter"'
     );
     expect(readSrc("components/admin/PhotoQueue.tsx")).toContain(
       "/api/admin/photos/${photo.id}/media"

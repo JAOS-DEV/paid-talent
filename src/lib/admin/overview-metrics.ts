@@ -4,6 +4,7 @@ import {
   adminEntitlements,
   profilePhotos,
   recruiterOpenings,
+  recruiterProfiles,
   subscriptions,
   users,
   workerProfiles,
@@ -45,6 +46,7 @@ export async function getAdminOverviewMetrics(
   const [
     userCounts,
     workerCounts,
+    pendingRecruiterVerifications,
     publishedOpenings,
     pendingPhotos,
     paidPremiumAccounts,
@@ -65,10 +67,15 @@ export async function getAdminOverviewMetrics(
     db
       .select({
         publishedWorkers: sql<number>`count(*) filter (where ${workerProfiles.isPublished} = true)::int`,
-        pendingVerifications: sql<number>`count(*) filter (where ${workerProfiles.verificationStatus} = 'pending')::int`,
+        pendingWorkerVerifications: sql<number>`count(*) filter (where ${workerProfiles.verificationStatus} = 'pending')::int`,
       })
       .from(workerProfiles)
       .then((rows) => rows[0]),
+    db
+      .select({ value: count() })
+      .from(recruiterProfiles)
+      .where(eq(recruiterProfiles.verificationStatus, "pending"))
+      .then((rows) => rows[0]?.value ?? 0),
     db
       .select({ value: count() })
       .from(recruiterOpenings)
@@ -108,7 +115,9 @@ export async function getAdminOverviewMetrics(
     newUsersLast30Days: toCount(userCounts?.newUsersLast30Days),
     publishedWorkers: toCount(workerCounts?.publishedWorkers),
     publishedOpenings,
-    pendingVerifications: toCount(workerCounts?.pendingVerifications),
+    pendingVerifications:
+      toCount(workerCounts?.pendingWorkerVerifications) +
+      toCount(pendingRecruiterVerifications),
     pendingPhotos,
     paidPremiumAccounts,
     adminGrantedPremiumAccounts: toCount(

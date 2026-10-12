@@ -27,8 +27,19 @@ export async function recordAdminAuditEvent(
 }
 
 export function verificationActionToAudit(
-  action: "approve" | "reject" | "revoke"
+  action: "approve" | "reject" | "revoke",
+  subjectType: "worker" | "recruiter" = "worker"
 ): AdminAuditAction {
+  if (subjectType === "recruiter") {
+    if (action === "approve") {
+      return "recruiter_verification_approved";
+    }
+    if (action === "revoke") {
+      return "recruiter_verification_revoked";
+    }
+    return "recruiter_verification_rejected";
+  }
+
   if (action === "approve") {
     return "identity_verification_approved";
   }

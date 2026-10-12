@@ -1,29 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, workerProfiles, verificationEvents } from "@/lib/db";
-import { eq } from "drizzle-orm";
-import { z } from "zod";
-import {
-  canTransitionVerificationStatus,
-  computeFileSha256,
-  toWorkerVerificationStatusDto,
-  validateVerificationSubmission,
-} from "@/lib/verification";
-import {
-  getOwnedIdDocumentBuffer,
-  getOwnedLivenessVideoBuffer,
-} from "@/lib/storage/s3";
-import { PrivateStorageConfigError } from "@/lib/storage/config";
-import { assertOwnedPrivateVerificationKey } from "@/lib/storage/keys";
 import {
   deniedActiveUserResponse,
   requireActiveWorker,
 } from "@/lib/auth/require-active-user";
-
-const submitVerificationSchema = z.object({
-  idDocumentKey: z.string().min(1, "ID document key is required"),
-  livenessVideoKey: z.string().min(1, "Liveness video key is required"),
-  docType: z.enum(["passport", "thai_id", "drivers_license", "other"]),
-});
+import { workerVerificationSubject } from "@/lib/verification/subject";
+import {
+  getVerificationStatus,
+  submitVerification,
+} from "@/lib/verification/service";
 
 export async function GET(): Promise<NextResponse> {
   try {
@@ -32,29 +16,10 @@ export async function GET(): Promise<NextResponse> {
       return deniedActiveUserResponse(actor);
     }
 
-    const [profile] = await db
-      .select({
-        verificationStatus: workerProfiles.verificationStatus,
-        idDocumentSubmittedAt: workerProfiles.idDocumentSubmittedAt,
-        verificationReviewedAt: workerProfiles.verificationReviewedAt,
-        challengeCode: workerProfiles.challengeCode,
-        challengeIssuedAt: workerProfiles.challengeIssuedAt,
-      })
-      .from(workerProfiles)
-      .where(eq(workerProfiles.userId, actor.user.userId))
-      .limit(1);
-
-    if (!profile) {
-      return NextResponse.json(
-        { error: "Worker profile not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      verification: toWorkerVerificationStatusDto(profile),
-    });
+    return await getVerificationStatus(
+      workerVerificationSubject,
+      actor.user.userId
+    );
   } catch (error) {
     console.error("[Worker Verification GET] Error:", error);
     return NextResponse.json(
@@ -72,180 +37,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const body = await request.json();
-    const parsed = submitVerificationSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid request body",
-          details: parsed.error.flatten().fieldErrors,
-        },
-        { status: 400 }
-      );
-    }
-
-    const { idDocumentKey, livenessVideoKey, docType } = parsed.data;
-
-    try {
-      assertOwnedPrivateVerificationKey(
-        actor.user.userId,
-        idDocumentKey,
-        "id"
-      );
-      assertOwnedPrivateVerificationKey(
-        actor.user.userId,
-        livenessVideoKey,
-        "liveness"
-      );
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid verification upload" },
-        { status: 400 }
-      );
-    }
-
-    const [existingProfile] = await db
-      .select()
-      .from(workerProfiles)
-      .where(eq(workerProfiles.userId, actor.user.userId))
-      .limit(1);
-
-    if (!existingProfile) {
-      return NextResponse.json(
-        { error: "Worker profile not found" },
-        { status: 404 }
-      );
-    }
-
-    const submissionValidation = validateVerificationSubmission({
-      idDocumentKey,
-      livenessVideoKey,
-      challengeCode: existingProfile.challengeCode,
-      challengeIssuedAt: existingProfile.challengeIssuedAt,
-      boundIdDocumentKey: existingProfile.idDocumentKey,
-    });
-
-    if (!submissionValidation.isValid) {
-      return NextResponse.json(
-        {
-          error: "Verification submission incomplete",
-          details: submissionValidation.errors,
-        },
-        { status: 400 }
-      );
-    }
-
-    const transitionCheck = canTransitionVerificationStatus(
-      existingProfile.verificationStatus,
-      "pending"
+    return await submitVerification(
+      workerVerificationSubject,
+      actor.user.userId,
+      body
     );
-
-    if (!transitionCheck.allowed) {
-      return NextResponse.json(
-        {
-          error: "Cannot submit verification",
-          reason: transitionCheck.reason,
-          currentStatus: existingProfile.verificationStatus,
-        },
-        { status: 400 }
-      );
-    }
-
-    let idDocumentSha256: string | null = null;
-    let livenessVideoSha256: string | null = null;
-
-    try {
-      const docBuffer = await getOwnedIdDocumentBuffer(
-        actor.user.userId,
-        idDocumentKey
-      );
-      idDocumentSha256 = computeFileSha256(docBuffer);
-    } catch (error) {
-      if (error instanceof PrivateStorageConfigError) {
-        return NextResponse.json(
-          {
-            error:
-              "Verification upload is temporarily unavailable. Please try again later.",
-          },
-          { status: 503 }
-        );
-      }
-      console.error(
-        "[Worker Verification] Failed to compute ID document hash:",
-        error
-      );
-      return NextResponse.json(
-        { error: "Failed to process ID document. Please re-upload." },
-        { status: 400 }
-      );
-    }
-
-    try {
-      const videoBuffer = await getOwnedLivenessVideoBuffer(
-        actor.user.userId,
-        livenessVideoKey
-      );
-      livenessVideoSha256 = computeFileSha256(videoBuffer);
-    } catch (error) {
-      if (error instanceof PrivateStorageConfigError) {
-        return NextResponse.json(
-          {
-            error:
-              "Verification upload is temporarily unavailable. Please try again later.",
-          },
-          { status: 503 }
-        );
-      }
-      console.error(
-        "[Worker Verification] Failed to compute liveness video hash:",
-        error
-      );
-      return NextResponse.json(
-        { error: "Failed to process liveness video. Please re-upload." },
-        { status: 400 }
-      );
-    }
-
-    const now = new Date();
-
-    await db.insert(verificationEvents).values({
-      userId: actor.user.userId,
-      workerProfileId: existingProfile.id,
-      decision: "pending_submitted",
-      actorUserId: actor.user.userId,
-      actorType: "worker",
-      method: "system",
-      docType,
-      idDocumentKey,
-      idDocumentSha256,
-      livenessVideoKey,
-      livenessVideoSha256,
-      challengeCode: existingProfile.challengeCode,
-      createdAt: now,
-    });
-
-    const [updatedProfile] = await db
-      .update(workerProfiles)
-      .set({
-        verificationStatus: "pending",
-        idDocumentKey,
-        livenessVideoKey,
-        idDocumentSubmittedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(workerProfiles.userId, actor.user.userId))
-      .returning();
-
-    return NextResponse.json({
-      success: true,
-      verification: {
-        verificationStatus: updatedProfile.verificationStatus,
-        idDocumentSubmittedAt: updatedProfile.idDocumentSubmittedAt,
-        hasIdDocument: true,
-        hasLivenessVideo: true,
-      },
-      eventLogged: true,
-    });
   } catch (error) {
     console.error("[Worker Verification POST] Error:", error);
     return NextResponse.json(

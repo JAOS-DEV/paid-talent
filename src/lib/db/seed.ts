@@ -71,6 +71,7 @@ interface SeedRecruiter {
   contactEmail?: string;
   contactPhone?: string;
   hasSubscription: boolean;
+  verificationStatus?: VerificationStatusType;
   openings?: SeedOpening[];
 }
 
@@ -271,6 +272,7 @@ const SEED_USERS: {
       subArea: "Soi 6",
       blurb: "Friendly neighborhood bar with live music and great cocktails. Looking for enthusiastic staff!",
       hasSubscription: false,
+      verificationStatus: "unverified",
       openings: [
         {
           role: "Bartender",
@@ -295,6 +297,7 @@ const SEED_USERS: {
       contactEmail: "hr@luxuryvenues.example.com",
       contactPhone: "+66890123456",
       hasSubscription: true,
+      verificationStatus: "verified",
       openings: [
         {
           role: "Hostess",
@@ -321,6 +324,32 @@ const SEED_USERS: {
           isPublished: false,
         },
       ],
+    },
+    {
+      email: "recruiter-pending@example.com",
+      name: "Pending Recruiter",
+      organizationName: "Review Queue Club",
+      organizationType: "Club",
+      description: "Nightclub awaiting identity verification review",
+      location: "Bangkok",
+      area: "RCA",
+      blurb: "Seed recruiter in pending verification state for admin queue testing.",
+      hasSubscription: false,
+      verificationStatus: "pending",
+      openings: [],
+    },
+    {
+      email: "recruiter-rejected@example.com",
+      name: "Rejected Recruiter",
+      organizationName: "Resubmit Lounge",
+      organizationType: "Bar",
+      description: "Venue that needs to resubmit identity verification",
+      location: "Chiang Mai",
+      area: "Nimman",
+      blurb: "Seed recruiter in rejected verification state.",
+      hasSubscription: false,
+      verificationStatus: "rejected",
+      openings: [],
     },
     {
       email: "admin@example.com",
@@ -584,6 +613,48 @@ async function seed(): Promise<void> {
 
       let recruiterProfileId: string;
 
+      const verificationStatus =
+        recruiter.verificationStatus ?? ("unverified" as VerificationStatusType);
+      const isVerified = verificationStatus === "verified";
+      const now = new Date();
+      const verificationFields = {
+        verificationStatus,
+        isVerified,
+        verifiedAt: isVerified ? now : null,
+        idDocumentKey:
+          verificationStatus === "pending" ||
+          verificationStatus === "verified" ||
+          verificationStatus === "rejected"
+            ? `verification-docs/${userId}/seed-id.jpg`
+            : null,
+        livenessVideoKey:
+          verificationStatus === "pending" ||
+          verificationStatus === "verified" ||
+          verificationStatus === "rejected"
+            ? `verification-liveness/${userId}/seed-live.webm`
+            : null,
+        challengeCode:
+          verificationStatus === "pending" ? "123456" : null,
+        challengeIssuedAt:
+          verificationStatus === "pending" ? now : null,
+        idDocumentSubmittedAt:
+          verificationStatus === "pending" ||
+          verificationStatus === "verified" ||
+          verificationStatus === "rejected"
+            ? now
+            : null,
+        verificationReviewedAt:
+          verificationStatus === "verified" ||
+          verificationStatus === "rejected"
+            ? now
+            : null,
+        verificationReviewedBy:
+          verificationStatus === "verified" ||
+          verificationStatus === "rejected"
+            ? "admin@example.com"
+            : null,
+      };
+
       if (existingProfile.length > 0) {
         recruiterProfileId = existingProfile[0].id;
         await db
@@ -598,7 +669,8 @@ async function seed(): Promise<void> {
             blurb: recruiter.blurb ?? null,
             contactEmail: recruiter.contactEmail ?? null,
             contactPhone: recruiter.contactPhone ?? null,
-            updatedAt: new Date(),
+            ...verificationFields,
+            updatedAt: now,
           })
           .where(eq(schema.recruiterProfiles.userId, userId));
       } else {
@@ -613,8 +685,9 @@ async function seed(): Promise<void> {
           blurb: recruiter.blurb ?? null,
           contactEmail: recruiter.contactEmail ?? null,
           contactPhone: recruiter.contactPhone ?? null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          ...verificationFields,
+          createdAt: now,
+          updatedAt: now,
         }).returning();
         recruiterProfileId = newProfile.id;
       }

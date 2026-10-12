@@ -11,6 +11,9 @@ function readSrc(relativePath: string): string {
 
 describe("worker verification flow security (source)", () => {
   const pageSource = readSrc("app/worker/verification/page.tsx");
+  const flowSource = readSrc(
+    "components/verification/IdentityVerificationFlow.tsx"
+  );
   const recorderSource = readSrc(
     "components/verification/LiveLivenessRecorder.tsx"
   );
@@ -20,63 +23,66 @@ describe("worker verification flow security (source)", () => {
   );
   const uploadSource = readSrc("app/api/worker/verification/upload/route.ts");
   const submitSource = readSrc("app/api/worker/verification/route.ts");
+  const serviceSource = readSrc("lib/verification/service.ts");
 
   it("starts the worker on an ID-first step, not video", () => {
-    expect(pageSource).toMatch(/useState<VerificationStep>\("id"\)/);
-    expect(pageSource).toContain('t("heading")');
-    expect(pageSource).toContain('t("stepOf"');
-    expect(pageSource).toContain('t("uploadIdTitle")');
+    expect(flowSource).toMatch(/useState<VerificationStep>\("id"\)/);
+    expect(flowSource).toContain('t("heading")');
+    expect(flowSource).toContain('t("stepOf"');
+    expect(flowSource).toContain('t("uploadIdTitle")');
+    expect(pageSource).toContain('translationNamespace="worker.verificationFlow"');
     expect(enMessages.worker.verificationFlow.heading).toBe("Verify your identity");
     expect(enMessages.worker.verificationFlow.stepOf).toBe("Step {current} of {total}");
     expect(enMessages.worker.verificationFlow.uploadIdTitle).toBe("Upload your ID");
-    expect(pageSource).not.toContain("Start video");
-    expect(pageSource).not.toContain("Verify it's you");
-    expect(pageSource).not.toContain("Verify it&apos;s you");
+    expect(flowSource).not.toContain("Start video");
+    expect(flowSource).not.toContain("Verify it's you");
+    expect(flowSource).not.toContain("Verify it&apos;s you");
   });
 
   it("does not fetch or display a challenge before ID upload", () => {
-    expect(pageSource).not.toMatch(
+    expect(flowSource).not.toMatch(
       /fetchVerificationStatus\(\);\s*[\s\S]*fetchChallengeCode/
     );
-    expect(pageSource).not.toMatch(
-      /fetch\("\/api\/worker\/verification\/challenge"\)/
+    expect(flowSource).not.toMatch(
+      /fetch\(`\$\{apiBasePath\}\/challenge`\)/
     );
-    expect(pageSource).toContain('method: "POST"');
-    expect(pageSource).toContain("idDocumentKey");
-    expect(pageSource).toContain('t("continueToVideo")');
+    expect(flowSource).toContain('method: "POST"');
+    expect(flowSource).toContain("idDocumentKey");
+    expect(flowSource).toContain('t("continueToVideo")');
     expect(enMessages.worker.verificationFlow.continueToVideo).toBe(
       "Continue to video verification"
     );
-    expect(challengeSource).toContain("idDocumentKey");
-    expect(challengeSource).toContain("ID document must be uploaded");
+    expect(challengeSource).toContain("issueChallenge");
+    expect(serviceSource).toContain("ID document must be uploaded");
   });
 
   it("does not offer a prerecorded video file picker in verification UI", () => {
-    expect(pageSource).not.toMatch(/accept=["']video\//);
+    expect(flowSource).not.toMatch(/accept=["']video\//);
     expect(recorderSource).not.toMatch(/accept=["']video\//);
-    expect(pageSource).not.toMatch(/<input[^>]*type=["']file["'][^>]*video/);
+    expect(flowSource).not.toMatch(/<input[^>]*type=["']file["'][^>]*video/);
     expect(recorderSource).not.toMatch(/<input[^>]*type=["']file["']/);
-    expect(pageSource).toMatch(
+    expect(flowSource).toMatch(
       /accept=["']image\/jpeg,image\/png,image\/webp["']/
     );
   });
 
   it("records liveness with getUserMedia and MediaRecorder instead of capture hints", () => {
-    expect(pageSource).toContain("getUserMedia");
-    expect(pageSource).toContain("LIVE_CAMERA_CONSTRAINTS");
+    expect(flowSource).toContain("getUserMedia");
+    expect(flowSource).toContain("LIVE_CAMERA_CONSTRAINTS");
     expect(livenessSource).toContain('facingMode: "user"');
     expect(livenessSource).toContain("audio: true");
     expect(recorderSource).toContain("MediaRecorder");
     expect(livenessSource).toContain("isTypeSupported");
-    expect(pageSource).not.toMatch(/capture=["']/);
+    expect(flowSource).not.toMatch(/capture=["']/);
     expect(recorderSource).not.toMatch(/capture=["']/);
   });
 
   it("binds liveness upload to the current challenge and uploaded ID", () => {
-    expect(uploadSource).toContain("canUploadLivenessVideo");
-    expect(uploadSource).toContain("requestedIdDocumentKey");
-    expect(submitSource).toContain("boundIdDocumentKey");
-    expect(challengeSource).toContain("assertOwnedPrivateVerificationKey");
+    expect(uploadSource).toContain("createUploadUrl");
+    expect(serviceSource).toContain("canUploadLivenessVideo");
+    expect(serviceSource).toContain("requestedIdDocumentKey");
+    expect(serviceSource).toContain("boundIdDocumentKey");
+    expect(serviceSource).toContain("assertOwnedPrivateVerificationKey");
   });
 
   it("keeps worker-only authorization on verification APIs", () => {
@@ -87,10 +93,10 @@ describe("worker verification flow security (source)", () => {
   });
 
   it("does not make ID or liveness public", () => {
-    expect(uploadSource).toContain("generatePresignedIdUploadUrl");
-    expect(uploadSource).toContain("generatePresignedLivenessVideoUploadUrl");
-    expect(pageSource).not.toContain("S3_CDN_URL");
-    expect(pageSource).not.toContain("getPublicUrl");
+    expect(serviceSource).toContain("generatePresignedIdUploadUrl");
+    expect(serviceSource).toContain("generatePresignedLivenessVideoUploadUrl");
+    expect(flowSource).not.toContain("S3_CDN_URL");
+    expect(flowSource).not.toContain("getPublicUrl");
   });
 
   it("uses a separate playback video with no live stream after recording", () => {
@@ -103,8 +109,8 @@ describe("worker verification flow security (source)", () => {
     expect(recorderSource).toContain('data-testid="liveness-playback"');
     expect(recorderSource).toContain('data-testid="liveness-live-preview"');
     expect(livenessSource).toContain("video.srcObject = null");
-    expect(pageSource).toContain("handleReacquireCamera");
-    expect(pageSource).toContain("getUserMedia");
+    expect(flowSource).toContain("handleReacquireCamera");
+    expect(flowSource).toContain("getUserMedia");
   });
 
   it("allows camera and microphone on the verification page", () => {
@@ -113,6 +119,7 @@ describe("worker verification flow security (source)", () => {
       "utf8"
     );
     expect(config).toContain("/worker/verification");
+    expect(config).toContain("/recruiter/verification");
     expect(config).toContain("Permissions-Policy");
     expect(config).toContain("camera=(self)");
     expect(config).toContain("microphone=(self)");

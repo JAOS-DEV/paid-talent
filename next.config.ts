@@ -15,6 +15,15 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        source: "/recruiter/verification",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), microphone=(self)",
+          },
+        ],
+      },
     ];
   },
 };
