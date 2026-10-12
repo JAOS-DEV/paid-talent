@@ -1,6 +1,12 @@
-/**
- * Venue count limits by entitlement tier.
- * TODO(PR 6): move FREE_MAX_VENUES / PAID_MAX_VENUES into DB platform settings.
- */
-export const FREE_MAX_VENUES = 1;
-export const PAID_MAX_VENUES = 5;
+import { getMessagingSettings } from "@/lib/messaging/settings";
+
+/** Venue count limits sourced from messaging_settings (DB). */
+export async function getFreeMaxVenues(): Promise<number> {
+  const settings = await getMessagingSettings();
+  return settings.freeMaxVenues;
+}
+
+export async function getPaidMaxVenues(): Promise<number> {
+  const settings = await getMessagingSettings();
+  return settings.paidMaxVenues;
+}

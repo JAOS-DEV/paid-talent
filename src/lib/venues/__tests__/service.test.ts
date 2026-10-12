@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   getEffectiveEntitlement,
+  getFreeMaxVenues,
+  getPaidMaxVenues,
   select,
   insert,
   update,
@@ -54,9 +56,13 @@ const {
   const update = vi.fn(() => ({ set: updateSet }));
 
   const getEffectiveEntitlement = vi.fn();
+  const getFreeMaxVenues = vi.fn(async () => 1);
+  const getPaidMaxVenues = vi.fn(async () => 5);
 
   return {
     getEffectiveEntitlement,
+    getFreeMaxVenues,
+    getPaidMaxVenues,
     select,
     insert,
     update,
@@ -70,6 +76,11 @@ const {
 vi.mock("@/lib/entitlements", () => ({
   getEffectiveEntitlement: (...args: unknown[]) =>
     getEffectiveEntitlement(...args),
+}));
+
+vi.mock("../limits", () => ({
+  getFreeMaxVenues: (...args: unknown[]) => getFreeMaxVenues(...args),
+  getPaidMaxVenues: (...args: unknown[]) => getPaidMaxVenues(...args),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -99,7 +110,6 @@ import {
   getMaxVenues,
   updateVenue,
 } from "../service";
-import { FREE_MAX_VENUES, PAID_MAX_VENUES } from "../limits";
 
 describe("venues service", () => {
   beforeEach(() => {
@@ -108,6 +118,8 @@ describe("venues service", () => {
     updateSetArgs.length = 0;
     insertReturning.mockReset();
     updateReturning.mockReset();
+    getFreeMaxVenues.mockResolvedValue(1);
+    getPaidMaxVenues.mockResolvedValue(5);
   });
 
   describe("getMaxVenues", () => {
@@ -117,7 +129,7 @@ describe("venues service", () => {
         adminGrantAccess: false,
         hasPremiumAccess: false,
       });
-      await expect(getMaxVenues("user-1")).resolves.toBe(FREE_MAX_VENUES);
+      await expect(getMaxVenues("user-1")).resolves.toBe(1);
     });
 
     it("returns paid limit when paidAccess is true", async () => {
@@ -126,7 +138,7 @@ describe("venues service", () => {
         adminGrantAccess: false,
         hasPremiumAccess: true,
       });
-      await expect(getMaxVenues("user-1")).resolves.toBe(PAID_MAX_VENUES);
+      await expect(getMaxVenues("user-1")).resolves.toBe(5);
     });
 
     it("returns paid limit when adminGrantAccess is true", async () => {
@@ -135,7 +147,7 @@ describe("venues service", () => {
         adminGrantAccess: true,
         hasPremiumAccess: true,
       });
-      await expect(getMaxVenues("user-1")).resolves.toBe(PAID_MAX_VENUES);
+      await expect(getMaxVenues("user-1")).resolves.toBe(5);
     });
 
     it("does not raise limit for open_access alone", async () => {
@@ -145,7 +157,7 @@ describe("venues service", () => {
         hasPremiumAccess: true,
         billingAccessMode: "open_access",
       });
-      await expect(getMaxVenues("user-1")).resolves.toBe(FREE_MAX_VENUES);
+      await expect(getMaxVenues("user-1")).resolves.toBe(1);
     });
   });
 

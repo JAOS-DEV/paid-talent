@@ -2,7 +2,7 @@ import { and, asc, count, eq, isNull, ne } from "drizzle-orm";
 import { db, recruiterProfiles, venues } from "@/lib/db";
 import type { Venue, VenueLinkKind } from "@/lib/db/schema";
 import { getEffectiveEntitlement } from "@/lib/entitlements";
-import { FREE_MAX_VENUES, PAID_MAX_VENUES } from "./limits";
+import { getFreeMaxVenues, getPaidMaxVenues } from "./limits";
 import { parseVenueLink } from "./link";
 
 export type VenueServiceError = {
@@ -35,9 +35,9 @@ export async function getMaxVenues(userId: string): Promise<number> {
   const entitlement = await getEffectiveEntitlement(userId);
   // open_access alone does NOT raise the limit — only paid or admin grant.
   if (entitlement.paidAccess || entitlement.adminGrantAccess) {
-    return PAID_MAX_VENUES;
+    return getPaidMaxVenues();
   }
-  return FREE_MAX_VENUES;
+  return getFreeMaxVenues();
 }
 
 export async function listVenues(
