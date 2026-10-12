@@ -1,11 +1,23 @@
-import { and, countDistinct, desc, eq, gte, isNull, ne, or, sql } from "drizzle-orm";
 import {
+  and,
+  countDistinct,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
+import {
+  contactRequests,
   db,
-  profileInterests,
   profileViews,
   recruiterOpenings,
   recruiterProfiles,
   users,
+  venues,
   workerProfiles,
 } from "@/lib/db";
 import { getPendingConfirmationRequestsForWorker } from "@/lib/hire-outcomes/queries";
@@ -121,8 +133,13 @@ export async function getWorkerInterestReceivedCount(
     .select({
       interestCount: sql<number>`count(*)::int`,
     })
-    .from(profileInterests)
-    .where(eq(profileInterests.workerProfileId, workerProfileId));
+    .from(contactRequests)
+    .where(
+      and(
+        eq(contactRequests.workerProfileId, workerProfileId),
+        inArray(contactRequests.status, ["pending", "accepted"])
+      )
+    );
 
   return toCount(result?.interestCount);
 }
@@ -133,15 +150,17 @@ export async function getWorkerReceivedInterests(
 ): Promise<WorkerDashboardRecentInterest[]> {
   const rows = await db
     .select({
-      id: profileInterests.id,
-      message: profileInterests.message,
-      createdAt: profileInterests.createdAt,
+      id: contactRequests.id,
+      message: contactRequests.openerText,
+      createdAt: contactRequests.createdAt,
+      venueName: venues.name,
+      venueLogoUrl: venues.logoUrl,
       organizationName: recruiterProfiles.organizationName,
       logoUrl: recruiterProfiles.logoUrl,
       recruiterName: users.name,
-      area: recruiterProfiles.area,
-      subArea: recruiterProfiles.subArea,
-      blurb: recruiterProfiles.blurb,
+      area: venues.area,
+      subArea: venues.subArea,
+      blurb: venues.blurb,
       openingRole: recruiterOpenings.role,
       openingIsPublished: recruiterOpenings.isPublished,
       openingArea: recruiterOpenings.area,
@@ -150,18 +169,24 @@ export async function getWorkerReceivedInterests(
       payCurrency: recruiterOpenings.payCurrency,
       payPeriod: recruiterOpenings.payPeriod,
     })
-    .from(profileInterests)
-    .innerJoin(users, eq(profileInterests.recruiterUserId, users.id))
+    .from(contactRequests)
+    .innerJoin(users, eq(contactRequests.recruiterUserId, users.id))
+    .leftJoin(venues, eq(venues.id, contactRequests.venueId))
     .leftJoin(
       recruiterProfiles,
-      eq(recruiterProfiles.userId, profileInterests.recruiterUserId)
+      eq(recruiterProfiles.userId, contactRequests.recruiterUserId)
     )
     .leftJoin(
       recruiterOpenings,
-      eq(profileInterests.openingId, recruiterOpenings.id)
+      eq(contactRequests.openingId, recruiterOpenings.id)
     )
-    .where(eq(profileInterests.workerProfileId, workerProfileId))
-    .orderBy(desc(profileInterests.createdAt))
+    .where(
+      and(
+        eq(contactRequests.workerProfileId, workerProfileId),
+        inArray(contactRequests.status, ["pending", "accepted"])
+      )
+    )
+    .orderBy(desc(contactRequests.createdAt))
     .limit(limit);
 
   return rows.map((row) => {
@@ -177,8 +202,11 @@ export async function getWorkerReceivedInterests(
 
     return {
       id: row.id,
-      venueName: resolveVenueName(row.organizationName, row.recruiterName),
-      logoUrl: toPublicVenueLogoUrl(row.logoUrl),
+      venueName: resolveVenueName(
+        row.venueName ?? row.organizationName,
+        row.recruiterName
+      ),
+      logoUrl: toPublicVenueLogoUrl(row.venueLogoUrl ?? row.logoUrl),
       openingContext: opening.openingContext,
       message: row.message,
       createdAt: row.createdAt.toISOString(),

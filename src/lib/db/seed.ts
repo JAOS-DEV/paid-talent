@@ -1020,16 +1020,29 @@ async function seed(): Promise<void> {
       console.log(`   ${status}: ${worker.email} (${viewCount} views)`);
     }
 
-    console.log("\n📦 Seeding profile interests (for hire outcome demos)...");
+    console.log("\n📦 Seeding contact requests (pending/accepted/declined/expired)...");
 
     const topTalentWorkers = createdWorkers.filter((w) => w.isTopTalent);
     const normalWorkers = createdWorkers.filter((w) => !w.isTopTalent);
-    const createdInterests: Array<{ interestId: string; recruiterEmail: string; workerEmail: string }> = [];
+    const createdRequests: Array<{
+      contactRequestId: string;
+      recruiterEmail: string;
+      workerEmail: string;
+      status: string;
+    }> = [];
+
+    type SeedStatus = "pending" | "accepted" | "declined" | "expired";
+    const statusCycle: SeedStatus[] = [
+      "pending",
+      "accepted",
+      "declined",
+      "expired",
+    ];
 
     for (const recruiter of createdRecruiters) {
-      const workersToInterest = recruiter.hasSubscription
-        ? [...topTalentWorkers.slice(0, 2), ...normalWorkers.slice(0, 1)]
-        : normalWorkers.slice(0, 2);
+      const workersToContact = recruiter.hasSubscription
+        ? [...topTalentWorkers.slice(0, 2), ...normalWorkers.slice(0, 2)]
+        : normalWorkers.slice(0, 3);
 
       const [recruiterProfile] = await db
         .select({ id: schema.recruiterProfiles.id })
@@ -1037,65 +1050,146 @@ async function seed(): Promise<void> {
         .where(eq(schema.recruiterProfiles.userId, recruiter.userId))
         .limit(1);
 
-      const recruiterOpenings = recruiterProfile
-        ? await db
-            .select({ id: schema.recruiterOpenings.id, role: schema.recruiterOpenings.role })
-            .from(schema.recruiterOpenings)
-            .where(
-              and(
-                eq(schema.recruiterOpenings.recruiterProfileId, recruiterProfile.id),
-                eq(schema.recruiterOpenings.isPublished, true)
-              )
-            )
-        : [];
+      if (!recruiterProfile) continue;
 
-      for (let i = 0; i < workersToInterest.length; i++) {
-        const worker = workersToInterest[i];
-        const linkedOpening = recruiterOpenings[i % recruiterOpenings.length];
+      const [primaryVenue] = await db
+        .select({ id: schema.venues.id })
+        .from(schema.venues)
+        .where(
+          and(
+            eq(schema.venues.recruiterProfileId, recruiterProfile.id),
+            eq(schema.venues.isPrimary, true)
+          )
+        )
+        .limit(1);
+
+      const recruiterOpeningsList = await db
+        .select({
+          id: schema.recruiterOpenings.id,
+          role: schema.recruiterOpenings.role,
+        })
+        .from(schema.recruiterOpenings)
+        .where(
+          and(
+            eq(schema.recruiterOpenings.recruiterProfileId, recruiterProfile.id),
+            eq(schema.recruiterOpenings.isPublished, true)
+          )
+        );
+
+      for (let i = 0; i < workersToContact.length; i++) {
+        const worker = workersToContact[i];
+        const linkedOpening =
+          recruiterOpeningsList[i % Math.max(recruiterOpeningsList.length, 1)];
+        const seedStatus = statusCycle[i % statusCycle.length];
+        const now = new Date();
+        const openerText = recruiter.hasSubscription
+          ? `We have an exciting ${linkedOpening?.role || "opportunity"} position for you at our venue!`
+          : "Interested in discussing a position with you.";
 
         const existing = await db
           .select()
-          .from(schema.profileInterests)
+          .from(schema.contactRequests)
           .where(
             and(
-              eq(schema.profileInterests.recruiterUserId, recruiter.userId),
-              eq(schema.profileInterests.workerProfileId, worker.profileId)
+              eq(schema.contactRequests.recruiterUserId, recruiter.userId),
+              eq(schema.contactRequests.workerProfileId, worker.profileId)
             )
           )
           .limit(1);
 
-        let interestId: string;
+        let contactRequestId: string;
         if (existing.length === 0) {
-          const [newInterest] = await db.insert(schema.profileInterests).values({
-            recruiterUserId: recruiter.userId,
-            workerProfileId: worker.profileId,
-            openingId: linkedOpening?.id ?? null,
-            message: recruiter.hasSubscription
-              ? `We have an exciting ${linkedOpening?.role || "opportunity"} position for you at our venue!`
-              : "Interested in discussing a position with you.",
-            createdAt: new Date(),
-          }).returning();
-
-          interestId = newInterest.id;
-          const openingTag = linkedOpening ? ` [${linkedOpening.role}]` : "";
-          console.log(`   ✅ ${recruiter.email} → ${worker.email}${openingTag}`);
+          const deliveredAt =
+            seedStatus === "pending" ||
+            seedStatus === "accepted" ||
+            seedStatus === "declined" ||
+            seedStatus === "expired"
+              ? now
+              : null;
+          const [created] = await db
+            .insert(schema.contactRequests)
+            .values({
+              recruiterUserId: recruiter.userId,
+              recruiterProfileId: recruiterProfile.id,
+              venueId: primaryVenue?.id ?? null,
+              workerProfileId: worker.profileId,
+              workerUserId: worker.userId,
+              openingId: linkedOpening?.id ?? null,
+              openerText,
+              status: seedStatus,
+              isPro: recruiter.hasSubscription,
+              countsTowardCaps: false,
+              deliveredAt,
+              respondedAt:
+                seedStatus === "accepted" || seedStatus === "declined"
+                  ? now
+                  : null,
+              expiresAt:
+                seedStatus === "expired"
+                  ? new Date(now.getTime() - 24 * 60 * 60 * 1000)
+                  : new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+              createdAt: now,
+              updatedAt: now,
+            })
+            .returning();
+          contactRequestId = created.id;
+          console.log(
+            `   ✅ ${seedStatus}: ${recruiter.email} → ${worker.email}`
+          );
         } else {
-          interestId = existing[0].id;
-          if (linkedOpening && !existing[0].openingId) {
-            await db
-              .update(schema.profileInterests)
-              .set({ openingId: linkedOpening.id })
-              .where(eq(schema.profileInterests.id, interestId));
+          contactRequestId = existing[0].id;
+        }
+
+        if (seedStatus === "accepted") {
+          await db
+            .insert(schema.profileInterests)
+            .values({
+              id: contactRequestId,
+              recruiterUserId: recruiter.userId,
+              workerProfileId: worker.profileId,
+              openingId: linkedOpening?.id ?? null,
+              message: openerText,
+              createdAt: now,
+            })
+            .onConflictDoNothing({ target: schema.profileInterests.id });
+
+          const [existingConvo] = await db
+            .select({ id: schema.conversations.id })
+            .from(schema.conversations)
+            .where(eq(schema.conversations.contactRequestId, contactRequestId))
+            .limit(1);
+          if (!existingConvo) {
+            await db.insert(schema.conversations).values({
+              contactRequestId,
+              recruiterUserId: recruiter.userId,
+              workerUserId: worker.userId,
+              workerProfileId: worker.profileId,
+              venueId: primaryVenue?.id ?? null,
+              lastActivityAt: now,
+              retentionExpiresAt: new Date(
+                now.getTime() + 180 * 24 * 60 * 60 * 1000
+              ),
+              createdAt: now,
+            });
           }
         }
 
-        createdInterests.push({
-          interestId,
+        createdRequests.push({
+          contactRequestId,
           recruiterEmail: recruiter.email,
           workerEmail: worker.email,
+          status: seedStatus,
         });
       }
     }
+
+    const createdInterests = createdRequests
+      .filter((r) => r.status === "accepted" || r.status === "pending")
+      .map((r) => ({
+        interestId: r.contactRequestId,
+        recruiterEmail: r.recruiterEmail,
+        workerEmail: r.workerEmail,
+      }));
 
     console.log("\n📦 Seeding hire outcomes...");
 
@@ -1126,14 +1220,79 @@ async function seed(): Promise<void> {
     ];
 
     for (const outcomeSeed of hireOutcomesSeed) {
-      const interest = createdInterests.find(
+      let interest = createdInterests.find(
         (i) =>
           i.recruiterEmail === outcomeSeed.recruiterEmail &&
           i.workerEmail === outcomeSeed.workerEmail
       );
 
+      const requestRow = createdRequests.find(
+        (r) =>
+          r.recruiterEmail === outcomeSeed.recruiterEmail &&
+          r.workerEmail === outcomeSeed.workerEmail
+      );
+
+      if (requestRow) {
+        const nowAccept = new Date();
+        await db
+          .update(schema.contactRequests)
+          .set({
+            status: "accepted",
+            respondedAt: nowAccept,
+            deliveredAt: nowAccept,
+            updatedAt: nowAccept,
+          })
+          .where(eq(schema.contactRequests.id, requestRow.contactRequestId));
+
+        const [req] = await db
+          .select()
+          .from(schema.contactRequests)
+          .where(eq(schema.contactRequests.id, requestRow.contactRequestId))
+          .limit(1);
+
+        if (req) {
+          await db
+            .insert(schema.profileInterests)
+            .values({
+              id: req.id,
+              recruiterUserId: req.recruiterUserId,
+              workerProfileId: req.workerProfileId,
+              openingId: req.openingId,
+              message: req.openerText,
+              createdAt: req.createdAt,
+            })
+            .onConflictDoNothing({ target: schema.profileInterests.id });
+
+          const [existingConvo] = await db
+            .select({ id: schema.conversations.id })
+            .from(schema.conversations)
+            .where(eq(schema.conversations.contactRequestId, req.id))
+            .limit(1);
+          if (!existingConvo) {
+            await db.insert(schema.conversations).values({
+              contactRequestId: req.id,
+              recruiterUserId: req.recruiterUserId,
+              workerUserId: req.workerUserId,
+              workerProfileId: req.workerProfileId,
+              venueId: req.venueId,
+              lastActivityAt: nowAccept,
+              retentionExpiresAt: new Date(
+                nowAccept.getTime() + 180 * 24 * 60 * 60 * 1000
+              ),
+              createdAt: req.createdAt,
+            });
+          }
+        }
+
+        interest = {
+          interestId: requestRow.contactRequestId,
+          recruiterEmail: requestRow.recruiterEmail,
+          workerEmail: requestRow.workerEmail,
+        };
+      }
+
       if (!interest) {
-        console.log(`   ⚠️  Interest not found for ${outcomeSeed.recruiterEmail} → ${outcomeSeed.workerEmail}`);
+        console.log(`   ⚠️  Contact request not found for ${outcomeSeed.recruiterEmail} → ${outcomeSeed.workerEmail}`);
         continue;
       }
 
@@ -1150,6 +1309,7 @@ async function seed(): Promise<void> {
       if (existingOutcome.length === 0) {
         await db.insert(schema.hireOutcomes).values({
           interestId: interest.interestId,
+          contactRequestId: interest.interestId,
           status: outcomeSeed.status,
           hiredAt,
           startedAt,
@@ -1166,6 +1326,7 @@ async function seed(): Promise<void> {
             hiredAt,
             startedAt,
             notes: outcomeSeed.notes,
+            contactRequestId: interest.interestId,
             updatedAt: now,
           })
           .where(eq(schema.hireOutcomes.id, existingOutcome[0].id));

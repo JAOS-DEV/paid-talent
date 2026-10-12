@@ -36,8 +36,11 @@ export interface WorkerProfileDetailFull {
   payCurrency: string | null;
   isVerified: boolean;
   isTopTalent: boolean;
+  /** @deprecated Prefer contactRequest */
   hasExpressedInterest: boolean;
+  /** @deprecated Prefer contactRequest */
   interestId?: string;
+  contactRequest: { id: string; status: string } | null;
   hireOutcomeStatus?: HireOutcomeStatus;
   hiredAt?: string | null;
   startedAt?: string | null;
@@ -93,7 +96,10 @@ export type WorkerProfileDetailFields = Omit<WorkerProfileDetailFull, "mode">;
 export interface WorkerProfileDetailExtras {
   isTopTalent: boolean;
   photos: PublicWorkerPhoto[];
-  hasExpressedInterest: boolean;
+  contactRequest?: { id: string; status: string } | null;
+  /** @deprecated Prefer contactRequest */
+  hasExpressedInterest?: boolean;
+  /** @deprecated Prefer contactRequest */
   interestId?: string;
   hireOutcomeStatus?: HireOutcomeStatus | null;
   hiredAt?: Date | string | null;
@@ -167,6 +173,12 @@ export function toWorkerProfileDetail(
   const primary =
     photos.find((item) => item.isCurrentApproved) ?? photos[0] ?? null;
 
+  const contactRequest =
+    extras.contactRequest ??
+    (extras.hasExpressedInterest && extras.interestId
+      ? { id: extras.interestId, status: "accepted" }
+      : null);
+
   const result: WorkerProfileDetailFull = {
     mode: "full",
     id: profile.id,
@@ -188,11 +200,12 @@ export function toWorkerProfileDetail(
     payCurrency: profile.payCurrency,
     isVerified: profile.isVerified,
     isTopTalent: extras.isTopTalent,
-    hasExpressedInterest: extras.hasExpressedInterest,
+    hasExpressedInterest: contactRequest != null,
+    contactRequest,
   };
 
-  if (extras.hasExpressedInterest && extras.interestId) {
-    result.interestId = extras.interestId;
+  if (contactRequest) {
+    result.interestId = contactRequest.id;
     result.hireOutcomeStatus = extras.hireOutcomeStatus ?? "interested";
     result.hiredAt = toIsoString(extras.hiredAt);
     result.startedAt = toIsoString(extras.startedAt);

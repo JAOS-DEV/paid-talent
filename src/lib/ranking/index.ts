@@ -1,5 +1,10 @@
-import { db, workerProfiles, profileViews, profileInterests } from "@/lib/db";
-import { eq, desc, sql, and, gte, countDistinct } from "drizzle-orm";
+import {
+  contactRequests,
+  db,
+  workerProfiles,
+  profileViews,
+} from "@/lib/db";
+import { eq, desc, sql, and, gte, countDistinct, inArray } from "drizzle-orm";
 import { getProfileCompleteness } from "@/lib/profile";
 import {
   calculateCompositeScore,
@@ -245,8 +250,13 @@ class CompositeRankingProvider implements RankingProvider {
       .select({
         interestCount: sql<number>`count(*)::int`,
       })
-      .from(profileInterests)
-      .where(eq(profileInterests.workerProfileId, profileId));
+      .from(contactRequests)
+      .where(
+        and(
+          eq(contactRequests.workerProfileId, profileId),
+          inArray(contactRequests.status, ["pending", "accepted"])
+        )
+      );
 
     return calculateCompositeScore(
       completeness.progress,
@@ -308,8 +318,13 @@ class CompositeRankingProvider implements RankingProvider {
         .select({
           interestCount: sql<number>`count(*)::int`,
         })
-        .from(profileInterests)
-        .where(eq(profileInterests.workerProfileId, profile.id));
+        .from(contactRequests)
+        .where(
+          and(
+            eq(contactRequests.workerProfileId, profile.id),
+            inArray(contactRequests.status, ["pending", "accepted"])
+          )
+        );
 
       const components = calculateCompositeScore(
         completeness.progress,
