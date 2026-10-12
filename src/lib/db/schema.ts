@@ -94,6 +94,18 @@ export const workerExpectedPayPeriodEnum = pgEnum(
   ["day", "month"]
 );
 
+export const venueLinkKindEnum = pgEnum("venue_link_kind", [
+  "google_maps",
+  "facebook",
+  "instagram",
+]);
+
+export const venueReviewStatusEnum = pgEnum("venue_review_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
 export const adminAuditActionEnum = pgEnum("admin_audit_action", [
   "account_suspended",
   "account_reactivated",
@@ -110,6 +122,8 @@ export const adminAuditActionEnum = pgEnum("admin_audit_action", [
   "recruiter_verification_approved",
   "recruiter_verification_rejected",
   "recruiter_verification_revoked",
+  "venue_approved",
+  "venue_rejected",
   "photo_approved",
   "photo_rejected",
 ]);
@@ -305,6 +319,7 @@ export const recruiterProfiles = pgTable(
     location: text("location"),
     contactEmail: text("contact_email"),
     contactPhone: text("contact_phone"),
+    lineId: text("line_id"),
     logoKey: text("logo_key"),
     logoUrl: text("logo_url"),
     area: text("area"),
@@ -338,6 +353,44 @@ export const recruiterProfiles = pgTable(
   ]
 );
 
+export const venues = pgTable(
+  "venues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recruiterProfileId: uuid("recruiter_profile_id")
+      .notNull()
+      .references(() => recruiterProfiles.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    venueType: text("venue_type"),
+    area: text("area"),
+    subArea: text("sub_area"),
+    blurb: text("blurb"),
+    logoKey: text("logo_key"),
+    logoUrl: text("logo_url"),
+    venueLinkUrl: text("venue_link_url").notNull(),
+    venueLinkKind: venueLinkKindEnum("venue_link_kind").notNull(),
+    reviewStatus: venueReviewStatusEnum("review_status")
+      .notNull()
+      .default("pending"),
+    reviewNote: text("review_note"),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }),
+    reviewedBy: text("reviewed_by"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    businessDocKey: text("business_doc_key"),
+    businessVerifiedAt: timestamp("business_verified_at", { mode: "date" }),
+    archivedAt: timestamp("archived_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("venues_recruiter_profile_id_idx").on(table.recruiterProfileId),
+    index("venues_review_status_idx").on(table.reviewStatus),
+    uniqueIndex("venues_one_primary_per_recruiter_uidx")
+      .on(table.recruiterProfileId)
+      .where(sql`${table.isPrimary} = true`),
+  ]
+);
+
 export const recruiterOpenings = pgTable(
   "recruiter_openings",
   {
@@ -345,6 +398,9 @@ export const recruiterOpenings = pgTable(
     recruiterProfileId: uuid("recruiter_profile_id")
       .notNull()
       .references(() => recruiterProfiles.id, { onDelete: "cascade" }),
+    venueId: uuid("venue_id").references(() => venues.id, {
+      onDelete: "set null",
+    }),
     role: text("role").notNull(),
     area: text("area").notNull(),
     payMin: integer("pay_min"),
@@ -360,6 +416,7 @@ export const recruiterOpenings = pgTable(
     index("recruiter_openings_recruiter_profile_id_idx").on(
       table.recruiterProfileId
     ),
+    index("recruiter_openings_venue_id_idx").on(table.venueId),
     index("recruiter_openings_area_idx").on(table.area),
     index("recruiter_openings_is_published_idx").on(table.isPublished),
   ]
@@ -699,8 +756,17 @@ export const recruiterProfilesRelations = relations(
       references: [users.id],
     }),
     openings: many(recruiterOpenings),
+    venues: many(venues),
   })
 );
+
+export const venuesRelations = relations(venues, ({ one, many }) => ({
+  recruiterProfile: one(recruiterProfiles, {
+    fields: [venues.recruiterProfileId],
+    references: [recruiterProfiles.id],
+  }),
+  openings: many(recruiterOpenings),
+}));
 
 export const recruiterOpeningsRelations = relations(
   recruiterOpenings,
@@ -708,6 +774,10 @@ export const recruiterOpeningsRelations = relations(
     recruiterProfile: one(recruiterProfiles, {
       fields: [recruiterOpenings.recruiterProfileId],
       references: [recruiterProfiles.id],
+    }),
+    venue: one(venues, {
+      fields: [recruiterOpenings.venueId],
+      references: [venues.id],
     }),
     interests: many(profileInterests),
   })
@@ -817,8 +887,13 @@ export type WorkerProfile = typeof workerProfiles.$inferSelect;
 export type NewWorkerProfile = typeof workerProfiles.$inferInsert;
 export type RecruiterProfile = typeof recruiterProfiles.$inferSelect;
 export type NewRecruiterProfile = typeof recruiterProfiles.$inferInsert;
+export type Venue = typeof venues.$inferSelect;
+export type NewVenue = typeof venues.$inferInsert;
 export type RecruiterOpening = typeof recruiterOpenings.$inferSelect;
 export type NewRecruiterOpening = typeof recruiterOpenings.$inferInsert;
+export type VenueLinkKind = (typeof venueLinkKindEnum.enumValues)[number];
+export type VenueReviewStatus =
+  (typeof venueReviewStatusEnum.enumValues)[number];
 export type ProfilePhoto = typeof profilePhotos.$inferSelect;
 export type NewProfilePhoto = typeof profilePhotos.$inferInsert;
 export type ProfileView = typeof profileViews.$inferSelect;

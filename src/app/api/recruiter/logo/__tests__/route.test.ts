@@ -109,7 +109,8 @@ describe("/api/recruiter/logo", () => {
     expect(response.status).toBe(200);
     expect(mockedConfirm).toHaveBeenCalledWith(
       "recruiter-1",
-      "profile-photo-staging/recruiter-1/logo.jpeg"
+      "profile-photo-staging/recruiter-1/logo.jpeg",
+      { venueId: null }
     );
     expect(revalidatePath).toHaveBeenCalledWith("/recruiter/profile");
     expect(revalidatePath).toHaveBeenCalledWith("/recruiter/openings");
@@ -118,8 +119,8 @@ describe("/api/recruiter/logo", () => {
   it("clears the logo for the signed-in recruiter", async () => {
     recruiter();
     mockedClear.mockResolvedValue({ ok: true });
-    const response = await DELETE();
+    const response = await DELETE(jsonRequest({}));
     expect(response.status).toBe(200);
-    expect(mockedClear).toHaveBeenCalledWith("recruiter-1");
+    expect(mockedClear).toHaveBeenCalledWith("recruiter-1", { venueId: null });
   });
 });

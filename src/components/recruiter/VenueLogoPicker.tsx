@@ -18,6 +18,7 @@ export interface VenueLogoChange {
 interface VenueLogoPickerProps {
   logoUrl: string | null;
   onChange: (next: VenueLogoChange) => void;
+  venueId?: string | null;
 }
 
 function PlusIcon(): React.ReactElement {
@@ -42,6 +43,7 @@ function PlusIcon(): React.ReactElement {
 export function VenueLogoPicker({
   logoUrl,
   onChange,
+  venueId = null,
 }: VenueLogoPickerProps): React.ReactElement {
   const t = useTranslations("recruiter.profile");
   const [uploading, setUploading] = useState(false);
@@ -97,7 +99,10 @@ export function VenueLogoPicker({
     replaceLocalPreview(file);
 
     try {
-      const uploaded = await uploadVenueLogo(file, { onStage: setStage });
+      const uploaded = await uploadVenueLogo(file, {
+        onStage: setStage,
+        venueId,
+      });
       clearLocalPreview();
       onChange(uploaded);
     } catch (uploadError) {
@@ -115,7 +120,7 @@ export function VenueLogoPicker({
     setRemoving(true);
     setError(null);
     try {
-      await clearVenueLogo();
+      await clearVenueLogo({ venueId });
       clearLocalPreview();
       onChange({ logoKey: null, logoUrl: null });
     } catch (removeError) {

@@ -58,10 +58,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: message, message }, { status: 400 });
     }
 
+    const venueId =
+      typeof body === "object" &&
+      body !== null &&
+      "venueId" in body &&
+      typeof (body as { venueId?: unknown }).venueId === "string"
+        ? (body as { venueId: string }).venueId
+        : null;
+
     const result = await presignVenueLogo(
       actor.user.userId,
       validation.data.contentType,
-      validation.data.contentLength
+      validation.data.contentLength,
+      { venueId }
     );
     if (!result.ok) {
       return NextResponse.json(
@@ -97,7 +106,10 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       return deniedActiveUserResponse(actor);
     }
 
-    const body = (await request.json()) as { key?: unknown };
+    const body = (await request.json()) as {
+      key?: unknown;
+      venueId?: unknown;
+    };
     if (typeof body.key !== "string" || !body.key) {
       return NextResponse.json(
         { error: "Missing key", message: "Missing key" },
@@ -105,7 +117,12 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const result = await confirmVenueLogo(actor.user.userId, body.key);
+    const venueId =
+      typeof body.venueId === "string" ? body.venueId : null;
+
+    const result = await confirmVenueLogo(actor.user.userId, body.key, {
+      venueId,
+    });
     if (!result.ok) {
       return NextResponse.json(
         { error: result.message, message: result.message },
@@ -134,14 +151,24 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-export async function DELETE(): Promise<NextResponse> {
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
   try {
     const actor = await requireActiveRecruiter();
     if (!actor.ok) {
       return deniedActiveUserResponse(actor);
     }
 
-    const result = await clearVenueLogo(actor.user.userId);
+    let venueId: string | null = null;
+    try {
+      const body = (await request.json()) as { venueId?: unknown };
+      if (typeof body.venueId === "string") {
+        venueId = body.venueId;
+      }
+    } catch {
+      // DELETE without body → primary venue / profile fallback
+    }
+
+    const result = await clearVenueLogo(actor.user.userId, { venueId });
     if (!result.ok) {
       return NextResponse.json(
         { error: result.message, message: result.message },

@@ -221,6 +221,7 @@ describe("unpublished openings never reach worker-facing queries", () => {
 
   it("linked unpublished openings are stripped from worker interest context", async () => {
     const selectMock = vi.mocked(db.select);
+    selectMock.mockReset();
     selectMock
       .mockReturnValueOnce(
         mockLimitResult([
@@ -241,17 +242,6 @@ describe("unpublished openings never reach worker-facing queries", () => {
       .mockReturnValueOnce(
         mockLimitResult([
           {
-            organizationName: "Venue",
-            logoUrl: null,
-            area: "Sukhumvit",
-            subArea: null,
-            blurb: "Great venue",
-          },
-        ]) as never
-      )
-      .mockReturnValueOnce(
-        mockLimitResult([
-          {
             id: OPENING_DRAFT,
             role: "Bartender",
             area: "Sukhumvit",
@@ -262,7 +252,21 @@ describe("unpublished openings never reach worker-facing queries", () => {
             isPublished: false,
           },
         ]) as never
-      );
+      )
+      .mockReturnValueOnce(
+        mockLimitResult([
+          {
+            id: RECRUITER_PROFILE,
+            organizationName: "Venue",
+            logoUrl: null,
+            area: "Sukhumvit",
+            subArea: null,
+            blurb: "Great venue",
+          },
+        ]) as never
+      )
+      .mockReturnValueOnce(mockLimitResult([{ venueId: null }]) as never)
+      .mockReturnValueOnce(mockLimitResult([]) as never);
 
     const result = await getInterestContextForWorker(INTEREST_A, WORKER_A);
     expect(result).not.toBeNull();
@@ -272,6 +276,7 @@ describe("unpublished openings never reach worker-facing queries", () => {
 
   it("published opening pay remains visible to the owning worker", async () => {
     const selectMock = vi.mocked(db.select);
+    selectMock.mockReset();
     selectMock
       .mockReturnValueOnce(
         mockLimitResult([
@@ -292,17 +297,6 @@ describe("unpublished openings never reach worker-facing queries", () => {
       .mockReturnValueOnce(
         mockLimitResult([
           {
-            organizationName: "Venue",
-            logoUrl: null,
-            area: "Sukhumvit",
-            subArea: null,
-            blurb: "Great venue",
-          },
-        ]) as never
-      )
-      .mockReturnValueOnce(
-        mockLimitResult([
-          {
             id: OPENING_PUBLISHED,
             role: "Hostess",
             area: "Sukhumvit",
@@ -313,7 +307,21 @@ describe("unpublished openings never reach worker-facing queries", () => {
             isPublished: true,
           },
         ]) as never
-      );
+      )
+      .mockReturnValueOnce(
+        mockLimitResult([
+          {
+            id: RECRUITER_PROFILE,
+            organizationName: "Venue",
+            logoUrl: null,
+            area: "Sukhumvit",
+            subArea: null,
+            blurb: "Great venue",
+          },
+        ]) as never
+      )
+      .mockReturnValueOnce(mockLimitResult([{ venueId: null }]) as never)
+      .mockReturnValueOnce(mockLimitResult([]) as never);
 
     const result = await getInterestContextForWorker(INTEREST_A, WORKER_A);
     expect(result?.opening).toEqual({
@@ -332,7 +340,9 @@ describe("unpublished openings never reach worker-facing queries", () => {
     selectMock.mockReset();
     selectMock
       .mockReturnValueOnce(mockLimitResult([{ name: "Recruiter" }]) as never)
+      // resolveVenueDisplayForRecruiter: no recruiter profile
       .mockReturnValueOnce(mockLimitResult([]) as never)
+      // getPublishedOpeningsForRecruiter: no recruiter profile
       .mockReturnValueOnce(mockLimitResult([]) as never);
 
     const result = await getRecruiterVenueInfo(RECRUITER_USER);
@@ -346,9 +356,11 @@ describe("unpublished openings never reach worker-facing queries", () => {
     selectMock.mockReset();
     selectMock
       .mockReturnValueOnce(mockLimitResult([{ name: "Recruiter" }]) as never)
+      // resolveVenueDisplayForRecruiter: profile
       .mockReturnValueOnce(
         mockLimitResult([
           {
+            id: RECRUITER_PROFILE,
             organizationName: "Sky Bar",
             logoUrl: "https://example.com/logo.png",
             area: "Sukhumvit",
@@ -357,6 +369,9 @@ describe("unpublished openings never reach worker-facing queries", () => {
           },
         ]) as never
       )
+      // primary venue (none → fall back to profile fields)
+      .mockReturnValueOnce(mockLimitResult([]) as never)
+      // getPublishedOpeningsForRecruiter: profile id
       .mockReturnValueOnce(
         mockLimitResult([{ id: RECRUITER_PROFILE }]) as never
       )

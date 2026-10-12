@@ -40,6 +40,8 @@ export default async function WorkerVenuePage({
           areaLabel={view.areaLabel}
           blurb={view.blurb}
           logoUrl={view.logoUrl}
+          publicVenueLinkUrl={view.publicVenueLinkUrl}
+          publicVenueLinkLabel={view.publicVenueLinkLabel}
         />
       )}
     </WorkerPageFrame>

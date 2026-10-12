@@ -135,6 +135,138 @@ function InterestsCard(): React.ReactElement {
   );
 }
 
+function SetupChecklistCard(): React.ReactElement {
+  const t = useTranslations("recruiter.dashboard");
+  const [loading, setLoading] = useState(true);
+  const [verificationStatus, setVerificationStatus] = useState<string>("unverified");
+  const [hasVenueLink, setHasVenueLink] = useState(false);
+  const [venueApproved, setVenueApproved] = useState(false);
+  const [venuePending, setVenuePending] = useState(false);
+
+  useEffect(() => {
+    const load = async (): Promise<void> => {
+      try {
+        const [profile, venuesRes] = await Promise.all([
+          getRecruiterProfile(),
+          fetch("/api/recruiter/venues"),
+        ]);
+        setVerificationStatus(profile?.verificationStatus ?? "unverified");
+        if (venuesRes.ok) {
+          const data = (await venuesRes.json()) as {
+            venues?: Array<{
+              venueLinkUrl?: string;
+              reviewStatus?: string;
+            }>;
+          };
+          const list = data.venues ?? [];
+          setHasVenueLink(
+            list.some((v) => Boolean(v.venueLinkUrl?.trim()))
+          );
+          setVenueApproved(list.some((v) => v.reviewStatus === "approved"));
+          setVenuePending(list.some((v) => v.reviewStatus === "pending"));
+        }
+      } catch {
+        // leave defaults
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
+  }, []);
+
+  const identityDone = verificationStatus === "verified";
+  const identityPending = verificationStatus === "pending";
+
+  return (
+    <Card padding="lg">
+      <CardHeader>
+        <CardTitle>{t("checklistTitle")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="h-24 animate-pulse rounded-lg bg-charcoal-800" />
+        ) : (
+          <ol className="space-y-3 text-sm">
+            <li className="flex items-start gap-3">
+              <Badge
+                variant={
+                  identityDone
+                    ? "success"
+                    : identityPending
+                      ? "warning"
+                      : "default"
+                }
+              >
+                1
+              </Badge>
+              <div>
+                <p className="text-charcoal-100 font-medium">
+                  {t("checklistVerify")}
+                </p>
+                <p className="text-charcoal-500 mt-0.5">
+                  {identityDone
+                    ? t("checklistVerifyDone")
+                    : identityPending
+                      ? t("checklistVerifyPending")
+                      : t("checklistVerifyTodo")}
+                </p>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <Badge variant={hasVenueLink ? "success" : "default"}>2</Badge>
+              <div>
+                <p className="text-charcoal-100 font-medium">
+                  {t("checklistVenueLink")}
+                </p>
+                <p className="text-charcoal-500 mt-0.5">
+                  {hasVenueLink
+                    ? t("checklistVenueLinkDone")
+                    : t("checklistVenueLinkTodo")}
+                </p>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <Badge
+                variant={
+                  venueApproved
+                    ? "success"
+                    : venuePending
+                      ? "warning"
+                      : "default"
+                }
+              >
+                3
+              </Badge>
+              <div>
+                <p className="text-charcoal-100 font-medium">
+                  {t("checklistApproval")}
+                </p>
+                <p className="text-charcoal-500 mt-0.5">
+                  {venueApproved
+                    ? t("checklistApprovalDone")
+                    : venuePending
+                      ? t("checklistApprovalPending")
+                      : t("checklistApprovalTodo")}
+                </p>
+              </div>
+            </li>
+          </ol>
+        )}
+        <div className="flex flex-col sm:flex-row gap-2 mt-4">
+          <Link href="/recruiter/verification" className="flex-1">
+            <Button fullWidth variant="outline">
+              {t("verificationTitle")}
+            </Button>
+          </Link>
+          <Link href="/recruiter/venues" className="flex-1">
+            <Button fullWidth>{t("manageVenues")}</Button>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function VenueStatusCard(): React.ReactElement {
   const t = useTranslations("recruiter.dashboard");
   const [loading, setLoading] = useState(true);
@@ -197,9 +329,9 @@ function VenueStatusCard(): React.ReactElement {
           </p>
         )}
         <div className="flex flex-col sm:flex-row gap-2">
-          <Link href="/recruiter/profile" className="flex-1">
+          <Link href="/recruiter/venues" className="flex-1">
             <Button fullWidth variant="outline">
-              {t("venueProfile")}
+              {t("manageVenues")}
             </Button>
           </Link>
           <Link href="/recruiter/openings" className="flex-1">
@@ -312,6 +444,8 @@ export default function RecruiterDashboardPage(): React.ReactElement {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <SetupChecklistCard />
+
             <Card padding="lg">
               <CardHeader>
                 <CardTitle>{t("searchWorkers")}</CardTitle>

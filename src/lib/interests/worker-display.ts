@@ -20,6 +20,8 @@ export type WorkerVenueView =
       areaLabel: string | null;
       blurb: string | null;
       logoUrl: string | null;
+      publicVenueLinkUrl: string | null;
+      publicVenueLinkLabel: string | null;
       openings: OpeningTag[];
     };
 
@@ -63,7 +65,10 @@ export async function loadWorkerVenueView(
     return { status: "missing" };
   }
 
-  const venue = await getRecruiterVenueInfo(interest.recruiter.recruiterUserId);
+  const venue = await getRecruiterVenueInfo(
+    interest.recruiter.recruiterUserId,
+    interest.opening?.openingId ?? null
+  );
   if (!venue?.hasProfile) {
     return { status: "unavailable" };
   }
@@ -75,6 +80,8 @@ export async function loadWorkerVenueView(
     areaLabel: formatVenueAreaLabel(venue.area, venue.subArea),
     blurb: venue.blurb?.trim() ? venue.blurb.trim() : null,
     logoUrl: venue.logoUrl,
+    publicVenueLinkUrl: venue.publicVenueLinkUrl,
+    publicVenueLinkLabel: venue.publicVenueLinkLabel,
     openings: venue.openings,
   };
 }

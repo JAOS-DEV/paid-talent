@@ -18,6 +18,7 @@ export interface VenueLogoUploadDeps {
   fetch?: typeof fetch;
   prepareImage?: (file: File) => Promise<File>;
   onStage?: (stage: ProfilePhotoUploadStage) => void;
+  venueId?: string | null;
 }
 
 export class VenueLogoUploadError extends Error {
@@ -74,6 +75,7 @@ export async function uploadVenueLogo(
         contentType: preparedInspection.contentType,
         folder: "profiles",
         contentLength: prepared.size,
+        ...(deps.venueId ? { venueId: deps.venueId } : {}),
       }),
     });
   } catch (error) {
@@ -139,7 +141,10 @@ export async function uploadVenueLogo(
     confirmRes = await callProfilePhotoFetch(deps.fetch, "/api/recruiter/logo", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key }),
+      body: JSON.stringify({
+        key,
+        ...(deps.venueId ? { venueId: deps.venueId } : {}),
+      }),
     });
   } catch (error) {
     throw new VenueLogoUploadError(
@@ -174,12 +179,16 @@ export async function uploadVenueLogo(
 }
 
 export async function clearVenueLogo(
-  deps: Pick<VenueLogoUploadDeps, "fetch"> = {}
+  deps: Pick<VenueLogoUploadDeps, "fetch" | "venueId"> = {}
 ): Promise<void> {
   let response: Response;
   try {
     response = await callProfilePhotoFetch(deps.fetch, "/api/recruiter/logo", {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        deps.venueId ? { venueId: deps.venueId } : {}
+      ),
     });
   } catch (error) {
     throw new VenueLogoUploadError(

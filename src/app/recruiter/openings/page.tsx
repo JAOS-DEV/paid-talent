@@ -12,6 +12,7 @@ import {
   getRecruiterOpenings,
   getRecruiterProfile,
 } from "@/lib/recruiter-profile/actions";
+import { getVenueNameMapForProfile } from "@/lib/venues/recruiter-helpers";
 
 export default async function RecruiterOpeningsPage(): Promise<React.ReactElement> {
   const session = await auth();
@@ -25,8 +26,12 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
     getRecruiterOpenings(),
     getRecruiterProfile(),
   ]);
-  const venueName = profile?.organizationName?.trim() || t("fallbackVenue");
-  const venueLogoUrl = toPublicVenueLogoUrl(profile?.logoUrl);
+  const venueMap = profile
+    ? await getVenueNameMapForProfile(profile.id)
+    : new Map();
+  const fallbackVenueName =
+    profile?.organizationName?.trim() || t("fallbackVenue");
+  const fallbackLogoUrl = toPublicVenueLogoUrl(profile?.logoUrl);
   const publishedCount = openings.filter((o) => o.isPublished).length;
   const draftCount = openings.length - publishedCount;
 
@@ -41,7 +46,10 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
             </RecruiterBackLink>
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
-                <VenueLogo logoUrl={venueLogoUrl} name={venueName} />
+                <VenueLogo
+                  logoUrl={fallbackLogoUrl}
+                  name={fallbackVenueName}
+                />
                 <div className="min-w-0">
                   <h1 className="text-2xl font-semibold text-charcoal-100">
                     {t("title")}
@@ -95,14 +103,22 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
             </Card>
           ) : (
             <div className="space-y-3">
-              {openings.map((opening) => (
-                <OpeningCard
-                  key={opening.id}
-                  opening={opening}
-                  venueLogoUrl={venueLogoUrl}
-                  venueName={venueName}
-                />
-              ))}
+              {openings.map((opening) => {
+                const venueInfo = opening.venueId
+                  ? venueMap.get(opening.venueId)
+                  : null;
+                return (
+                  <OpeningCard
+                    key={opening.id}
+                    opening={opening}
+                    venueLogoUrl={
+                      toPublicVenueLogoUrl(venueInfo?.logoUrl) ??
+                      fallbackLogoUrl
+                    }
+                    venueName={venueInfo?.name ?? fallbackVenueName}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

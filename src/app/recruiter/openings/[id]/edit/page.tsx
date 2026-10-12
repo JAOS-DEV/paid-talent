@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
 import { OpeningForm, RecruiterBackLink } from "@/components/recruiter";
 import { getOpening } from "@/lib/recruiter-profile/actions";
+import { listVenueOptionsForUser } from "@/lib/venues/recruiter-helpers";
 
 interface EditOpeningPageProps {
   params: Promise<{ id: string }>;
@@ -20,7 +21,10 @@ export default async function EditOpeningPage({
   }
 
   const { id } = await params;
-  const opening = await getOpening(id);
+  const [opening, venues] = await Promise.all([
+    getOpening(id),
+    listVenueOptionsForUser(session.user.id),
+  ]);
 
   if (!opening) {
     notFound();
@@ -38,7 +42,7 @@ export default async function EditOpeningPage({
               {t("backToOpenings")}
             </RecruiterBackLink>
           </div>
-          <OpeningForm mode="edit" initialOpening={opening} />
+          <OpeningForm mode="edit" initialOpening={opening} venues={venues} />
         </div>
       </main>
       <Footer />

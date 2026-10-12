@@ -31,9 +31,12 @@ import {
   type OpeningPayPeriodPreset,
 } from "@/lib/recruiter-profile/opening-pay";
 
+import type { OpeningVenueOption } from "@/lib/venues/recruiter-helpers";
+
 interface OpeningFormProps {
   mode: "create" | "edit";
   initialOpening?: RecruiterOpening | null;
+  venues: OpeningVenueOption[];
 }
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -55,9 +58,24 @@ function getInitialPeriod(opening?: RecruiterOpening | null): OpeningPayPeriodPr
   return DEFAULT_OPENING_PAY_PERIOD;
 }
 
+function defaultVenueId(
+  venues: OpeningVenueOption[],
+  initialOpening?: RecruiterOpening | null
+): string {
+  if (
+    initialOpening?.venueId &&
+    venues.some((venue) => venue.id === initialOpening.venueId)
+  ) {
+    return initialOpening.venueId;
+  }
+  const primary = venues.find((venue) => venue.isPrimary);
+  return primary?.id ?? venues[0]?.id ?? "";
+}
+
 export function OpeningForm({
   mode,
   initialOpening = null,
+  venues,
 }: OpeningFormProps): React.ReactElement {
   const t = useTranslations("recruiter.openings");
   const router = useRouter();
@@ -70,6 +88,9 @@ export function OpeningForm({
 
   const [role, setRole] = useState(initialOpening?.role || "");
   const [area, setArea] = useState(initialOpening?.area || "");
+  const [venueId, setVenueId] = useState(() =>
+    defaultVenueId(venues, initialOpening)
+  );
   const [payAmount, setPayAmount] = useState(
     initialAmount != null ? String(initialAmount) : ""
   );
@@ -105,9 +126,16 @@ export function OpeningForm({
       return;
     }
 
+    if (!venueId) {
+      setSaving(false);
+      setError(t("venueRequired"));
+      return;
+    }
+
     const payload = {
       role,
       area,
+      venueId,
       payAmount: emptyPayToNull(payAmount),
       payCurrency,
       payPeriod,
@@ -167,6 +195,33 @@ export function OpeningForm({
           </div>
 
           <CardContent className="space-y-5 !p-0 min-w-0">
+            <div>
+              <label
+                htmlFor="opening-venue"
+                className="block text-sm font-medium text-charcoal-200 mb-1.5"
+              >
+                {t("venue")}
+              </label>
+              <select
+                id="opening-venue"
+                value={venueId}
+                onChange={(e) => setVenueId(e.target.value)}
+                required
+                className={selectClassName}
+              >
+                {venues.length === 0 ? (
+                  <option value="">{t("noVenues")}</option>
+                ) : (
+                  venues.map((venue) => (
+                    <option key={venue.id} value={venue.id}>
+                      {venue.name}
+                      {venue.isPrimary ? ` (${t("primaryVenue")})` : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
             <Input
               id="opening-role"
               label={t("role")}
