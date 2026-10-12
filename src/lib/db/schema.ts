@@ -123,6 +123,7 @@ export const adminAuditActionEnum = pgEnum("admin_audit_action", [
   "admin_premium_revoked",
   "subscription_paywall_mode_changed",
   "billing_prices_changed",
+  "messaging_settings_changed",
   "identity_verification_approved",
   "identity_verification_rejected",
   "identity_verification_revoked",
@@ -579,6 +580,50 @@ export const billingPriceSettings = pgTable("billing_price_settings", {
   updatedBy: text("updated_by"),
 });
 
+export const MESSAGING_SETTINGS_ID = "default";
+
+export const messagingSettings = pgTable("messaging_settings", {
+  id: text("id").primaryKey(),
+  freeDailyNew: integer("free_daily_new").notNull().default(3),
+  freeWeeklyNew: integer("free_weekly_new").notNull().default(10),
+  freePendingMax: integer("free_pending_max").notNull().default(5),
+  freeOpenerMaxChars: integer("free_opener_max_chars").notNull().default(300),
+  freeCanAttachOpening: boolean("free_can_attach_opening")
+    .notNull()
+    .default(false),
+  freeMaxVenues: integer("free_max_venues").notNull().default(1),
+  paidDailyNew: integer("paid_daily_new").notNull().default(20),
+  paidWeeklyNew: integer("paid_weekly_new").notNull().default(100),
+  paidDailyTopTalent: integer("paid_daily_top_talent").notNull().default(10),
+  paidPendingMax: integer("paid_pending_max").notNull().default(25),
+  paidOpenerMaxChars: integer("paid_opener_max_chars").notNull().default(1000),
+  paidMaxVenues: integer("paid_max_venues").notNull().default(5),
+  newRecruiterDailyCap: integer("new_recruiter_daily_cap").notNull().default(5),
+  newRecruiterWindowDays: integer("new_recruiter_window_days")
+    .notNull()
+    .default(7),
+  workerInboundDailyDefault: integer("worker_inbound_daily_default")
+    .notNull()
+    .default(10),
+  followUpAfterHours: integer("follow_up_after_hours").notNull().default(48),
+  requestExpiryDays: integer("request_expiry_days").notNull().default(14),
+  declineCooldownDays: integer("decline_cooldown_days").notNull().default(30),
+  messageMaxChars: integer("message_max_chars").notNull().default(2000),
+  autoPauseReportThreshold: integer("auto_pause_report_threshold")
+    .notNull()
+    .default(3),
+  autoPauseWindowDays: integer("auto_pause_window_days").notNull().default(30),
+  notifyCooldownMinutes: integer("notify_cooldown_minutes")
+    .notNull()
+    .default(15),
+  lineMonthlyPushBudget: integer("line_monthly_push_budget")
+    .notNull()
+    .default(300),
+  retentionDays: integer("retention_days").notNull().default(180),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  updatedBy: text("updated_by"),
+});
+
 export const topTalentPasses = pgTable(
   "top_talent_passes",
   {
@@ -957,6 +1002,8 @@ export type Subscription = typeof subscriptions.$inferSelect;
 export type BillingProduct = (typeof billingProductEnum.enumValues)[number];
 export type BillingPriceSetting = typeof billingPriceSettings.$inferSelect;
 export type NewBillingPriceSetting = typeof billingPriceSettings.$inferInsert;
+export type MessagingSetting = typeof messagingSettings.$inferSelect;
+export type NewMessagingSetting = typeof messagingSettings.$inferInsert;
 export type TopTalentPass = typeof topTalentPasses.$inferSelect;
 export type NewTopTalentPass = typeof topTalentPasses.$inferInsert;
 export type VerificationEvent = typeof verificationEvents.$inferSelect;

@@ -1222,6 +1222,40 @@ async function seed(): Promise<void> {
       })
       .onConflictDoNothing();
 
+    // Default messaging caps (editable in Admin → Settings).
+    await db
+      .insert(schema.messagingSettings)
+      .values({
+        id: schema.MESSAGING_SETTINGS_ID,
+        freeDailyNew: 3,
+        freeWeeklyNew: 10,
+        freePendingMax: 5,
+        freeOpenerMaxChars: 300,
+        freeCanAttachOpening: false,
+        freeMaxVenues: 1,
+        paidDailyNew: 20,
+        paidWeeklyNew: 100,
+        paidDailyTopTalent: 10,
+        paidPendingMax: 25,
+        paidOpenerMaxChars: 1000,
+        paidMaxVenues: 5,
+        newRecruiterDailyCap: 5,
+        newRecruiterWindowDays: 7,
+        workerInboundDailyDefault: 10,
+        followUpAfterHours: 48,
+        requestExpiryDays: 14,
+        declineCooldownDays: 30,
+        messageMaxChars: 2000,
+        autoPauseReportThreshold: 3,
+        autoPauseWindowDays: 30,
+        notifyCooldownMinutes: 15,
+        lineMonthlyPushBudget: 300,
+        retentionDays: 180,
+        updatedAt: new Date(),
+        updatedBy: "seed",
+      })
+      .onConflictDoNothing();
+
     // Seed one active 7-day pass (alongside the paid subscription on recruiter-pro).
     const passRecruiter = createdRecruiters.find(
       (r) => r.email === "recruiter-pro@example.com"
@@ -1247,13 +1281,21 @@ async function seed(): Promise<void> {
       console.log(`   🎟️  7-day pass active for: ${passRecruiter.email}`);
     }
 
+    console.log("💬 MESSAGING CAPS:");
+    console.log("-".repeat(40));
+    console.log("   messaging_settings seeded (Admin → Settings → Messaging limits)");
+    console.log(
+      "   near daily cap fixture → recruiter-free@ (2 of 3 free daily once requests land)"
+    );
+    console.log("");
+
     console.log("🏢 RECRUITERS (access tiers):");
     console.log("-".repeat(40));
     console.log(
       "   unverified → recruiter-unverified@ (teaser browse)"
     );
     console.log(
-      "   free       → recruiter-free@ (verified + approved venue)"
+      "   free       → recruiter-free@ (verified + approved venue; near messaging daily cap)"
     );
     console.log(
       "   pro/paid   → recruiter-pro@ (subscription)"
