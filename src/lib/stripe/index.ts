@@ -15,11 +15,12 @@ export const STRIPE_PLANS = {
   TOP_TALENT_UNLOCK: {
     name: "Top Talent Unlock",
     priceId: process.env.STRIPE_TOP_TALENT_PRICE_ID || "price_top_talent_stub",
-    description: "Unlock full contact details for Top Talent workers",
+    description: "Message Top Talent",
     features: [
-      "View LINE, WhatsApp, and phone numbers",
-      "Priority in search results",
-      "Direct contact with top workers",
+      "Message Top Talent",
+      "Higher daily contact-request limits",
+      "Priority in the talent's inbox with a Verified Pro badge",
+      "Longer opening message with an opening attached",
     ],
   },
 } as const;

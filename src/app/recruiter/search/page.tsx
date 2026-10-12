@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { useRouter, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Header, Footer } from "@/components/layout";
 import {
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui";
 import { AdSense } from "@/components/ads";
 import { OpeningInterestSelect } from "@/components/recruiter";
-import type { SearchWorkerResult } from "@/app/api/workers/search/route";
+import type { SearchWorkerResult } from "@/lib/worker-profile/recruiter-dto";
 import type { RecruiterOpening } from "@/lib/db/schema";
 import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import { AVAILABILITY_OPTIONS } from "@/lib/profile/availability";
@@ -35,22 +35,17 @@ import {
 
 interface WorkerCardProps {
   worker: SearchWorkerResult;
-  hasTopTalentAccess: boolean;
   interestSent: boolean;
-  onUnlock: () => void;
   onExpressInterest: () => void;
 }
 
 function WorkerCard({
   worker,
-  hasTopTalentAccess,
   interestSent,
-  onUnlock,
   onExpressInterest,
 }: WorkerCardProps): React.ReactElement {
   const t = useTranslations("recruiter.search");
   const roleLabels = useTranslations("roles");
-  const isLocked = worker.isTopTalent && !hasTopTalentAccess;
   const expectedPayLabel = formatWorkerExpectedPay(worker);
 
   return (
@@ -124,9 +119,14 @@ function WorkerCard({
         </div>
 
         <div className="mt-4 pt-4 border-t border-charcoal-700">
-          {isLocked ? (
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center text-charcoal-500 text-sm">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <Link href={`/recruiter/profile/${worker.id}`}>
+              <Button variant="outline" size="sm">
+                {t("viewProfile")}
+              </Button>
+            </Link>
+            {interestSent ? (
+              <Button size="sm" variant="secondary" disabled>
                 <svg
                   className="w-4 h-4 mr-1"
                   fill="none"
@@ -137,46 +137,17 @@ function WorkerCard({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    d="M5 13l4 4L19 7"
                   />
                 </svg>
-                {t("contactLockedShort")}
-              </div>
-              <Button variant="gold" size="sm" onClick={onUnlock}>
-                {t("unlockContact")}
+                {t("interestSent")}
               </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <Link href={`/recruiter/profile/${worker.id}`}>
-                <Button variant="outline" size="sm">
-                  {t("viewProfile")}
-                </Button>
-              </Link>
-              {interestSent ? (
-                <Button size="sm" variant="secondary" disabled>
-                  <svg
-                    className="w-4 h-4 mr-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  {t("interestSent")}
-                </Button>
-              ) : (
-                <Button size="sm" onClick={onExpressInterest}>
-                  {t("expressInterest")}
-                </Button>
-              )}
-            </div>
-          )}
+            ) : (
+              <Button size="sm" onClick={onExpressInterest}>
+                {t("expressInterest")}
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -197,7 +168,6 @@ export default function SearchPage(): React.ReactElement {
   const roleLabels = useTranslations("roles");
   const availabilityLabels = useTranslations("availability");
   const { data: session, status } = useSession();
-  const router = useRouter();
   const [filters, setFilters] = useState<SearchFilters>({
     query: "",
     role: "",
@@ -209,7 +179,6 @@ export default function SearchPage(): React.ReactElement {
   const [workers, setWorkers] = useState<SearchWorkerResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
-  const [hasTopTalentAccess, setHasTopTalentAccess] = useState(false);
   const [sentInterests, setSentInterests] = useState<Set<string>>(new Set());
   const [selectedOpeningId, setSelectedOpeningId] = useState("");
   const [publishedOpenings, setPublishedOpenings] = useState<
@@ -267,18 +236,6 @@ export default function SearchPage(): React.ReactElement {
     }
   }, []);
 
-  const checkSubscription = useCallback(async () => {
-    try {
-      const response = await fetch("/api/stripe/status");
-      if (response.ok) {
-        const data = await response.json();
-        setHasTopTalentAccess(data.canAccessTopTalent ?? false);
-      }
-    } catch {
-      setHasTopTalentAccess(false);
-    }
-  }, []);
-
   const fetchPublishedOpenings = useCallback(async () => {
     try {
       const response = await fetch("/api/recruiter/openings");
@@ -312,7 +269,6 @@ export default function SearchPage(): React.ReactElement {
       const loadData = async (): Promise<void> => {
         await Promise.all([
           fetchWorkers(),
-          checkSubscription(),
           fetchInterests(),
           fetchPublishedOpenings(),
         ]);
@@ -323,23 +279,6 @@ export default function SearchPage(): React.ReactElement {
 
   const handleApplyFilters = (): void => {
     fetchWorkers();
-  };
-
-  const handleUnlock = async (): Promise<void> => {
-    try {
-      const response = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.url) {
-          router.push(data.url);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to start checkout:", error);
-    }
   };
 
   const handleExpressInterest = async (workerProfileId: string): Promise<void> => {
@@ -564,9 +503,7 @@ export default function SearchPage(): React.ReactElement {
                     <WorkerCard
                       key={worker.id}
                       worker={worker}
-                      hasTopTalentAccess={hasTopTalentAccess}
                       interestSent={sentInterests.has(worker.id)}
-                      onUnlock={handleUnlock}
                       onExpressInterest={() => handleExpressInterest(worker.id)}
                     />
                   ))}

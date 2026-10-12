@@ -10,7 +10,7 @@ This document outlines the API and route boundaries, conventions, and system arc
 4. [Database Schema](#database-schema)
 5. [Authentication & Authorization](#authentication--authorization)
 6. [Top Talent Ranking System](#top-talent-ranking-system)
-7. [Contact Visibility Rules](#contact-visibility-rules)
+7. [Contact Privacy](#contact-privacy)
 8. [Media Storage](#media-storage)
 9. [Stripe Integration](#stripe-integration)
 10. [Moderation System](#moderation-system)
@@ -376,54 +376,15 @@ export { DEFAULT_SCORING_WEIGHTS, DEFAULT_V11_CRITERIA };
 
 ---
 
-## Contact Visibility Rules
+## Contact Privacy
 
-### Fields Protected
+Worker contact fields (`line_id`, `whatsapp_number`, `phone_number`) are **never** returned to recruiters — regardless of Top Talent status, subscription, admin grant, or open-access billing mode. Recruiters see a private-contact notice; talent share LINE or a number later via an explicit in-chat action.
 
-- `lineId` - LINE messenger ID
-- `whatsappNumber` - WhatsApp phone number
-- `phoneNumber` - Direct phone number
+Workers may still edit and preview their own contact values (`ownContact` on the worker preview DTO only). Recruiter search and detail DTOs omit `userId` (it is also the R2 key prefix) and all contact keys.
 
 ### Profile Text Filtering
 
-Free-text profile fields are protected against contact information leakage to enforce the Top Talent paywall. The text filter (`src/lib/helpers/text-filter.ts`) blocks:
-
-- Phone numbers (international and Thai formats, including obfuscated patterns)
-- LINE IDs and links (line.me, LINE ID mentions)
-- WhatsApp contacts (wa.me links, WhatsApp number mentions)
-- Telegram contacts (t.me links)
-- URLs (http/https/www)
-- Social media handles (@username patterns)
-- Platform URLs (Instagram, Facebook, TikTok, etc.)
-- Email addresses
-
-**Protected fields** (validated on create/update, rejects with error):
-- `displayName` - Worker display name
-- `bio` - Worker bio text
-- `experience` - Work experience description
-- `location` - Location text
-- `area` - Area/neighborhood text
-
-**API**: The helper exports `validateProfileText(text)` for rejection with typed reason, `containsBlockedContact(text)` for boolean check, and `sanitizeProfileText(text)` for stripping matches.
-
-### Visibility Logic
-
-| Condition | Can View Contact |
-|-----------|------------------|
-| Viewer is the worker themselves | ✅ Yes |
-| Viewer has active Top Talent subscription | ✅ Yes |
-| Worker is Top Talent AND viewer has no subscription | ❌ No (locked) |
-| Worker is NOT Top Talent | ✅ Yes |
-
-### Implementation
-
-```typescript
-// Check in API/page
-const canViewContact = 
-  viewerId === profile.userId || // Own profile
-  (await hasTopTalentAccess(viewerId)) || // Has subscription
-  !(await isProfileTopTalent(profileId)); // Not top talent
-```
+Free-text profile fields stay blocked from embedding contact info so it cannot leak through bio/experience. The text filter (`src/lib/helpers/text-filter.ts`) blocks phone numbers, LINE/WhatsApp/Telegram links, URLs, social handles, and emails on `displayName`, `bio`, `experience`, `location`, and `area`.
 
 ---
 
@@ -601,8 +562,8 @@ src/lib/stripe/index.ts
 
 | Plan | ID | Features |
 |------|----|----|
-| Free | `free` | Basic search, view non-Top-Talent contacts |
-| Top Talent Unlock | `top_talent_unlock` | View all contact details |
+| Free | `free` | Basic search and interest |
+| Top Talent Unlock | `top_talent_unlock` | Message Top Talent, higher contact-request limits, inbox priority + Verified Pro badge, longer opening message |
 
 ### Webhook Events Handled
 
@@ -956,7 +917,7 @@ Local development uses Docker PostgreSQL instead of Neon. See [docs/local-databa
 3. **Subscription Flow**
    - Connect Stripe checkout
    - Portal for subscription management
-   - Access checks on contact views
+   - Premium messaging / Top Talent entitlements (contacts stay private)
 
 4. **Notification System**
    - Email notifications for interests

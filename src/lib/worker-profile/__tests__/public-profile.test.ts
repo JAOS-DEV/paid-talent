@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPublicWorkerProfileView,
   mapApprovedPhotosToPublic,
   splitPublicPhotos,
 } from "../public-profile";
@@ -66,5 +67,33 @@ describe("public worker photos", () => {
     expect(split.primaryUrl).toBe("https://cdn.example/primary.jpg");
     expect(split.additional).toHaveLength(1);
     expect(split.additional[0].id).toBe("extra");
+  });
+
+  it("buildPublicWorkerProfileView never includes contact fields", () => {
+    const view = buildPublicWorkerProfileView({
+      id: "profile-1",
+      displayName: "Test",
+      photoUrl: null,
+      photos: [],
+      location: null,
+      area: null,
+      bio: null,
+      description: null,
+      jobRoles: [],
+      experience: null,
+      experienceYears: null,
+      languages: [],
+      availability: [],
+      expectedPayMin: null,
+      expectedPayPeriod: null,
+      payCurrency: null,
+      isVerified: true,
+      isTopTalent: false,
+    });
+
+    expect(view).not.toHaveProperty("contact");
+    expect(view).not.toHaveProperty("ownContact");
+    expect(view).not.toHaveProperty("userId");
+    expect(JSON.stringify(view)).not.toMatch(/line|whatsapp|phone|userId/i);
   });
 });

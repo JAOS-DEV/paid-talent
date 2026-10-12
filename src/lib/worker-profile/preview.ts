@@ -5,12 +5,12 @@ import { isProfileTopTalent } from "@/lib/ranking";
 import {
   buildPublicWorkerProfileView,
   mapApprovedPhotosToPublic,
-  type PublicWorkerProfileView,
+  type WorkerOwnPreviewView,
 } from "./public-profile";
 
 export async function getOwnWorkerPreview(
   workerUserId: string
-): Promise<PublicWorkerProfileView | null> {
+): Promise<WorkerOwnPreviewView | null> {
   const [profile] = await db
     .select()
     .from(workerProfiles)
@@ -29,7 +29,7 @@ export async function getOwnWorkerPreview(
   const primary =
     photos.find((photo) => photo.isCurrentApproved) ?? photos[0] ?? null;
 
-  return buildPublicWorkerProfileView({
+  const publicView = buildPublicWorkerProfileView({
     id: profile.id,
     displayName: profile.displayName,
     photoUrl: primary?.photoUrl ?? null,
@@ -49,11 +49,14 @@ export async function getOwnWorkerPreview(
     payCurrency: profile.payCurrency,
     isVerified: profile.isVerified,
     isTopTalent,
-    contact: {
-      isLocked: false,
+  });
+
+  return {
+    ...publicView,
+    ownContact: {
       lineId: profile.lineId,
       whatsappNumber: profile.whatsappNumber,
       phoneNumber: profile.phoneNumber,
     },
-  });
+  };
 }

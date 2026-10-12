@@ -14,14 +14,14 @@ import {
   CardTitle,
 } from "@/components/ui";
 import { WorkerPublicProfileView } from "@/components/worker-profile";
-import type { PublicWorkerProfileView } from "@/lib/worker-profile/public-profile";
+import type { WorkerOwnPreviewView } from "@/lib/worker-profile/public-profile";
 
 export default function WorkerProfilePreviewPage(): React.ReactElement {
   const { data: session, status } = useSession();
   const router = useRouter();
   const t = useTranslations("worker.publicProfile");
   const dashboard = useTranslations("worker.dashboard");
-  const [profile, setProfile] = useState<PublicWorkerProfileView | null>(null);
+  const [profile, setProfile] = useState<WorkerOwnPreviewView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +46,7 @@ export default function WorkerProfilePreviewPage(): React.ReactElement {
           return;
         }
         const data = (await response.json()) as {
-          profile: PublicWorkerProfileView;
+          profile: WorkerOwnPreviewView;
         };
         if (cancelled) return;
         setProfile(data.profile);
