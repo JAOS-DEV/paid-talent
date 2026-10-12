@@ -8,6 +8,27 @@ import {
   requireLocalDatabaseUrl,
   describeDatabaseTarget,
 } from "./safety";
+import {
+  generateAllSeedAssets,
+  SEED_CHALLENGE_CODE,
+} from "../../../scripts/seed-assets/generate";
+import {
+  assertSeedObjectsExist,
+  isSeedPrivateStorageConfigured,
+  isSeedPublicStorageConfigured,
+  printSeedMediaSummary,
+  publicUrlOrPlaceholder,
+  readSeedFile,
+  resetSeedMediaStats,
+  uploadPrivateIdSeedObject,
+  uploadPrivateLivenessSeedObject,
+  uploadPublicSeedObject,
+} from "./seed-media";
+import { parseVenueLink } from "@/lib/venues/link";
+import { upsertAdminEntitlement } from "@/lib/entitlements/grants";
+import { getRecruiterAccess } from "@/lib/recruiter-access";
+import { isProfileTopTalent } from "@/lib/ranking";
+import { isSearchableWorker } from "@/lib/verification";
 
 /**
  * Seeded worker LINE / WhatsApp / phone values are private profile fields only.
@@ -237,7 +258,7 @@ const SEED_USERS: {
       whatsappNumber: null,
       phoneNumber: "+66867890123",
       isTopTalent: false,
-      verificationStatus: "unverified" as VerificationStatusType,
+      verificationStatus: "pending" as VerificationStatusType,
     },
     {
       email: "worker7@example.com",
@@ -299,7 +320,7 @@ const SEED_USERS: {
           venueType: "Bar",
           area: "Central Pattaya",
           blurb: "Venue pending — recruiter is still unverified.",
-          venueLinkUrl: "https://www.facebook.com/teaserbrowseco",
+          venueLinkUrl: "https://www.facebook.com/paidtalent.seed.teaserbrowse",
           venueLinkKind: "facebook",
           reviewStatus: "pending",
           isPrimary: true,
@@ -317,8 +338,9 @@ const SEED_USERS: {
       area: "Walking Street",
       subArea: "Soi 6",
       blurb: "Friendly neighborhood bar with live music and great cocktails. Looking for enthusiastic staff!",
-      website: "https://www.facebook.com/smallbarco",
-      lineId: "smallbarco_line",
+      website: "https://www.facebook.com/paidtalent.seed.smallbarco",
+      contactPhone: "+66811110001",
+      lineId: "seed_free_owner",
       hasSubscription: false,
       verificationStatus: "verified",
       venues: [
@@ -328,7 +350,7 @@ const SEED_USERS: {
           area: "Walking Street",
           subArea: "Soi 6",
           blurb: "Friendly neighborhood bar with live music and great cocktails.",
-          venueLinkUrl: "https://www.facebook.com/smallbarco",
+          venueLinkUrl: "https://www.facebook.com/paidtalent.seed.smallbarco",
           venueLinkKind: "facebook",
           reviewStatus: "approved",
           isPrimary: true,
@@ -358,8 +380,8 @@ const SEED_USERS: {
       blurb: "Award-winning hospitality group with rooftop bars, fine dining, and nightclubs across Bangkok.",
       contactEmail: "hr@luxuryvenues.example.com",
       contactPhone: "+66890123456",
-      lineId: "luxuryvenues_hr",
-      website: "https://maps.app.goo.gl/luxuryrooftop",
+      lineId: "seed_pro_hr",
+      website: "https://maps.app.goo.gl/PaidTalentSeed01",
       hasSubscription: true,
       verificationStatus: "verified",
       venues: [
@@ -369,7 +391,8 @@ const SEED_USERS: {
           area: "Sukhumvit",
           subArea: "Soi 11",
           blurb: "Flagship rooftop bar with city views.",
-          venueLinkUrl: "https://maps.app.goo.gl/luxuryrooftop",
+          venueLinkUrl:
+            "https://www.google.com/maps/place/Seed+Rooftop+Bar,+Sukhumvit+Soi+11,+Bangkok",
           venueLinkKind: "google_maps",
           reviewStatus: "approved",
           isPrimary: true,
@@ -379,7 +402,7 @@ const SEED_USERS: {
           venueType: "Bar",
           area: "Thonglor",
           blurb: "Craft cocktail bar for late nights.",
-          venueLinkUrl: "https://instagram.com/thonglorspeakeasy",
+          venueLinkUrl: "https://www.instagram.com/paidtalent.seed.speakeasy",
           venueLinkKind: "instagram",
           reviewStatus: "pending",
           isPrimary: false,
@@ -389,10 +412,10 @@ const SEED_USERS: {
           venueType: "Club",
           area: "RCA",
           blurb: "High-energy nightclub — link needs a better Maps URL.",
-          venueLinkUrl: "https://www.facebook.com/rcaneonclub",
+          venueLinkUrl: "https://www.facebook.com/paidtalent.seed.neonclub",
           venueLinkKind: "facebook",
           reviewStatus: "rejected",
-          reviewNote: "Please submit a Google Maps link for the physical venue.",
+          reviewNote: "Link doesn't show the venue name",
           isPrimary: false,
         },
       ],
@@ -408,12 +431,12 @@ const SEED_USERS: {
         },
         {
           role: "Bartender",
-          area: "Thonglor",
+          area: "Sukhumvit",
           payMin: 700,
           payMax: 1200,
           notes: "Mixology skills required. Craft cocktail experience a plus.",
           isPublished: true,
-          venueIndex: 1,
+          venueIndex: 0,
         },
         {
           role: "Server",
@@ -435,7 +458,8 @@ const SEED_USERS: {
       location: "Bangkok",
       area: "RCA",
       blurb: "Seed recruiter in pending verification state for admin queue testing.",
-      website: "https://www.facebook.com/reviewqueueclub",
+      website: "https://www.facebook.com/paidtalent.seed.reviewqueue",
+      contactPhone: "+66811110002",
       hasSubscription: false,
       verificationStatus: "pending",
       venues: [
@@ -444,7 +468,7 @@ const SEED_USERS: {
           venueType: "Club",
           area: "RCA",
           blurb: "Seed venue awaiting link review.",
-          venueLinkUrl: "https://www.facebook.com/reviewqueueclub",
+          venueLinkUrl: "https://www.facebook.com/paidtalent.seed.reviewqueue",
           venueLinkKind: "facebook",
           reviewStatus: "pending",
           isPrimary: true,
@@ -461,7 +485,7 @@ const SEED_USERS: {
       location: "Chiang Mai",
       area: "Nimman",
       blurb: "Seed recruiter in rejected verification state.",
-      website: "https://instagram.com/resubmitlounge",
+      website: "https://www.instagram.com/paidtalent.seed.resubmit",
       hasSubscription: false,
       verificationStatus: "rejected",
       venues: [
@@ -470,10 +494,75 @@ const SEED_USERS: {
           venueType: "Bar",
           area: "Nimman",
           blurb: "Seed venue with rejected link for queue testing.",
-          venueLinkUrl: "https://instagram.com/resubmitlounge",
+          venueLinkUrl: "https://www.instagram.com/paidtalent.seed.resubmit",
           venueLinkKind: "instagram",
           reviewStatus: "rejected",
-          reviewNote: "Page looks inactive — please resubmit a current Maps link.",
+          reviewNote: "Link doesn't show the venue name",
+          isPrimary: true,
+        },
+      ],
+      openings: [],
+    },
+    {
+      email: "recruiter-pass@example.com",
+      name: "Pass Recruiter",
+      organizationName: "Pass Access Bar",
+      organizationType: "Bar",
+      description: "Verified recruiter with an active Top Talent pass",
+      location: "Bangkok",
+      area: "Asoke",
+      blurb: "Exercises Verified Pro access via a 7-day pass.",
+      website: "https://www.facebook.com/paidtalent.seed.passvenue",
+      contactPhone: "+66811110003",
+      lineId: "seed_pass_hr",
+      hasSubscription: false,
+      verificationStatus: "verified",
+      venues: [
+        {
+          name: "Pass Access Bar",
+          venueType: "Bar",
+          area: "Asoke",
+          blurb: "Approved venue for pass-access recruiter.",
+          venueLinkUrl: "https://www.facebook.com/paidtalent.seed.passvenue",
+          venueLinkKind: "facebook",
+          reviewStatus: "approved",
+          isPrimary: true,
+        },
+      ],
+      openings: [
+        {
+          role: "Server",
+          area: "Asoke",
+          payMin: 600,
+          payMax: 900,
+          isPublished: true,
+          venueIndex: 0,
+        },
+      ],
+    },
+    {
+      email: "recruiter-new@example.com",
+      name: "New Recruiter",
+      organizationName: "Fresh Start Cafe",
+      organizationType: "Cafe",
+      description: "Recently verified free recruiter for new-recruiter hold testing",
+      location: "Bangkok",
+      area: "Ari",
+      blurb: "Verified within the last few days — exercises the new-recruiter daily hold.",
+      website: "https://www.facebook.com/paidtalent.seed.newrecruiter",
+      contactPhone: "+66811110004",
+      lineId: "seed_new_owner",
+      hasSubscription: false,
+      verificationStatus: "verified",
+      venues: [
+        {
+          name: "Fresh Start Cafe",
+          venueType: "Cafe",
+          area: "Ari",
+          blurb: "Approved primary venue for the new-recruiter fixture.",
+          venueLinkUrl: "https://www.facebook.com/paidtalent.seed.newrecruiter",
+          venueLinkKind: "facebook",
+          reviewStatus: "approved",
           isPrimary: true,
         },
       ],
@@ -486,7 +575,34 @@ const SEED_USERS: {
       organizationType: "Internal",
       description: "Allowlisted staff account used for local admin dashboard tests",
       location: "Bangkok",
+      area: "Sukhumvit",
+      blurb: "Internal staff venue for admin full-search testing.",
+      contactPhone: "+66811110999",
+      lineId: "seed_admin_hr",
       hasSubscription: false,
+      verificationStatus: "verified",
+      venues: [
+        {
+          name: "Paid Talent Staff HQ",
+          venueType: "Office",
+          area: "Sukhumvit",
+          blurb: "Approved staff HQ venue so admin can browse as Verified Pro.",
+          venueLinkUrl: "https://maps.app.goo.gl/PaidTalentStaffHQ",
+          venueLinkKind: "google_maps",
+          reviewStatus: "approved",
+          isPrimary: true,
+        },
+      ],
+      openings: [
+        {
+          role: "Host",
+          area: "Sukhumvit",
+          payMin: 700,
+          payMax: 1100,
+          isPublished: true,
+          venueIndex: 0,
+        },
+      ],
     },
   ],
 };
@@ -560,16 +676,66 @@ async function seed(): Promise<void> {
   console.log(`   Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`   Database: ${describeDatabaseTarget(connectionString)}\n`);
 
+  resetSeedMediaStats();
+  console.log("🎨 Generating seed assets...");
+  const assets = await generateAllSeedAssets();
+  if (!assets.livenessMp4 && !assets.livenessWebm) {
+    console.warn(
+      "   ⚠️  No liveness clip generated (ffmpeg missing). Private liveness keys will still be written; upload skipped."
+    );
+  }
+  const livenessPath = assets.livenessMp4 ?? assets.livenessWebm;
+  const livenessExt = assets.livenessMp4 ? "mp4" : "webm";
+  const livenessContentType = assets.livenessMp4 ? "video/mp4" : "video/webm";
+  const idCardBuffer = readSeedFile(assets.idCard);
+  const livenessBuffer = livenessPath ? readSeedFile(livenessPath) : null;
+  const uploadedObjectKeys: Array<{ key: string; bucket: "public" | "private" }> =
+    [];
+
+  if (!isSeedPublicStorageConfigured() || !isSeedPrivateStorageConfigured()) {
+    console.warn(
+      "   ⚠️  S3 credentials/buckets incomplete — media uploads will be skipped; DB rows still written."
+    );
+  }
+
   const client = postgres(connectionString, { max: 1 });
   const db = drizzle(client, { schema });
 
-  const createdWorkers: Array<{ userId: string; profileId: string; email: string; isTopTalent: boolean }> = [];
-  const createdRecruiters: Array<{ userId: string; recruiterProfileId: string; email: string; hasSubscription: boolean }> = [];
+  const createdWorkers: Array<{
+    userId: string;
+    profileId: string;
+    email: string;
+    isTopTalent: boolean;
+    verificationStatus: VerificationStatusType;
+  }> = [];
+  const createdRecruiters: Array<{
+    userId: string;
+    recruiterProfileId: string;
+    email: string;
+    hasSubscription: boolean;
+    verificationStatus: VerificationStatusType;
+  }> = [];
 
   try {
+    // Fail loud if any configured venue link is invalid.
+    for (const recruiter of SEED_USERS.recruiters) {
+      for (const venue of recruiter.venues ?? []) {
+        const parsed = parseVenueLink(venue.venueLinkUrl);
+        if (!parsed.ok) {
+          throw new Error(
+            `Invalid seed venue link for ${recruiter.email} / ${venue.name}: ${parsed.error}`
+          );
+        }
+        venue.venueLinkUrl = parsed.normalizedUrl;
+        venue.venueLinkKind = parsed.kind;
+      }
+    }
+
     console.log("📦 Seeding workers...");
 
+    let workerIndex = 0;
     for (const worker of SEED_USERS.workers) {
+      workerIndex += 1;
       const existingUser = await db
         .select()
         .from(schema.users)
@@ -621,94 +787,247 @@ async function seed(): Promise<void> {
       let profileId: string;
 
       const isWorkerVerified = worker.verificationStatus === "verified";
-      const photoKey = isWorkerVerified
-        ? `profiles/${userId}/seed-avatar.jpg`
-        : null;
-      const photoUrl = isWorkerVerified
-        ? `https://cdn.example/profiles/${userId}/seed-avatar.jpg`
-        : null;
+      const needsVerificationMedia =
+        worker.verificationStatus === "verified" ||
+        worker.verificationStatus === "pending" ||
+        worker.verificationStatus === "rejected";
+
+      let photoKey: string | null = null;
+      let photoUrl: string | null = null;
+      let idDocumentKey: string | null = null;
+      let livenessVideoKey: string | null = null;
+      let idDocumentSha256: string | null = null;
+      let livenessVideoSha256: string | null = null;
+
+      if (isWorkerVerified) {
+        const facePath = assets.faces[(workerIndex - 1) % assets.faces.length];
+        const faceBuffer = readSeedFile(facePath);
+        photoKey = `profiles/${userId}/seed-photo-1.jpg`;
+        const uploaded = await uploadPublicSeedObject(
+          photoKey,
+          faceBuffer,
+          "image/jpeg",
+          userId
+        );
+        photoUrl = publicUrlOrPlaceholder(photoKey, uploaded.url);
+        if (uploaded.uploaded) {
+          uploadedObjectKeys.push({ key: photoKey, bucket: "public" });
+        }
+      }
+
+      if (needsVerificationMedia) {
+        idDocumentKey = `verification-docs/${userId}/seed-id.jpg`;
+        const idUpload = await uploadPrivateIdSeedObject(
+          idDocumentKey,
+          idCardBuffer,
+          "image/jpeg",
+          userId
+        );
+        idDocumentSha256 = idUpload.sha256;
+        if (idUpload.uploaded) {
+          uploadedObjectKeys.push({ key: idDocumentKey, bucket: "private" });
+        }
+
+        if (livenessBuffer) {
+          livenessVideoKey = `verification-liveness/${userId}/seed-live.${livenessExt}`;
+          const liveUpload = await uploadPrivateLivenessSeedObject(
+            livenessVideoKey,
+            livenessBuffer,
+            livenessContentType,
+            userId
+          );
+          livenessVideoSha256 = liveUpload.sha256;
+          if (liveUpload.uploaded) {
+            uploadedObjectKeys.push({
+              key: livenessVideoKey,
+              bucket: "private",
+            });
+          }
+        } else {
+          livenessVideoKey = `verification-liveness/${userId}/seed-live.mp4`;
+        }
+      }
+
+      const now = new Date();
+      const challengeIssuedAt =
+        worker.verificationStatus === "pending"
+          ? now
+          : needsVerificationMedia
+            ? new Date(now.getTime() - 60 * 60 * 1000)
+            : null;
+      const verificationReviewedAt =
+        worker.verificationStatus === "verified" ||
+        worker.verificationStatus === "rejected"
+          ? now
+          : null;
+
+      const profileFields = {
+        displayName: worker.displayName,
+        location: worker.location,
+        area: worker.area,
+        description: worker.description,
+        bio: worker.bio,
+        availability: worker.availability,
+        expectedPayMin: worker.expectedPayMin,
+        expectedPayMax: null as number | null,
+        expectedPayPeriod: worker.expectedPayPeriod,
+        payCurrency: "THB",
+        jobRoles: worker.jobRoles,
+        experienceYears: worker.experienceYears,
+        languages: worker.languages,
+        lineId: worker.lineId,
+        whatsappNumber: worker.whatsappNumber,
+        phoneNumber: worker.phoneNumber,
+        photoKey,
+        photoUrl,
+        idDocumentKey,
+        livenessVideoKey,
+        challengeCode: needsVerificationMedia ? SEED_CHALLENGE_CODE : null,
+        challengeIssuedAt,
+        idDocumentSubmittedAt: needsVerificationMedia ? now : null,
+        verificationReviewedAt,
+        verificationReviewedBy: verificationReviewedAt
+          ? "admin@example.com"
+          : null,
+        isPublished: true,
+        verificationStatus: worker.verificationStatus,
+        isVerified: isWorkerVerified,
+        updatedAt: now,
+      };
 
       if (existingProfile.length > 0) {
         profileId = existingProfile[0].id;
-
         await db
           .update(schema.workerProfiles)
-          .set({
-            displayName: worker.displayName,
-            location: worker.location,
-            area: worker.area,
-            description: worker.description,
-            bio: worker.bio,
-            availability: worker.availability,
-            expectedPayMin: worker.expectedPayMin,
-            expectedPayMax: null,
-            expectedPayPeriod: worker.expectedPayPeriod,
-            payCurrency: "THB",
-            jobRoles: worker.jobRoles,
-            experienceYears: worker.experienceYears,
-            languages: worker.languages,
-            lineId: worker.lineId,
-            whatsappNumber: worker.whatsappNumber,
-            phoneNumber: worker.phoneNumber,
-            photoKey,
-            photoUrl,
-            isPublished: true,
-            verificationStatus: worker.verificationStatus,
-            isVerified: isWorkerVerified,
-            updatedAt: new Date(),
-          })
+          .set(profileFields)
           .where(eq(schema.workerProfiles.id, profileId));
       } else {
         const [newProfile] = await db
           .insert(schema.workerProfiles)
           .values({
             userId,
-            displayName: worker.displayName,
-            location: worker.location,
-            area: worker.area,
-            description: worker.description,
-            bio: worker.bio,
-            availability: worker.availability,
-            expectedPayMin: worker.expectedPayMin,
-            expectedPayMax: null,
-            expectedPayPeriod: worker.expectedPayPeriod,
-            payCurrency: "THB",
-            jobRoles: worker.jobRoles,
-            experienceYears: worker.experienceYears,
-            languages: worker.languages,
-            lineId: worker.lineId,
-            whatsappNumber: worker.whatsappNumber,
-            phoneNumber: worker.phoneNumber,
-            photoKey,
-            photoUrl,
-            isPublished: true,
-            verificationStatus: worker.verificationStatus,
-            isVerified: isWorkerVerified,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            ...profileFields,
+            createdAt: now,
           })
           .returning();
-
         profileId = newProfile.id;
       }
 
+      await db
+        .delete(schema.profilePhotos)
+        .where(eq(schema.profilePhotos.workerProfileId, profileId));
+
       if (isWorkerVerified && photoKey && photoUrl) {
-        await db
-          .delete(schema.profilePhotos)
-          .where(eq(schema.profilePhotos.workerProfileId, profileId));
         await db.insert(schema.profilePhotos).values({
           userId,
           workerProfileId: profileId,
           photoKey,
           photoUrl,
           moderationStatus: "approved",
-          moderationReviewedAt: new Date(),
+          moderationReviewedAt: now,
           moderationReviewedBy: "admin@example.com",
           displayOrder: 0,
           isCurrentApproved: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: now,
+          updatedAt: now,
         });
+
+        if (worker.email === "worker1@example.com") {
+          const extraKey = `profiles/${userId}/seed-photo-2.jpg`;
+          const extraFace = readSeedFile(assets.faces[1] ?? assets.faces[0]);
+          const extraUpload = await uploadPublicSeedObject(
+            extraKey,
+            extraFace,
+            "image/jpeg",
+            userId
+          );
+          if (extraUpload.uploaded) {
+            uploadedObjectKeys.push({ key: extraKey, bucket: "public" });
+          }
+          await db.insert(schema.profilePhotos).values({
+            userId,
+            workerProfileId: profileId,
+            photoKey: extraKey,
+            photoUrl: publicUrlOrPlaceholder(extraKey, extraUpload.url),
+            moderationStatus: "approved",
+            moderationReviewedAt: now,
+            moderationReviewedBy: "admin@example.com",
+            displayOrder: 1,
+            isCurrentApproved: false,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+      }
+
+      // Pending photo queue fixture on worker4 (still searchable via primary approved photo).
+      if (worker.email === "worker4@example.com" && isWorkerVerified) {
+        const pendingKey = `profiles/${userId}/seed-photo-pending.jpg`;
+        const pendingFace = readSeedFile(assets.faces[3] ?? assets.faces[0]);
+        const pendingUpload = await uploadPublicSeedObject(
+          pendingKey,
+          pendingFace,
+          "image/jpeg",
+          userId
+        );
+        if (pendingUpload.uploaded) {
+          uploadedObjectKeys.push({ key: pendingKey, bucket: "public" });
+        }
+        await db.insert(schema.profilePhotos).values({
+          userId,
+          workerProfileId: profileId,
+          photoKey: pendingKey,
+          photoUrl: publicUrlOrPlaceholder(pendingKey, pendingUpload.url),
+          moderationStatus: "pending",
+          displayOrder: 2,
+          isCurrentApproved: false,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      if (
+        (worker.verificationStatus === "verified" ||
+          worker.verificationStatus === "rejected") &&
+        idDocumentKey
+      ) {
+        const existingEvent = await db
+          .select({ id: schema.verificationEvents.id })
+          .from(schema.verificationEvents)
+          .where(
+            and(
+              eq(schema.verificationEvents.workerProfileId, profileId),
+              eq(
+                schema.verificationEvents.decision,
+                worker.verificationStatus === "verified"
+                  ? "approved"
+                  : "rejected"
+              )
+            )
+          )
+          .limit(1);
+        if (existingEvent.length === 0) {
+          await db.insert(schema.verificationEvents).values({
+            userId,
+            workerProfileId: profileId,
+            decision:
+              worker.verificationStatus === "verified"
+                ? "approved"
+                : "rejected",
+            method: "manual_id_review",
+            actorType: "admin",
+            docType: "thai_id",
+            last4: "1234",
+            issuingCountry: "TH",
+            idDocumentKey,
+            idDocumentSha256,
+            livenessVideoKey,
+            livenessVideoSha256,
+            challengeCode: SEED_CHALLENGE_CODE,
+            notes: "Seed verification event",
+            createdAt: now,
+          });
+        }
       }
 
       createdWorkers.push({
@@ -716,6 +1035,7 @@ async function seed(): Promise<void> {
         profileId,
         email: worker.email,
         isTopTalent: worker.isTopTalent,
+        verificationStatus: worker.verificationStatus,
       });
     }
 
@@ -776,32 +1096,73 @@ async function seed(): Promise<void> {
         recruiter.verificationStatus ?? ("unverified" as VerificationStatusType);
       const isVerified = verificationStatus === "verified";
       const now = new Date();
+      const needsRecruiterMedia =
+        verificationStatus === "pending" ||
+        verificationStatus === "verified" ||
+        verificationStatus === "rejected";
+
+      let idDocumentKey: string | null = null;
+      let livenessVideoKey: string | null = null;
+      let idDocumentSha256: string | null = null;
+      let livenessVideoSha256: string | null = null;
+
+      if (needsRecruiterMedia) {
+        idDocumentKey = `verification-docs/${userId}/seed-id.jpg`;
+        const idUpload = await uploadPrivateIdSeedObject(
+          idDocumentKey,
+          idCardBuffer,
+          "image/jpeg",
+          userId
+        );
+        idDocumentSha256 = idUpload.sha256;
+        if (idUpload.uploaded) {
+          uploadedObjectKeys.push({ key: idDocumentKey, bucket: "private" });
+        }
+
+        if (livenessBuffer) {
+          livenessVideoKey = `verification-liveness/${userId}/seed-live.${livenessExt}`;
+          const liveUpload = await uploadPrivateLivenessSeedObject(
+            livenessVideoKey,
+            livenessBuffer,
+            livenessContentType,
+            userId
+          );
+          livenessVideoSha256 = liveUpload.sha256;
+          if (liveUpload.uploaded) {
+            uploadedObjectKeys.push({
+              key: livenessVideoKey,
+              bucket: "private",
+            });
+          }
+        } else {
+          livenessVideoKey = `verification-liveness/${userId}/seed-live.mp4`;
+        }
+      }
+
+      const verifiedAtDaysAgo =
+        recruiter.email === "recruiter-new@example.com"
+          ? 2
+          : isVerified
+            ? 30
+            : null;
+
       const verificationFields = {
         verificationStatus,
         isVerified,
-        verifiedAt: isVerified ? now : null,
-        idDocumentKey:
-          verificationStatus === "pending" ||
-          verificationStatus === "verified" ||
-          verificationStatus === "rejected"
-            ? `verification-docs/${userId}/seed-id.jpg`
+        verifiedAt:
+          verifiedAtDaysAgo != null
+            ? new Date(now.getTime() - verifiedAtDaysAgo * 24 * 60 * 60 * 1000)
             : null,
-        livenessVideoKey:
-          verificationStatus === "pending" ||
-          verificationStatus === "verified" ||
-          verificationStatus === "rejected"
-            ? `verification-liveness/${userId}/seed-live.webm`
-            : null,
-        challengeCode:
-          verificationStatus === "pending" ? "123456" : null,
+        idDocumentKey,
+        livenessVideoKey,
+        challengeCode: needsRecruiterMedia ? SEED_CHALLENGE_CODE : null,
         challengeIssuedAt:
-          verificationStatus === "pending" ? now : null,
-        idDocumentSubmittedAt:
-          verificationStatus === "pending" ||
-          verificationStatus === "verified" ||
-          verificationStatus === "rejected"
+          verificationStatus === "pending"
             ? now
-            : null,
+            : needsRecruiterMedia
+              ? new Date(now.getTime() - 60 * 60 * 1000)
+              : null,
+        idDocumentSubmittedAt: needsRecruiterMedia ? now : null,
         verificationReviewedAt:
           verificationStatus === "verified" ||
           verificationStatus === "rejected"
@@ -882,9 +1243,33 @@ async function seed(): Promise<void> {
         .where(eq(schema.venues.recruiterProfileId, recruiterProfileId));
 
       const createdVenueIds: string[] = [];
+      let primaryLogoKey: string | null = null;
+      let primaryLogoUrl: string | null = null;
+      let venueLogoIndex = 0;
       for (const venue of seedVenues) {
         const reviewed =
           venue.reviewStatus === "approved" || venue.reviewStatus === "rejected";
+        const logoPath =
+          assets.logos[venueLogoIndex % assets.logos.length] ?? assets.logos[0];
+        venueLogoIndex += 1;
+        const logoKey = `profiles/${userId}/seed-venue-logo-${venueLogoIndex}.png`;
+        const logoUpload = await uploadPublicSeedObject(
+          logoKey,
+          readSeedFile(logoPath),
+          "image/png",
+          userId
+        );
+        const logoUrl = publicUrlOrPlaceholder(logoKey, logoUpload.url);
+        if (logoUpload.uploaded) {
+          uploadedObjectKeys.push({ key: logoKey, bucket: "public" });
+        }
+
+        const isPrimary = venue.isPrimary ?? createdVenueIds.length === 0;
+        if (isPrimary) {
+          primaryLogoKey = logoKey;
+          primaryLogoUrl = logoUrl;
+        }
+
         const [createdVenue] = await db
           .insert(schema.venues)
           .values({
@@ -894,21 +1279,74 @@ async function seed(): Promise<void> {
             area: venue.area ?? null,
             subArea: venue.subArea ?? null,
             blurb: venue.blurb ?? null,
+            logoKey,
+            logoUrl,
             venueLinkUrl: venue.venueLinkUrl,
             venueLinkKind: venue.venueLinkKind,
             reviewStatus: venue.reviewStatus,
             reviewNote: venue.reviewNote ?? null,
             reviewedAt: reviewed ? now : null,
             reviewedBy: reviewed ? "admin@example.com" : null,
-            isPrimary: venue.isPrimary ?? createdVenueIds.length === 0,
+            isPrimary,
             createdAt: now,
             updatedAt: now,
           })
           .returning();
         createdVenueIds.push(createdVenue.id);
         console.log(
-          `   🏢 Venue: ${venue.name} (${venue.reviewStatus}${venue.isPrimary ? ", primary" : ""})`
+          `   🏢 Venue: ${venue.name} (${venue.reviewStatus}${isPrimary ? ", primary" : ""})`
         );
+      }
+
+      if (primaryLogoKey) {
+        await db
+          .update(schema.recruiterProfiles)
+          .set({
+            logoKey: primaryLogoKey,
+            logoUrl: primaryLogoUrl,
+            updatedAt: now,
+          })
+          .where(eq(schema.recruiterProfiles.id, recruiterProfileId));
+      }
+
+      if (
+        (verificationStatus === "verified" ||
+          verificationStatus === "rejected") &&
+        idDocumentKey
+      ) {
+        const existingEvent = await db
+          .select({ id: schema.verificationEvents.id })
+          .from(schema.verificationEvents)
+          .where(
+            and(
+              eq(schema.verificationEvents.recruiterProfileId, recruiterProfileId),
+              eq(
+                schema.verificationEvents.decision,
+                verificationStatus === "verified" ? "approved" : "rejected"
+              )
+            )
+          )
+          .limit(1);
+        if (existingEvent.length === 0) {
+          await db.insert(schema.verificationEvents).values({
+            userId,
+            recruiterProfileId,
+            decision:
+              verificationStatus === "verified" ? "approved" : "rejected",
+            method: "manual_id_review",
+            actorType: "admin",
+            docType: "thai_id",
+            last4: "1234",
+            issuingCountry: "TH",
+            idDocumentKey,
+            idDocumentSha256,
+            livenessVideoKey,
+            livenessVideoSha256,
+            challengeCode: SEED_CHALLENGE_CODE,
+            notes: "Seed recruiter verification event",
+            createdAt: now,
+          });
+        }
       }
 
       if (recruiter.openings && recruiter.openings.length > 0) {
@@ -980,24 +1418,88 @@ async function seed(): Promise<void> {
         console.log(`   💳 Subscription active for: ${recruiter.email}`);
       }
 
+      if (recruiter.email === "recruiter-pass@example.com") {
+        const existingPass = await db
+          .select({ id: schema.topTalentPasses.id })
+          .from(schema.topTalentPasses)
+          .where(eq(schema.topTalentPasses.userId, userId))
+          .limit(1);
+        if (existingPass.length === 0) {
+          const startsAt = new Date();
+          const expiresAt = new Date(startsAt.getTime() + 5 * 24 * 60 * 60 * 1000);
+          await db.insert(schema.topTalentPasses).values({
+            userId,
+            stripeCheckoutSessionId: `cs_seed_pass_${userId.slice(0, 8)}`,
+            amountTotal: 49000,
+            currency: "thb",
+            usedFirstPassCoupon: false,
+            startsAt,
+            expiresAt,
+            createdAt: startsAt,
+          });
+        }
+        console.log(`   🎟️  Top Talent pass active for: ${recruiter.email}`);
+      }
+
+      if (recruiter.email === "admin@example.com") {
+        await upsertAdminEntitlement({
+          userId,
+          requested: { kind: "lifetime" },
+          reason: "Seed lifetime grant for admin full-search testing",
+          adminEmail: "admin@example.com",
+          now,
+        });
+        console.log(`   ♾️  Lifetime admin grant for: ${recruiter.email}`);
+      }
+
       createdRecruiters.push({
         userId,
         recruiterProfileId,
         email: recruiter.email,
         hasSubscription: recruiter.hasSubscription,
+        verificationStatus,
       });
     }
 
     console.log("\n📦 Seeding profile views for Top Talent ranking...");
 
-    const viewerRecruiter = createdRecruiters.find((r) => r.hasSubscription);
+    // Composite ranking needs DISTINCT viewerUserId counts (null viewers don't count).
+    const rankingViewerIds: string[] = [];
+    for (let i = 1; i <= TOP_TALENT_VIEW_COUNT; i++) {
+      const email = `seed-viewer-${i}@example.com`;
+      const existing = await db
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.email, email))
+        .limit(1);
+      if (existing[0]) {
+        rankingViewerIds.push(existing[0].id);
+        continue;
+      }
+      const [viewer] = await db
+        .insert(schema.users)
+        .values({
+          email,
+          name: `Seed Viewer ${i}`,
+          role: "recruiter",
+          ageVerified: true,
+          dateOfBirth: generateDateOfBirth(),
+          ageVerifiedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning({ id: schema.users.id });
+      rankingViewerIds.push(viewer.id);
+    }
 
     for (const worker of createdWorkers) {
       await db
         .delete(schema.profileViews)
         .where(eq(schema.profileViews.workerProfileId, worker.profileId));
 
-      const viewCount = worker.isTopTalent ? TOP_TALENT_VIEW_COUNT : NORMAL_VIEW_COUNT;
+      const viewCount = worker.isTopTalent
+        ? TOP_TALENT_VIEW_COUNT
+        : NORMAL_VIEW_COUNT;
 
       const viewsToInsert = [];
       for (let i = 0; i < viewCount; i++) {
@@ -1006,7 +1508,9 @@ async function seed(): Promise<void> {
 
         viewsToInsert.push({
           workerProfileId: worker.profileId,
-          viewerUserId: i % 3 === 0 && viewerRecruiter ? viewerRecruiter.userId : null,
+          viewerUserId: worker.isTopTalent
+            ? rankingViewerIds[i]!
+            : rankingViewerIds[i % rankingViewerIds.length]!,
           viewerIpHash: `seed_hash_${i}_${worker.profileId.slice(0, 8)}`,
           viewedAt,
         });
@@ -1017,7 +1521,9 @@ async function seed(): Promise<void> {
       }
 
       const status = worker.isTopTalent ? "⭐ Top Talent" : "   Normal";
-      console.log(`   ${status}: ${worker.email} (${viewCount} views)`);
+      console.log(
+        `   ${status}: ${worker.email} (${viewCount} unique views)`
+      );
     }
 
     console.log("\n📦 Seeding contact requests (pending/accepted/declined/expired)...");
@@ -1040,9 +1546,19 @@ async function seed(): Promise<void> {
     ];
 
     for (const recruiter of createdRecruiters) {
-      const workersToContact = recruiter.hasSubscription
-        ? [...topTalentWorkers.slice(0, 2), ...normalWorkers.slice(0, 2)]
-        : normalWorkers.slice(0, 3);
+      // Contact requests require verified recruiters (same gate as the API).
+      if (recruiter.verificationStatus !== "verified") continue;
+
+      // Every verified recruiter contacts all Top Talent workers so interest score can clear TT threshold.
+      const workersToContact = [
+        ...topTalentWorkers,
+        ...(recruiter.hasSubscription
+          ? normalWorkers.slice(0, 2)
+          : recruiter.email === "recruiter-free@example.com" ||
+              recruiter.email === "admin@example.com"
+            ? normalWorkers.slice(0, 2)
+            : normalWorkers.slice(0, 1)),
+      ];
 
       const [recruiterProfile] = await db
         .select({ id: schema.recruiterProfiles.id })
@@ -1080,7 +1596,12 @@ async function seed(): Promise<void> {
         const worker = workersToContact[i];
         const linkedOpening =
           recruiterOpeningsList[i % Math.max(recruiterOpeningsList.length, 1)];
-        const seedStatus = statusCycle[i % statusCycle.length];
+        // Prefer pending/accepted for Top Talent so ranking interest score can fire.
+        const seedStatus: SeedStatus = worker.isTopTalent
+          ? i % 2 === 0
+            ? "pending"
+            : "accepted"
+          : statusCycle[i % statusCycle.length];
         const now = new Date();
         const openerText = recruiter.hasSubscription
           ? `We have an exciting ${linkedOpening?.role || "opportunity"} position for you at our venue!`
@@ -1332,6 +1853,132 @@ async function seed(): Promise<void> {
           .where(eq(schema.hireOutcomes.id, existingOutcome[0].id));
         console.log(`   ♻️  ${outcomeSeed.status.toUpperCase()}: ${outcomeSeed.recruiterEmail} → ${outcomeSeed.workerEmail}`);
       }
+    }
+
+    printSeedMediaSummary();
+
+    console.log("\n🔎 Seed self-check...");
+    const expectedTiers: Record<string, "unverified" | "free" | "pro"> = {
+      "recruiter-unverified@example.com": "unverified",
+      "recruiter-pending@example.com": "unverified",
+      "recruiter-rejected@example.com": "unverified",
+      "recruiter-free@example.com": "free",
+      "recruiter-new@example.com": "free",
+      "recruiter-pro@example.com": "pro",
+      "recruiter-pass@example.com": "pro",
+      "admin@example.com": "pro",
+    };
+    const tierFailures: string[] = [];
+    for (const [email, expected] of Object.entries(expectedTiers)) {
+      const recruiter = createdRecruiters.find((r) => r.email === email);
+      if (!recruiter) {
+        tierFailures.push(`${email}: missing`);
+        continue;
+      }
+      const access = await getRecruiterAccess(recruiter.userId);
+      console.log(`   ${email} → tier=${access.tier} (expected ${expected})`);
+      if (access.tier !== expected) {
+        tierFailures.push(`${email}: got ${access.tier}, expected ${expected}`);
+      }
+    }
+
+    const searchableFailures: string[] = [];
+    const expectedSearchable = [
+      "worker1@example.com",
+      "worker2@example.com",
+      "worker3@example.com",
+      "worker4@example.com",
+      "worker5@example.com",
+    ];
+    for (const email of expectedSearchable) {
+      const worker = createdWorkers.find((w) => w.email === email);
+      if (!worker) {
+        searchableFailures.push(`${email}: missing`);
+        continue;
+      }
+      const [profile] = await db
+        .select()
+        .from(schema.workerProfiles)
+        .where(eq(schema.workerProfiles.id, worker.profileId))
+        .limit(1);
+      const result = isSearchableWorker(profile ?? null);
+      console.log(
+        `   searchable ${email}: ${result.isSearchable} (${result.reason})`
+      );
+      if (!result.isSearchable) {
+        searchableFailures.push(`${email}: ${result.reason}`);
+      }
+    }
+
+    const ttFailures: string[] = [];
+    for (const email of [
+      "worker1@example.com",
+      "worker2@example.com",
+      "worker3@example.com",
+    ]) {
+      const worker = createdWorkers.find((w) => w.email === email);
+      if (!worker) continue;
+      const isTT = await isProfileTopTalent(worker.profileId);
+      console.log(`   Top Talent ${email}: ${isTT}`);
+      if (!isTT) {
+        ttFailures.push(email);
+        console.warn(`   ⚠️  ${email} is not Top Talent at runtime`);
+      }
+    }
+
+    const openingFailures: string[] = [];
+    const publishedOpenings = await db
+      .select({
+        id: schema.recruiterOpenings.id,
+        venueId: schema.recruiterOpenings.venueId,
+        reviewStatus: schema.venues.reviewStatus,
+      })
+      .from(schema.recruiterOpenings)
+      .leftJoin(
+        schema.venues,
+        eq(schema.venues.id, schema.recruiterOpenings.venueId)
+      )
+      .where(eq(schema.recruiterOpenings.isPublished, true));
+    for (const opening of publishedOpenings) {
+      if (!opening.venueId || opening.reviewStatus !== "approved") {
+        openingFailures.push(opening.id);
+      }
+    }
+
+    if (
+      isSeedPublicStorageConfigured() &&
+      isSeedPrivateStorageConfigured() &&
+      uploadedObjectKeys.length > 0
+    ) {
+      const missing = await assertSeedObjectsExist(uploadedObjectKeys);
+      if (missing.length > 0) {
+        console.error("   ❌ Missing uploaded objects:", missing.slice(0, 10));
+        throw new Error(`Seed media HEAD check failed (${missing.length} missing)`);
+      }
+      console.log(`   ✅ HEAD ok for ${uploadedObjectKeys.length} uploaded objects`);
+    }
+
+    if (
+      tierFailures.length > 0 ||
+      searchableFailures.length > 0 ||
+      openingFailures.length > 0
+    ) {
+      console.error("   ❌ Self-check failures:");
+      for (const line of [
+        ...tierFailures,
+        ...searchableFailures,
+        ...openingFailures.map((id) => `opening ${id} not on approved venue`),
+      ]) {
+        console.error(`      - ${line}`);
+      }
+      throw new Error("Seed self-check failed");
+    }
+    if (ttFailures.length > 0) {
+      console.warn(
+        `   ⚠️  Top Talent self-check soft-fail: ${ttFailures.join(", ")}`
+      );
+    } else {
+      console.log("   ✅ Self-check passed");
     }
 
     console.log("\n" + "=".repeat(60));

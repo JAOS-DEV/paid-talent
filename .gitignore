@@ -26,6 +26,9 @@
 .DS_Store
 *.pem
 
+# Generated local seed media (faces, logos, sample ID, liveness clips)
+.seed-assets/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
