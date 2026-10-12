@@ -46,8 +46,7 @@ export function clearTeaserPhotoCacheForTests(): void {
 }
 
 async function resolveApprovedPhotoKey(
-  workerProfileId: string,
-  profilePhotoKey: string | null
+  workerProfileId: string
 ): Promise<string | null> {
   const [currentApproved] = await db
     .select({ photoKey: profilePhotos.photoKey })
@@ -61,11 +60,7 @@ async function resolveApprovedPhotoKey(
     )
     .limit(1);
 
-  if (currentApproved?.photoKey) {
-    return currentApproved.photoKey;
-  }
-
-  return profilePhotoKey;
+  return currentApproved?.photoKey ?? null;
 }
 
 export async function GET(
@@ -99,10 +94,7 @@ export async function GET(
       return new NextResponse(null, { status: 404 });
     }
 
-    const photoKey = await resolveApprovedPhotoKey(
-      row.profile.id,
-      row.profile.photoKey
-    );
+    const photoKey = await resolveApprovedPhotoKey(row.profile.id);
 
     if (!photoKey) {
       return new NextResponse(null, { status: 404 });

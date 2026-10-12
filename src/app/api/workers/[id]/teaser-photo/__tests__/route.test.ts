@@ -156,6 +156,36 @@ describe("GET /api/workers/[id]/teaser-photo", () => {
     expect(asText).not.toContain(PHOTO_KEY);
   });
 
+  it("returns 404 when photo_key is set but no approved profile_photos row", async () => {
+    recruiter();
+    mockedSearchable.mockReturnValue({
+      isSearchable: true,
+      reason: "verified",
+    });
+    mockSelectChain([
+      [
+        {
+          profile: {
+            id: "worker-profile-1",
+            photoKey: PHOTO_KEY,
+            photoUrl: "https://cdn.example/a.jpg",
+            verificationStatus: "verified",
+            isPublished: true,
+          },
+          accountStatus: "active",
+        },
+      ],
+      [], // no approved current profile_photos row
+    ]);
+
+    const response = await GET({} as NextRequest, {
+      params: Promise.resolve({ id: "worker-profile-1" }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(mockedS3).not.toHaveBeenCalled();
+  });
+
   it("returns 404 for unsearchable worker", async () => {
     recruiter();
     mockedSearchable.mockReturnValue({
