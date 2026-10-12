@@ -615,6 +615,7 @@ export async function acceptRequest(
       .returning();
 
     // Keep hire-outcomes FK working until profile_interests is dropped.
+    // No target: swallow conflicts on id OR (recruiter_user_id, worker_profile_id).
     await tx
       .insert(profileInterests)
       .values({
@@ -625,7 +626,7 @@ export async function acceptRequest(
         message: updated.openerText,
         createdAt: updated.createdAt,
       })
-      .onConflictDoNothing({ target: profileInterests.id });
+      .onConflictDoNothing();
 
     return { ok: true as const, request: updated, conversation };
   });

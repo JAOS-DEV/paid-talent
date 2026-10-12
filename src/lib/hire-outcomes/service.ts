@@ -94,6 +94,7 @@ export async function requestConfirmation(input: {
   }
 
   // Ensure legacy interest row exists for NOT NULL interest_id FKs.
+  // No target: swallow conflicts on id OR (recruiter_user_id, worker_profile_id).
   await db
     .insert(profileInterests)
     .values({
@@ -104,13 +105,38 @@ export async function requestConfirmation(input: {
       message: contactRequest.openerText,
       createdAt: contactRequest.createdAt,
     })
-    .onConflictDoNothing({ target: profileInterests.id });
+    .onConflictDoNothing();
 
-  const interest = {
-    id: contactRequest.id,
-    recruiterUserId: contactRequest.recruiterUserId,
-    workerProfileId: contactRequest.workerProfileId,
-  };
+  let [interest] = await db
+    .select({
+      id: profileInterests.id,
+      recruiterUserId: profileInterests.recruiterUserId,
+      workerProfileId: profileInterests.workerProfileId,
+    })
+    .from(profileInterests)
+    .where(eq(profileInterests.id, contactRequest.id))
+    .limit(1);
+
+  if (!interest) {
+    [interest] = await db
+      .select({
+        id: profileInterests.id,
+        recruiterUserId: profileInterests.recruiterUserId,
+        workerProfileId: profileInterests.workerProfileId,
+      })
+      .from(profileInterests)
+      .where(
+        and(
+          eq(profileInterests.recruiterUserId, contactRequest.recruiterUserId),
+          eq(profileInterests.workerProfileId, contactRequest.workerProfileId)
+        )
+      )
+      .limit(1);
+  }
+
+  if (!interest) {
+    return { success: false, error: "Legacy interest row not found" };
+  }
 
   const existingOutcome = await getConfirmedOutcome(contactRequestId);
   const confirmedStatus = getEffectiveStatus(existingOutcome);
@@ -150,7 +176,7 @@ export async function requestConfirmation(input: {
     const [created] = await db
       .insert(hireOutcomeConfirmationRequests)
       .values({
-        interestId: contactRequest.id,
+        interestId: interest.id,
         contactRequestId: contactRequest.id,
         requestedStatus: input.requestedStatus,
         requestStatus: "pending",
