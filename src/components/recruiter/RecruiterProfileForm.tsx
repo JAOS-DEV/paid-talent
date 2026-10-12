@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   Button,
@@ -62,6 +63,7 @@ export function RecruiterProfileForm({
   const [contactPhone, setContactPhone] = useState(
     initialProfile?.contactPhone || ""
   );
+  const [lineId, setLineId] = useState(initialProfile?.lineId || "");
   const [logo, setLogo] = useState<VenueLogoChange>({
     logoKey: initialProfile?.logoKey ?? null,
     logoUrl: initialProfile?.logoUrl ?? null,
@@ -120,6 +122,7 @@ export function RecruiterProfileForm({
       blurb,
       contactEmail: contactEmail || "",
       contactPhone: contactPhone || undefined,
+      lineId: lineId || undefined,
     });
 
     setSaving(false);
@@ -269,6 +272,24 @@ export function RecruiterProfileForm({
               autoComplete="tel"
               placeholder={t("phonePlaceholder")}
             />
+
+            <Input
+              label={t("lineId")}
+              value={lineId}
+              onChange={(e) => setLineId(e.target.value)}
+              maxLength={50}
+              helperText={t("lineIdHelp")}
+              placeholder={t("lineIdPlaceholder")}
+            />
+
+            <div className="rounded-xl border border-charcoal-700 bg-charcoal-900/40 px-4 py-3">
+              <p className="text-sm text-charcoal-400">{t("manageVenuesHint")}</p>
+              <Link href="/recruiter/venues" className="inline-block mt-2">
+                <Button type="button" variant="outline" size="sm">
+                  {t("manageVenues")}
+                </Button>
+              </Link>
+            </div>
 
             {error && (
               <p className="text-sm text-error" role="alert">

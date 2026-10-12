@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
 import { OpeningForm, RecruiterBackLink } from "@/components/recruiter";
+import { listVenueOptionsForUser } from "@/lib/venues/recruiter-helpers";
 
 export default async function NewOpeningPage(): Promise<React.ReactElement> {
   const session = await auth();
@@ -13,6 +14,7 @@ export default async function NewOpeningPage(): Promise<React.ReactElement> {
   }
 
   const t = await getTranslations("recruiter.openings");
+  const venues = await listVenueOptionsForUser(session.user.id);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -24,7 +26,7 @@ export default async function NewOpeningPage(): Promise<React.ReactElement> {
               {t("backToOpenings")}
             </RecruiterBackLink>
           </div>
-          <OpeningForm mode="create" />
+          <OpeningForm mode="create" venues={venues} />
         </div>
       </main>
       <Footer />

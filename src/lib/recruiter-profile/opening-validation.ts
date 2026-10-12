@@ -66,6 +66,10 @@ export const updateProfileSchema = z.object({
     emptyToUndefined,
     z.string().trim().max(20).optional()
   ),
+  lineId: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().max(50).optional()
+  ),
 });
 
 const openingPayCurrencySchema = z.preprocess((value) => {
@@ -93,6 +97,7 @@ const openingPayPeriodSchema = z.preprocess((value) => {
 const openingFieldsSchema = z.object({
   role: z.string().trim().min(1, "Role is required").max(100),
   area: z.string().trim().min(1, "Area is required").max(100),
+  venueId: z.string().uuid("Venue is required"),
   payAmount: optionalNonNegativePaySchema,
   payCurrency: openingPayCurrencySchema,
   payPeriod: openingPayPeriodSchema,

@@ -16,6 +16,7 @@ interface AdminNavItem {
 const navItems: AdminNavItem[] = [
   { href: "/admin", label: "Overview", exact: true },
   { href: "/admin/verifications", label: "Identity verification" },
+  { href: "/admin/venues", label: "Venues" },
   { href: "/admin/photos", label: "Photo moderation" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/activity", label: "Activity" },

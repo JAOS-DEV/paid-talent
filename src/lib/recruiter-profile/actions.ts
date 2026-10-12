@@ -20,6 +20,7 @@ import {
   actionAuthError,
   requireActiveRecruiter,
 } from "@/lib/auth/require-active-user";
+import { getVenueOwnedByRecruiter } from "@/lib/venues/service";
 
 export interface ActionResult {
   success: boolean;
@@ -74,6 +75,7 @@ export async function updateRecruiterProfile(
     blurb,
     contactEmail,
     contactPhone,
+    lineId,
   } = validation.data;
 
   // Venue logos are written only by /api/recruiter/logo. Profile saves must
@@ -87,6 +89,7 @@ export async function updateRecruiterProfile(
       blurb,
       contactEmail: contactEmail ? contactEmail : null,
       contactPhone: normalizeOptionalText(contactPhone),
+      lineId: normalizeOptionalText(lineId),
       updatedAt: new Date(),
     })
     .where(eq(recruiterProfiles.id, recruiter.recruiterProfileId));
@@ -125,14 +128,31 @@ export async function createOpening(
     return { success: false, error: validation.error.issues[0].message };
   }
 
-  const { role, area, payAmount, payCurrency, payPeriod, notes, isPublished } =
-    validation.data;
+  const {
+    role,
+    area,
+    venueId,
+    payAmount,
+    payCurrency,
+    payPeriod,
+    notes,
+    isPublished,
+  } = validation.data;
   const payStorage = toOpeningPayStorage(normalizeOptionalPay(payAmount));
+
+  const venue = await getVenueOwnedByRecruiter(
+    venueId,
+    recruiter.recruiterProfileId
+  );
+  if (!venue) {
+    return { success: false, error: "Venue not found or unauthorized" };
+  }
 
   const [opening] = await db
     .insert(recruiterOpenings)
     .values({
       recruiterProfileId: recruiter.recruiterProfileId,
+      venueId: venue.id,
       role,
       area,
       payMin: payStorage.payMin,
@@ -163,8 +183,17 @@ export async function updateOpening(data: unknown): Promise<ActionResult> {
     return { success: false, error: validation.error.issues[0].message };
   }
 
-  const { id, role, area, payAmount, payCurrency, payPeriod, notes, isPublished } =
-    validation.data;
+  const {
+    id,
+    role,
+    area,
+    venueId,
+    payAmount,
+    payCurrency,
+    payPeriod,
+    notes,
+    isPublished,
+  } = validation.data;
 
   const [existingOpening] = await db
     .select({
@@ -185,6 +214,14 @@ export async function updateOpening(data: unknown): Promise<ActionResult> {
     return { success: false, error: "Opening not found or unauthorized" };
   }
 
+  const venue = await getVenueOwnedByRecruiter(
+    venueId,
+    recruiter.recruiterProfileId
+  );
+  if (!venue) {
+    return { success: false, error: "Venue not found or unauthorized" };
+  }
+
   if (hasLegacyPayRange(existingOpening) && payAmount === undefined) {
     return { success: false, error: LEGACY_PAY_RANGE_MESSAGE };
   }
@@ -196,6 +233,7 @@ export async function updateOpening(data: unknown): Promise<ActionResult> {
     .set({
       role,
       area,
+      venueId: venue.id,
       payMin: payStorage.payMin,
       payMax: payStorage.payMax,
       payCurrency,

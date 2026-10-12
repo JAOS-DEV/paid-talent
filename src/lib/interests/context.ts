@@ -7,7 +7,7 @@ import {
   workerProfiles,
 } from "@/lib/db";
 import { and, eq } from "drizzle-orm";
-import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
+import { resolveVenueDisplayForRecruiter } from "@/lib/venues/display";
 import {
   canWorkerAccessInterestContext,
   isOpeningVisibleToWorkers,
@@ -21,6 +21,8 @@ export interface RecruiterDisplayContext {
   area: string | null;
   subArea: string | null;
   blurbSnippet: string | null;
+  publicVenueLinkUrl: string | null;
+  publicVenueLinkLabel: string | null;
 }
 
 export interface OpeningTag {
@@ -123,18 +125,6 @@ export async function getInterestContextForWorker(
     .where(eq(users.id, interest.recruiterUserId))
     .limit(1);
 
-  const [profile] = await db
-    .select({
-      organizationName: recruiterProfiles.organizationName,
-      logoUrl: recruiterProfiles.logoUrl,
-      area: recruiterProfiles.area,
-      subArea: recruiterProfiles.subArea,
-      blurb: recruiterProfiles.blurb,
-    })
-    .from(recruiterProfiles)
-    .where(eq(recruiterProfiles.userId, interest.recruiterUserId))
-    .limit(1);
-
   let opening: OpeningTag | null = null;
   if (interest.openingId) {
     const [openingData] = await db
@@ -157,16 +147,23 @@ export async function getInterestContextForWorker(
     }
   }
 
+  const venue = await resolveVenueDisplayForRecruiter({
+    recruiterUserId: interest.recruiterUserId,
+    openingId: interest.openingId,
+  });
+
   return {
     interestId: interest.id,
     recruiter: {
       recruiterUserId: interest.recruiterUserId,
       displayName: user?.name || null,
-      venueName: profile?.organizationName || null,
-      logoUrl: toPublicVenueLogoUrl(profile?.logoUrl),
-      area: profile?.area || null,
-      subArea: profile?.subArea || null,
-      blurbSnippet: truncateBlurb(profile?.blurb || null),
+      venueName: venue?.venueName || null,
+      logoUrl: venue?.logoUrl || null,
+      area: venue?.area || null,
+      subArea: venue?.subArea || null,
+      blurbSnippet: truncateBlurb(venue?.blurb || null),
+      publicVenueLinkUrl: venue?.publicVenueLinkUrl || null,
+      publicVenueLinkLabel: venue?.publicVenueLinkLabel || null,
     },
     opening,
     message: interest.message,
@@ -237,27 +234,6 @@ export async function getInterestsForWorkerProfile(
 
   const usersMap = new Map(allUsers.map((u) => [u.id, u]));
 
-  const profilesData = (
-    await Promise.all(
-      recruiterUserIds.map((id) =>
-        db
-          .select({
-            userId: recruiterProfiles.userId,
-            organizationName: recruiterProfiles.organizationName,
-            logoUrl: recruiterProfiles.logoUrl,
-            area: recruiterProfiles.area,
-            subArea: recruiterProfiles.subArea,
-            blurb: recruiterProfiles.blurb,
-          })
-          .from(recruiterProfiles)
-          .where(eq(recruiterProfiles.userId, id))
-          .limit(1)
-      )
-    )
-  ).flat();
-
-  const profilesMap = new Map(profilesData.map((p) => [p.userId, p]));
-
   let openingsMap = new Map<
     string,
     {
@@ -297,9 +273,18 @@ export async function getInterestsForWorkerProfile(
     openingsMap = new Map(openingsData.map((o) => [o.id, o]));
   }
 
-  return interests.map((interest) => {
+  const venueDisplays = await Promise.all(
+    interests.map((interest) =>
+      resolveVenueDisplayForRecruiter({
+        recruiterUserId: interest.recruiterUserId,
+        openingId: interest.openingId,
+      })
+    )
+  );
+
+  return interests.map((interest, index) => {
     const user = usersMap.get(interest.recruiterUserId);
-    const profile = profilesMap.get(interest.recruiterUserId);
+    const venue = venueDisplays[index];
     const openingData = interest.openingId
       ? openingsMap.get(interest.openingId)
       : null;
@@ -309,11 +294,13 @@ export async function getInterestsForWorkerProfile(
       recruiter: {
         recruiterUserId: interest.recruiterUserId,
         displayName: user?.name || null,
-        venueName: profile?.organizationName || null,
-        logoUrl: toPublicVenueLogoUrl(profile?.logoUrl),
-        area: profile?.area || null,
-        subArea: profile?.subArea || null,
-        blurbSnippet: truncateBlurb(profile?.blurb || null),
+        venueName: venue?.venueName || null,
+        logoUrl: venue?.logoUrl || null,
+        area: venue?.area || null,
+        subArea: venue?.subArea || null,
+        blurbSnippet: truncateBlurb(venue?.blurb || null),
+        publicVenueLinkUrl: venue?.publicVenueLinkUrl || null,
+        publicVenueLinkLabel: venue?.publicVenueLinkLabel || null,
       },
       opening: openingData ? toOpeningTag(openingData) : null,
       message: interest.message,
@@ -369,13 +356,16 @@ export interface RecruiterVenueInfo {
   area: string | null;
   subArea: string | null;
   blurb: string | null;
+  publicVenueLinkUrl: string | null;
+  publicVenueLinkLabel: string | null;
   /** False when the recruiter user exists but their venue profile row is gone. */
   hasProfile: boolean;
   openings: OpeningTag[];
 }
 
 export async function getRecruiterVenueInfo(
-  recruiterUserId: string
+  recruiterUserId: string,
+  openingId?: string | null
 ): Promise<RecruiterVenueInfo | null> {
   const [user] = await db
     .select({ name: users.name })
@@ -385,29 +375,24 @@ export async function getRecruiterVenueInfo(
 
   if (!user) return null;
 
-  const [profile] = await db
-    .select({
-      organizationName: recruiterProfiles.organizationName,
-      logoUrl: recruiterProfiles.logoUrl,
-      area: recruiterProfiles.area,
-      subArea: recruiterProfiles.subArea,
-      blurb: recruiterProfiles.blurb,
-    })
-    .from(recruiterProfiles)
-    .where(eq(recruiterProfiles.userId, recruiterUserId))
-    .limit(1);
+  const venue = await resolveVenueDisplayForRecruiter({
+    recruiterUserId,
+    openingId,
+  });
 
   const openings = await getPublishedOpeningsForRecruiter(recruiterUserId);
 
   return {
     recruiterUserId,
     displayName: user.name,
-    venueName: profile?.organizationName || null,
-    logoUrl: toPublicVenueLogoUrl(profile?.logoUrl),
-    area: profile?.area || null,
-    subArea: profile?.subArea || null,
-    blurb: profile?.blurb || null,
-    hasProfile: Boolean(profile),
+    venueName: venue?.venueName || null,
+    logoUrl: venue?.logoUrl || null,
+    area: venue?.area || null,
+    subArea: venue?.subArea || null,
+    blurb: venue?.blurb || null,
+    publicVenueLinkUrl: venue?.publicVenueLinkUrl || null,
+    publicVenueLinkLabel: venue?.publicVenueLinkLabel || null,
+    hasProfile: Boolean(venue),
     openings,
   };
 }

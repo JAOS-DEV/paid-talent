@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   adminEntitlements,
@@ -7,6 +7,7 @@ import {
   recruiterProfiles,
   subscriptions,
   users,
+  venues,
   workerProfiles,
 } from "@/lib/db/schema";
 import { getPlatformBillingSettings } from "@/lib/platform-settings";
@@ -21,6 +22,7 @@ export interface AdminOverviewMetrics {
   publishedWorkers: number;
   publishedOpenings: number;
   pendingVerifications: number;
+  pendingVenues: number;
   pendingPhotos: number;
   paidPremiumAccounts: number;
   adminGrantedPremiumAccounts: number;
@@ -47,6 +49,7 @@ export async function getAdminOverviewMetrics(
     userCounts,
     workerCounts,
     pendingRecruiterVerifications,
+    pendingVenues,
     publishedOpenings,
     pendingPhotos,
     paidPremiumAccounts,
@@ -75,6 +78,11 @@ export async function getAdminOverviewMetrics(
       .select({ value: count() })
       .from(recruiterProfiles)
       .where(eq(recruiterProfiles.verificationStatus, "pending"))
+      .then((rows) => rows[0]?.value ?? 0),
+    db
+      .select({ value: count() })
+      .from(venues)
+      .where(and(eq(venues.reviewStatus, "pending"), isNull(venues.archivedAt)))
       .then((rows) => rows[0]?.value ?? 0),
     db
       .select({ value: count() })
@@ -118,6 +126,7 @@ export async function getAdminOverviewMetrics(
     pendingVerifications:
       toCount(workerCounts?.pendingWorkerVerifications) +
       toCount(pendingRecruiterVerifications),
+    pendingVenues: toCount(pendingVenues),
     pendingPhotos,
     paidPremiumAccounts,
     adminGrantedPremiumAccounts: toCount(

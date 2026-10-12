@@ -1,5 +1,5 @@
-import { eq } from "drizzle-orm";
-import { db, recruiterProfiles } from "@/lib/db";
+import { and, eq, isNull } from "drizzle-orm";
+import { db, recruiterProfiles, venues } from "@/lib/db";
 import { analyzeProfilePhoto } from "@/lib/moderation/photo-provider";
 import type { PhotoAnalysisResult } from "@/lib/moderation/photo-policy";
 import {
@@ -29,14 +29,19 @@ import {
 
 export interface VenueLogoRecord {
   profileId: string;
+  venueId: string | null;
   logoKey: string | null;
 }
 
 export interface VenueLogoStore {
-  getLogo(userId: string): Promise<VenueLogoRecord | null>;
+  getLogo(
+    userId: string,
+    venueId?: string | null
+  ): Promise<VenueLogoRecord | null>;
   setLogo(
     profileId: string,
-    logo: { logoKey: string | null; logoUrl: string | null }
+    logo: { logoKey: string | null; logoUrl: string | null },
+    venueId?: string | null
   ): Promise<void>;
 }
 
@@ -75,8 +80,44 @@ export type VenueLogoConfirmResult =
 
 export type VenueLogoClearResult = { ok: true } | VenueLogoFailure;
 
+async function resolveTargetVenue(
+  recruiterProfileId: string,
+  venueId?: string | null
+): Promise<{ id: string; logoKey: string | null } | null> {
+  if (venueId) {
+    const [venue] = await db
+      .select({ id: venues.id, logoKey: venues.logoKey })
+      .from(venues)
+      .where(
+        and(
+          eq(venues.id, venueId),
+          eq(venues.recruiterProfileId, recruiterProfileId),
+          isNull(venues.archivedAt)
+        )
+      )
+      .limit(1);
+    return venue ?? null;
+  }
+
+  const [primary] = await db
+    .select({ id: venues.id, logoKey: venues.logoKey })
+    .from(venues)
+    .where(
+      and(
+        eq(venues.recruiterProfileId, recruiterProfileId),
+        eq(venues.isPrimary, true),
+        isNull(venues.archivedAt)
+      )
+    )
+    .limit(1);
+  return primary ?? null;
+}
+
 const defaultStore: VenueLogoStore = {
-  async getLogo(userId: string): Promise<VenueLogoRecord | null> {
+  async getLogo(
+    userId: string,
+    venueId?: string | null
+  ): Promise<VenueLogoRecord | null> {
     const [profile] = await db
       .select({
         profileId: recruiterProfiles.id,
@@ -86,15 +127,65 @@ const defaultStore: VenueLogoStore = {
       .where(eq(recruiterProfiles.userId, userId))
       .limit(1);
 
-    return profile ?? null;
+    if (!profile) return null;
+
+    const venue = await resolveTargetVenue(profile.profileId, venueId);
+    if (venue) {
+      return {
+        profileId: profile.profileId,
+        venueId: venue.id,
+        logoKey: venue.logoKey,
+      };
+    }
+
+    // Fallback to recruiter_profiles logo when no venue row exists yet
+    return {
+      profileId: profile.profileId,
+      venueId: null,
+      logoKey: profile.logoKey,
+    };
   },
-  async setLogo(profileId, logo): Promise<void> {
+  async setLogo(profileId, logo, venueId): Promise<void> {
+    const now = new Date();
+    if (venueId) {
+      await db
+        .update(venues)
+        .set({
+          logoKey: logo.logoKey,
+          logoUrl: logo.logoUrl,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(venues.id, venueId),
+            eq(venues.recruiterProfileId, profileId)
+          )
+        );
+      // Keep legacy profile columns in sync when writing the primary venue
+      const [venue] = await db
+        .select({ isPrimary: venues.isPrimary })
+        .from(venues)
+        .where(eq(venues.id, venueId))
+        .limit(1);
+      if (venue?.isPrimary) {
+        await db
+          .update(recruiterProfiles)
+          .set({
+            logoKey: logo.logoKey,
+            logoUrl: logo.logoUrl,
+            updatedAt: now,
+          })
+          .where(eq(recruiterProfiles.id, profileId));
+      }
+      return;
+    }
+
     await db
       .update(recruiterProfiles)
       .set({
         logoKey: logo.logoKey,
         logoUrl: logo.logoUrl,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       .where(eq(recruiterProfiles.id, profileId));
   },
@@ -165,11 +256,15 @@ export async function presignVenueLogo(
   userId: string,
   contentType: string,
   contentLength: number,
-  deps: { store?: VenueLogoStore; storage?: VenueLogoStorage } = {}
+  deps: {
+    store?: VenueLogoStore;
+    storage?: VenueLogoStorage;
+    venueId?: string | null;
+  } = {}
 ): Promise<VenueLogoPresignResult> {
   const store = deps.store ?? defaultStore;
   const storage = deps.storage ?? defaultStorage;
-  const record = await store.getLogo(userId);
+  const record = await store.getLogo(userId, deps.venueId);
   if (!record) {
     return {
       ok: false,
@@ -193,6 +288,7 @@ export async function confirmVenueLogo(
     store?: VenueLogoStore;
     storage?: VenueLogoStorage;
     analyze?: (imageUrl: string) => Promise<PhotoAnalysisResult>;
+    venueId?: string | null;
   } = {}
 ): Promise<VenueLogoConfirmResult> {
   const store = deps.store ?? defaultStore;
@@ -207,7 +303,7 @@ export async function confirmVenueLogo(
     throw error;
   }
 
-  const record = await store.getLogo(userId);
+  const record = await store.getLogo(userId, deps.venueId);
   if (!record) {
     return {
       ok: false,
@@ -284,10 +380,14 @@ export async function confirmVenueLogo(
     };
   }
 
-  await store.setLogo(record.profileId, {
-    logoKey: promoted.photoKey,
-    logoUrl: promoted.photoUrl,
-  });
+  await store.setLogo(
+    record.profileId,
+    {
+      logoKey: promoted.photoKey,
+      logoUrl: promoted.photoUrl,
+    },
+    record.venueId
+  );
 
   if (record.logoKey && record.logoKey !== promoted.photoKey) {
     await discardPublic(storage, userId, record.logoKey);
@@ -302,11 +402,15 @@ export async function confirmVenueLogo(
 
 export async function clearVenueLogo(
   userId: string,
-  deps: { store?: VenueLogoStore; storage?: VenueLogoStorage } = {}
+  deps: {
+    store?: VenueLogoStore;
+    storage?: VenueLogoStorage;
+    venueId?: string | null;
+  } = {}
 ): Promise<VenueLogoClearResult> {
   const store = deps.store ?? defaultStore;
   const storage = deps.storage ?? defaultStorage;
-  const record = await store.getLogo(userId);
+  const record = await store.getLogo(userId, deps.venueId);
   if (!record) {
     return {
       ok: false,
@@ -315,7 +419,11 @@ export async function clearVenueLogo(
     };
   }
 
-  await store.setLogo(record.profileId, { logoKey: null, logoUrl: null });
+  await store.setLogo(
+    record.profileId,
+    { logoKey: null, logoUrl: null },
+    record.venueId
+  );
   await discardPublic(storage, userId, record.logoKey);
   return { ok: true };
 }

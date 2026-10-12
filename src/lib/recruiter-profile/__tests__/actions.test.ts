@@ -27,6 +27,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
 
     it("does not coerce empty pay to zero and keeps pay optional", () => {
       const result = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Bartender",
         area: "Sukhumvit",
         payAmount: "",
@@ -54,6 +55,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
     it("rejects negative pay", () => {
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           payAmount: -1,
@@ -63,6 +65,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
 
     it("allows zero pay", () => {
       const result = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Intern",
         area: "Sukhumvit",
         payAmount: 0,
@@ -78,6 +81,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
 
     it("stores one amount as payMin with payMax null", () => {
       const result = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Bartender",
         area: "Sukhumvit",
         payAmount: 1200,
@@ -94,6 +98,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
 
     it("coerces numeric strings for form inputs", () => {
       const result = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Bartender",
         area: "Sukhumvit",
         payAmount: "500",
@@ -107,6 +112,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
     it("rejects non-finite and oversized pay", () => {
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           payAmount: Number.POSITIVE_INFINITY,
@@ -114,6 +120,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
       ).toBe(false);
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           payAmount: OPENING_PAY_AMOUNT_MAX + 1,
@@ -131,6 +138,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
   describe("currency and pay period", () => {
     it("defaults new openings to THB and night", () => {
       const result = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Bartender",
         area: "Sukhumvit",
       });
@@ -143,6 +151,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
 
     it("persists allowlisted currencies including USD", () => {
       const result = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Bartender",
         area: "Sukhumvit",
         payCurrency: "USD",
@@ -157,6 +166,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
 
     it("rejects arbitrary currency strings", () => {
       const result = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Bartender",
         area: "Sukhumvit",
         payCurrency: "lol",
@@ -166,6 +176,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
 
     it.each(["night", "hour", "shift"])("accepts pay period %s", (payPeriod) => {
       const result = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Bartender",
         area: "Sukhumvit",
         payPeriod,
@@ -179,6 +190,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
     it("rejects invalid pay periods", () => {
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           payPeriod: "day",
@@ -186,6 +198,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
       ).toBe(false);
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           payPeriod: "week",
@@ -193,6 +206,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
       ).toBe(false);
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           payPeriod: "<script>alert(1)</script>",
@@ -204,6 +218,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
   describe("text limits and trimming", () => {
     it("trims required role/area and rejects blank after trim", () => {
       const trimmed = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "  Bartender  ",
         area: "  Sukhumvit ",
       });
@@ -215,6 +230,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
 
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "   ",
           area: "Sukhumvit",
         }).success
@@ -224,12 +240,14 @@ describe("recruiter opening/profile validation (behavioural)", () => {
     it("enforces role/area max 100 and notes max 500", () => {
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "A".repeat(101),
           area: "Sukhumvit",
         }).success
       ).toBe(false);
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "A".repeat(101),
         }).success
@@ -252,6 +270,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
 
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           notes: "A".repeat(OPENING_NOTES_MAX_LENGTH + 1),
@@ -260,6 +279,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
 
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           notes: "A".repeat(OPENING_NOTES_MAX_LENGTH),
@@ -276,6 +296,7 @@ describe("recruiter opening/profile validation (behavioural)", () => {
       ).toBe(false);
 
       const created = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Bartender",
         area: "Sukhumvit",
       });

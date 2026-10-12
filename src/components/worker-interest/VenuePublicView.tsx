@@ -14,6 +14,8 @@ interface VenuePublicViewProps {
   areaLabel: string | null;
   blurb: string | null;
   logoUrl: string | null;
+  publicVenueLinkUrl?: string | null;
+  publicVenueLinkLabel?: string | null;
 }
 
 export function VenuePublicView({
@@ -22,6 +24,8 @@ export function VenuePublicView({
   areaLabel,
   blurb,
   logoUrl,
+  publicVenueLinkUrl = null,
+  publicVenueLinkLabel = null,
 }: VenuePublicViewProps): React.ReactElement {
   const t = useTranslations("worker.interests");
 
@@ -45,6 +49,18 @@ export function VenuePublicView({
           <p className="text-charcoal-200 mt-4 whitespace-pre-wrap break-words">
             {blurb}
           </p>
+        ) : null}
+        {publicVenueLinkUrl && publicVenueLinkLabel ? (
+          <div className="mt-4">
+            <a
+              href={publicVenueLinkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary-400 hover:text-primary-300 underline-offset-2 hover:underline break-all"
+            >
+              {publicVenueLinkLabel}
+            </a>
+          </div>
         ) : null}
         <div className="mt-6">
           <Link

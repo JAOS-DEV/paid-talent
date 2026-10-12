@@ -71,6 +71,13 @@
       "when": 1791831488127,
       "tag": "0009_messy_pet_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791833033419,
+      "tag": "0010_special_blob",
+      "breakpoints": true
     }
   ]
 }

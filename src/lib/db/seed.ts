@@ -56,6 +56,23 @@ interface SeedOpening {
   payMax?: number;
   notes?: string;
   isPublished?: boolean;
+  /** Index into seed venues for this recruiter (default 0 / primary). */
+  venueIndex?: number;
+}
+
+type VenueReviewStatusType = "pending" | "approved" | "rejected";
+
+interface SeedVenue {
+  name: string;
+  venueType?: string;
+  area?: string;
+  subArea?: string;
+  blurb?: string;
+  venueLinkUrl: string;
+  venueLinkKind: "google_maps" | "facebook" | "instagram";
+  reviewStatus: VenueReviewStatusType;
+  reviewNote?: string;
+  isPrimary?: boolean;
 }
 
 interface SeedRecruiter {
@@ -70,8 +87,11 @@ interface SeedRecruiter {
   blurb?: string;
   contactEmail?: string;
   contactPhone?: string;
+  lineId?: string;
+  website?: string;
   hasSubscription: boolean;
   verificationStatus?: VerificationStatusType;
+  venues?: SeedVenue[];
   openings?: SeedOpening[];
 }
 
@@ -271,8 +291,23 @@ const SEED_USERS: {
       area: "Walking Street",
       subArea: "Soi 6",
       blurb: "Friendly neighborhood bar with live music and great cocktails. Looking for enthusiastic staff!",
+      website: "https://www.facebook.com/smallbarco",
+      lineId: "smallbarco_line",
       hasSubscription: false,
       verificationStatus: "unverified",
+      venues: [
+        {
+          name: "Small Bar Co",
+          venueType: "Bar",
+          area: "Walking Street",
+          subArea: "Soi 6",
+          blurb: "Friendly neighborhood bar with live music and great cocktails.",
+          venueLinkUrl: "https://www.facebook.com/smallbarco",
+          venueLinkKind: "facebook",
+          reviewStatus: "pending",
+          isPrimary: true,
+        },
+      ],
       openings: [
         {
           role: "Bartender",
@@ -281,6 +316,7 @@ const SEED_USERS: {
           payMax: 800,
           notes: "Weekend shifts preferred. Must have basic cocktail knowledge.",
           isPublished: true,
+          venueIndex: 0,
         },
       ],
     },
@@ -296,8 +332,44 @@ const SEED_USERS: {
       blurb: "Award-winning hospitality group with rooftop bars, fine dining, and nightclubs across Bangkok.",
       contactEmail: "hr@luxuryvenues.example.com",
       contactPhone: "+66890123456",
+      lineId: "luxuryvenues_hr",
+      website: "https://maps.app.goo.gl/luxuryrooftop",
       hasSubscription: true,
       verificationStatus: "verified",
+      venues: [
+        {
+          name: "Skyline Rooftop",
+          venueType: "Hotel",
+          area: "Sukhumvit",
+          subArea: "Soi 11",
+          blurb: "Flagship rooftop bar with city views.",
+          venueLinkUrl: "https://maps.app.goo.gl/luxuryrooftop",
+          venueLinkKind: "google_maps",
+          reviewStatus: "approved",
+          isPrimary: true,
+        },
+        {
+          name: "Thonglor Speakeasy",
+          venueType: "Bar",
+          area: "Thonglor",
+          blurb: "Craft cocktail bar for late nights.",
+          venueLinkUrl: "https://instagram.com/thonglorspeakeasy",
+          venueLinkKind: "instagram",
+          reviewStatus: "pending",
+          isPrimary: false,
+        },
+        {
+          name: "RCA Neon Club",
+          venueType: "Club",
+          area: "RCA",
+          blurb: "High-energy nightclub — link needs a better Maps URL.",
+          venueLinkUrl: "https://www.facebook.com/rcaneonclub",
+          venueLinkKind: "facebook",
+          reviewStatus: "rejected",
+          reviewNote: "Please submit a Google Maps link for the physical venue.",
+          isPrimary: false,
+        },
+      ],
       openings: [
         {
           role: "Hostess",
@@ -306,6 +378,7 @@ const SEED_USERS: {
           payMax: 1500,
           notes: "For our flagship rooftop venue. English fluency required. Experience in upscale venues preferred.",
           isPublished: true,
+          venueIndex: 0,
         },
         {
           role: "Bartender",
@@ -314,6 +387,7 @@ const SEED_USERS: {
           payMax: 1200,
           notes: "Mixology skills required. Craft cocktail experience a plus.",
           isPublished: true,
+          venueIndex: 1,
         },
         {
           role: "Server",
@@ -322,6 +396,7 @@ const SEED_USERS: {
           payMax: 1000,
           notes: "Fine dining experience preferred. Wine knowledge is a bonus.",
           isPublished: false,
+          venueIndex: 0,
         },
       ],
     },
@@ -334,8 +409,21 @@ const SEED_USERS: {
       location: "Bangkok",
       area: "RCA",
       blurb: "Seed recruiter in pending verification state for admin queue testing.",
+      website: "https://www.facebook.com/reviewqueueclub",
       hasSubscription: false,
       verificationStatus: "pending",
+      venues: [
+        {
+          name: "Review Queue Club",
+          venueType: "Club",
+          area: "RCA",
+          blurb: "Seed venue awaiting link review.",
+          venueLinkUrl: "https://www.facebook.com/reviewqueueclub",
+          venueLinkKind: "facebook",
+          reviewStatus: "pending",
+          isPrimary: true,
+        },
+      ],
       openings: [],
     },
     {
@@ -347,8 +435,22 @@ const SEED_USERS: {
       location: "Chiang Mai",
       area: "Nimman",
       blurb: "Seed recruiter in rejected verification state.",
+      website: "https://instagram.com/resubmitlounge",
       hasSubscription: false,
       verificationStatus: "rejected",
+      venues: [
+        {
+          name: "Resubmit Lounge",
+          venueType: "Bar",
+          area: "Nimman",
+          blurb: "Seed venue with rejected link for queue testing.",
+          venueLinkUrl: "https://instagram.com/resubmitlounge",
+          venueLinkKind: "instagram",
+          reviewStatus: "rejected",
+          reviewNote: "Page looks inactive — please resubmit a current Maps link.",
+          isPrimary: true,
+        },
+      ],
       openings: [],
     },
     {
@@ -664,11 +766,13 @@ async function seed(): Promise<void> {
             organizationType: recruiter.organizationType,
             description: recruiter.description,
             location: recruiter.location,
+            website: recruiter.website ?? null,
             area: recruiter.area ?? null,
             subArea: recruiter.subArea ?? null,
             blurb: recruiter.blurb ?? null,
             contactEmail: recruiter.contactEmail ?? null,
             contactPhone: recruiter.contactPhone ?? null,
+            lineId: recruiter.lineId ?? null,
             ...verificationFields,
             updatedAt: now,
           })
@@ -680,11 +784,13 @@ async function seed(): Promise<void> {
           organizationType: recruiter.organizationType,
           description: recruiter.description,
           location: recruiter.location,
+          website: recruiter.website ?? null,
           area: recruiter.area ?? null,
           subArea: recruiter.subArea ?? null,
           blurb: recruiter.blurb ?? null,
           contactEmail: recruiter.contactEmail ?? null,
           contactPhone: recruiter.contactPhone ?? null,
+          lineId: recruiter.lineId ?? null,
           ...verificationFields,
           createdAt: now,
           updatedAt: now,
@@ -692,14 +798,70 @@ async function seed(): Promise<void> {
         recruiterProfileId = newProfile.id;
       }
 
-      if (recruiter.openings && recruiter.openings.length > 0) {
-        await db
-          .delete(schema.recruiterOpenings)
-          .where(eq(schema.recruiterOpenings.recruiterProfileId, recruiterProfileId));
+      const seedVenues: SeedVenue[] =
+        recruiter.venues && recruiter.venues.length > 0
+          ? recruiter.venues
+          : [
+              {
+                name: recruiter.organizationName || "My venue",
+                venueType: recruiter.organizationType,
+                area: recruiter.area,
+                subArea: recruiter.subArea,
+                blurb: recruiter.blurb,
+                venueLinkUrl:
+                  recruiter.website ||
+                  "https://www.facebook.com/paidtalent-seed-venue",
+                venueLinkKind: "facebook",
+                reviewStatus: "pending",
+                isPrimary: true,
+              },
+            ];
 
+      await db
+        .delete(schema.recruiterOpenings)
+        .where(eq(schema.recruiterOpenings.recruiterProfileId, recruiterProfileId));
+      await db
+        .delete(schema.venues)
+        .where(eq(schema.venues.recruiterProfileId, recruiterProfileId));
+
+      const createdVenueIds: string[] = [];
+      for (const venue of seedVenues) {
+        const reviewed =
+          venue.reviewStatus === "approved" || venue.reviewStatus === "rejected";
+        const [createdVenue] = await db
+          .insert(schema.venues)
+          .values({
+            recruiterProfileId,
+            name: venue.name,
+            venueType: venue.venueType ?? null,
+            area: venue.area ?? null,
+            subArea: venue.subArea ?? null,
+            blurb: venue.blurb ?? null,
+            venueLinkUrl: venue.venueLinkUrl,
+            venueLinkKind: venue.venueLinkKind,
+            reviewStatus: venue.reviewStatus,
+            reviewNote: venue.reviewNote ?? null,
+            reviewedAt: reviewed ? now : null,
+            reviewedBy: reviewed ? "admin@example.com" : null,
+            isPrimary: venue.isPrimary ?? createdVenueIds.length === 0,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .returning();
+        createdVenueIds.push(createdVenue.id);
+        console.log(
+          `   🏢 Venue: ${venue.name} (${venue.reviewStatus}${venue.isPrimary ? ", primary" : ""})`
+        );
+      }
+
+      if (recruiter.openings && recruiter.openings.length > 0) {
         for (const opening of recruiter.openings) {
+          const venueIndex = opening.venueIndex ?? 0;
+          const venueId =
+            createdVenueIds[venueIndex] ?? createdVenueIds[0] ?? null;
           await db.insert(schema.recruiterOpenings).values({
             recruiterProfileId,
+            venueId,
             role: opening.role,
             area: opening.area,
             payMin: opening.payMin ?? null,

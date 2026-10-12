@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { OpeningForm } from "../OpeningForm";
 import { LEGACY_PAY_RANGE_MESSAGE } from "@/lib/recruiter-profile/opening-pay";
 import type { RecruiterOpening } from "@/lib/db/schema";
+import type { OpeningVenueOption } from "@/lib/venues/recruiter-helpers";
 
 const push = vi.fn();
 const refresh = vi.fn();
@@ -22,12 +23,26 @@ vi.mock("@/lib/recruiter-profile/actions", () => ({
   updateOpening: (...args: unknown[]) => updateOpening(...args),
 }));
 
+const defaultVenues: OpeningVenueOption[] = [
+  {
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    name: "Sky Bar",
+    isPrimary: true,
+  },
+  {
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    name: "Night Club",
+    isPrimary: false,
+  },
+];
+
 function mockOpening(
   overrides: Partial<RecruiterOpening> = {}
 ): RecruiterOpening {
   return {
     id: "11111111-1111-4111-8111-111111111111",
     recruiterProfileId: "profile-1",
+    venueId: defaultVenues[0].id,
     role: "Bartender",
     area: "Sukhumvit",
     payMin: 1200,
@@ -52,8 +67,16 @@ describe("OpeningForm", () => {
     updateOpening.mockResolvedValue({ success: true });
   });
 
+  it("requires a venue select", () => {
+    render(<OpeningForm mode="create" venues={defaultVenues} />);
+
+    const venueSelect = screen.getByLabelText(/^venue \*/i);
+    expect(venueSelect).toBeRequired();
+    expect(venueSelect).toHaveValue(defaultVenues[0].id);
+  });
+
   it("replaces min/max with a single pay field and defaults currency to THB", () => {
-    render(<OpeningForm mode="create" />);
+    render(<OpeningForm mode="create" venues={defaultVenues} />);
 
     expect(screen.getByLabelText(/pay amount/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/minimum pay/i)).not.toBeInTheDocument();
@@ -66,7 +89,11 @@ describe("OpeningForm", () => {
 
   it("loads an existing non-THB currency instead of resetting to THB", () => {
     render(
-      <OpeningForm mode="edit" initialOpening={mockOpening({ payCurrency: "EUR" })} />
+      <OpeningForm
+        mode="edit"
+        initialOpening={mockOpening({ payCurrency: "EUR" })}
+        venues={defaultVenues}
+      />
     );
 
     expect(screen.getByLabelText(/^currency$/i)).toHaveValue("EUR");
@@ -77,7 +104,7 @@ describe("OpeningForm", () => {
   });
 
   it("saves one advertised pay amount for a new opening", async () => {
-    render(<OpeningForm mode="create" />);
+    render(<OpeningForm mode="create" venues={defaultVenues} />);
 
     fireEvent.change(screen.getByLabelText(/^role \*/i), {
       target: { value: "Hostess" },
@@ -98,6 +125,7 @@ describe("OpeningForm", () => {
       expect(createOpening).toHaveBeenCalledWith({
         role: "Hostess",
         area: "Thonglor",
+        venueId: defaultVenues[0].id,
         payAmount: 1200,
         payCurrency: "USD",
         payPeriod: "hour",
@@ -108,7 +136,7 @@ describe("OpeningForm", () => {
   });
 
   it("only shows three period options: night, hour, shift", () => {
-    render(<OpeningForm mode="create" />);
+    render(<OpeningForm mode="create" venues={defaultVenues} />);
 
     expect(screen.getByRole("button", { name: /per night/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /per hour/i })).toBeInTheDocument();
@@ -123,6 +151,7 @@ describe("OpeningForm", () => {
       <OpeningForm
         mode="edit"
         initialOpening={mockOpening({ payMin: 500, payMax: 1000, payPeriod: "night" })}
+        venues={defaultVenues}
       />
     );
 
@@ -152,13 +181,16 @@ describe("OpeningForm", () => {
         expect.objectContaining({
           payAmount: 750,
           payPeriod: "night",
+          venueId: defaultVenues[0].id,
         })
       );
     });
   });
 
   it("uses single pay amount, not min-max", () => {
-    const { container } = render(<OpeningForm mode="create" />);
+    const { container } = render(
+      <OpeningForm mode="create" venues={defaultVenues} />
+    );
     expect(container.querySelector(".min-w-0")).not.toBeNull();
     expect(container.innerHTML).not.toContain("Minimum pay");
     expect(container.innerHTML).not.toContain("Maximum pay");

@@ -114,6 +114,7 @@ describe("recruiter UI helpers", () => {
   describe("opening form validation", () => {
     it("creates draft and published payloads", () => {
       const draft = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Bartender",
         area: "Sukhumvit",
         payAmount: "",
@@ -127,6 +128,7 @@ describe("recruiter UI helpers", () => {
       }
 
       const published = createOpeningSchema.safeParse({
+        venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         role: "Hostess",
         area: "Thonglor",
         payAmount: 800,
@@ -145,6 +147,7 @@ describe("recruiter UI helpers", () => {
     it("rejects invalid pay, currency, period, and overlong notes", () => {
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           payAmount: -5,
@@ -153,6 +156,7 @@ describe("recruiter UI helpers", () => {
 
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           payCurrency: "lol",
@@ -161,6 +165,7 @@ describe("recruiter UI helpers", () => {
 
       expect(
         createOpeningSchema.safeParse({
+          venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           role: "Bartender",
           area: "Sukhumvit",
           notes: "x".repeat(OPENING_NOTES_MAX_LENGTH + 1),

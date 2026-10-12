@@ -68,6 +68,12 @@ export default async function AdminDashboardPage(): Promise<React.ReactElement> 
           href="/admin/verifications"
         />
         <MetricCard
+          title="Venue reviews"
+          value={metrics.pendingVenues}
+          hint="Venue links awaiting approval"
+          href="/admin/venues"
+        />
+        <MetricCard
           title="Photo moderation"
           value={metrics.pendingPhotos}
           hint="Quarantined photos awaiting review"

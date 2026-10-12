@@ -36,6 +36,7 @@ vi.mock("@/lib/db", () => ({
   workerProfiles: {},
   recruiterProfiles: {},
   recruiterOpenings: {},
+  venues: {},
   profilePhotos: {},
   profileViews: {},
   profileInterests: {},
