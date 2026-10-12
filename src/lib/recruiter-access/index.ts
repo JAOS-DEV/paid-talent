@@ -68,7 +68,7 @@ export interface ResolveRecruiterAccessInput {
   }>;
   entitlement: Pick<
     EffectiveEntitlement,
-    "paidAccess" | "adminGrantAccess" | "billingAccessMode"
+    "paidAccess" | "adminGrantAccess" | "passAccess" | "billingAccessMode"
   >;
 }
 
@@ -91,7 +91,9 @@ export function resolveRecruiterAccess(
   let tier: RecruiterAccessTier = "unverified";
   if (isVerified) {
     const isPro =
-      input.entitlement.paidAccess || input.entitlement.adminGrantAccess;
+      input.entitlement.paidAccess ||
+      input.entitlement.adminGrantAccess ||
+      input.entitlement.passAccess;
     tier = isPro ? "pro" : "free";
   }
 

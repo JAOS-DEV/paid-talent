@@ -951,6 +951,8 @@ async function seed(): Promise<void> {
             .set({
               status: "active",
               plan: "top_talent_unlock",
+              billingProduct: "monthly",
+              stripePriceId: "price_seed_monthly",
               currentPeriodStart: periodStart,
               currentPeriodEnd: periodEnd,
               cancelAtPeriodEnd: false,
@@ -962,9 +964,11 @@ async function seed(): Promise<void> {
             userId,
             stripeCustomerId: `cus_seed_${userId.slice(0, 8)}`,
             stripeSubscriptionId: `sub_seed_${userId.slice(0, 8)}`,
-            stripePriceId: "price_seed_top_talent",
+            stripePriceId: "price_seed_monthly",
             status: "active",
             plan: "top_talent_unlock",
+            billingProduct: "monthly",
+            launchDiscountApplied: false,
             currentPeriodStart: periodStart,
             currentPeriodEnd: periodEnd,
             cancelAtPeriodEnd: false,
@@ -1201,6 +1205,47 @@ async function seed(): Promise<void> {
         updatedAt: new Date(),
       })
       .onConflictDoNothing();
+
+    await db
+      .insert(schema.billingPriceSettings)
+      .values({
+        id: schema.BILLING_PRICE_SETTINGS_ID,
+        monthlyPriceId: "price_seed_monthly",
+        annualPriceId: "price_seed_annual",
+        pass7dPriceId: "price_seed_pass_7d",
+        launchCouponId: "coupon_seed_launch",
+        launchEnabled: false,
+        launchSeatsLimit: 50,
+        firstPassCouponId: "coupon_seed_first_pass",
+        updatedAt: new Date(),
+        updatedBy: "seed",
+      })
+      .onConflictDoNothing();
+
+    // Seed one active 7-day pass (alongside the paid subscription on recruiter-pro).
+    const passRecruiter = createdRecruiters.find(
+      (r) => r.email === "recruiter-pro@example.com"
+    );
+    if (passRecruiter) {
+      const passStart = new Date();
+      const passEnd = new Date(passStart.getTime());
+      passEnd.setUTCDate(passEnd.getUTCDate() + 7);
+      await db
+        .insert(schema.topTalentPasses)
+        .values({
+          userId: passRecruiter.userId,
+          stripeCheckoutSessionId: `cs_seed_pass_${passRecruiter.userId.slice(0, 8)}`,
+          stripePaymentIntentId: `pi_seed_pass_${passRecruiter.userId.slice(0, 8)}`,
+          amountTotal: 39000,
+          currency: "thb",
+          usedFirstPassCoupon: true,
+          startsAt: passStart,
+          expiresAt: passEnd,
+          createdAt: passStart,
+        })
+        .onConflictDoNothing();
+      console.log(`   🎟️  7-day pass active for: ${passRecruiter.email}`);
+    }
 
     console.log("🏢 RECRUITERS (access tiers):");
     console.log("-".repeat(40));

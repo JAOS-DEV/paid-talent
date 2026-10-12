@@ -43,6 +43,8 @@ vi.mock("@/lib/db", () => ({
   hireOutcomes: {},
   hireOutcomeConfirmationRequests: {},
   subscriptions: {},
+  billingPriceSettings: {},
+  topTalentPasses: {},
   verificationEvents: {},
   adminAuditEvents: {},
   platformSettings: {},

@@ -39,24 +39,37 @@ function recruiterSession() {
   };
 }
 
+function mockRecruiterFetches(input: {
+  billingAccessMode: "enforced" | "open_access";
+  isVerified: boolean;
+}): void {
+  vi.mocked(fetch).mockImplementation(async (inputUrl) => {
+    const url = String(inputUrl);
+    if (url.includes("/api/stripe/status")) {
+      return {
+        ok: true,
+        json: async () => ({ billingAccessMode: input.billingAccessMode }),
+      } as Response;
+    }
+    if (url.includes("/api/recruiter/access")) {
+      return {
+        ok: true,
+        json: async () => ({ isVerified: input.isVerified }),
+      } as Response;
+    }
+    return { ok: false, json: async () => ({}) } as Response;
+  });
+}
+
 describe("TopTalentCta", () => {
   beforeEach(() => {
     useSession.mockReset();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ billingAccessMode: "enforced" }),
-      })
-    );
+    vi.stubGlobal("fetch", vi.fn());
   });
 
-  it("links signed-in recruiters to upgrade when billing is enforced", async () => {
+  it("links verified recruiters to upgrade when billing is enforced", async () => {
     useSession.mockReturnValue(recruiterSession());
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({ billingAccessMode: "enforced" }),
-    } as Response);
+    mockRecruiterFetches({ billingAccessMode: "enforced", isVerified: true });
 
     render(<TopTalentCta />);
 
@@ -70,14 +83,25 @@ describe("TopTalentCta", () => {
       )
     ).not.toBeInTheDocument();
     expect(fetch).toHaveBeenCalledWith("/api/stripe/status");
+    expect(fetch).toHaveBeenCalledWith("/api/recruiter/access");
+  });
+
+  it("links unverified recruiters to verification instead of checkout", async () => {
+    useSession.mockReturnValue(recruiterSession());
+    mockRecruiterFetches({ billingAccessMode: "enforced", isVerified: false });
+
+    render(<TopTalentCta />);
+
+    const link = await screen.findByRole("link", { name: "Verify to upgrade" });
+    expect(link).toHaveAttribute("href", "/recruiter/verification");
+    expect(
+      screen.queryByRole("link", { name: "Upgrade for Top Talent" })
+    ).not.toBeInTheDocument();
   });
 
   it("uses open-access label, note, and search link when mode is open_access", async () => {
     useSession.mockReturnValue(recruiterSession());
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({ billingAccessMode: "open_access" }),
-    } as Response);
+    mockRecruiterFetches({ billingAccessMode: "open_access", isVerified: false });
 
     render(<TopTalentCta />);
 

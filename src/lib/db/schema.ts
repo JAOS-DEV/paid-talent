@@ -85,6 +85,12 @@ export const billingAccessModeEnum = pgEnum("billing_access_mode", [
   "open_access",
 ]);
 
+export const billingProductEnum = pgEnum("billing_product", [
+  "monthly",
+  "annual",
+  "pass_7d",
+]);
+
 export const adminEntitlementKindEnum = pgEnum("admin_entitlement_kind", [
   "top_talent_unlock",
 ]);
@@ -116,6 +122,7 @@ export const adminAuditActionEnum = pgEnum("admin_audit_action", [
   "lifetime_premium_granted",
   "admin_premium_revoked",
   "subscription_paywall_mode_changed",
+  "billing_prices_changed",
   "identity_verification_approved",
   "identity_verification_rejected",
   "identity_verification_revoked",
@@ -541,6 +548,10 @@ export const subscriptions = pgTable(
     stripePriceId: text("stripe_price_id"),
     status: subscriptionStatusEnum("status").notNull().default("incomplete"),
     plan: subscriptionPlanEnum("plan").notNull().default("free"),
+    billingProduct: billingProductEnum("billing_product"),
+    launchDiscountApplied: boolean("launch_discount_applied")
+      .notNull()
+      .default(false),
     currentPeriodStart: timestamp("current_period_start", { mode: "date" }),
     currentPeriodEnd: timestamp("current_period_end", { mode: "date" }),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
@@ -550,6 +561,49 @@ export const subscriptions = pgTable(
   (table) => [
     index("subscriptions_user_id_idx").on(table.userId),
     index("subscriptions_stripe_customer_idx").on(table.stripeCustomerId),
+  ]
+);
+
+export const BILLING_PRICE_SETTINGS_ID = "default";
+
+export const billingPriceSettings = pgTable("billing_price_settings", {
+  id: text("id").primaryKey(),
+  monthlyPriceId: text("monthly_price_id"),
+  annualPriceId: text("annual_price_id"),
+  pass7dPriceId: text("pass_7d_price_id"),
+  launchCouponId: text("launch_coupon_id"),
+  launchEnabled: boolean("launch_enabled").notNull().default(false),
+  launchSeatsLimit: integer("launch_seats_limit").notNull().default(50),
+  firstPassCouponId: text("first_pass_coupon_id"),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+  updatedBy: text("updated_by"),
+});
+
+export const topTalentPasses = pgTable(
+  "top_talent_passes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stripeCheckoutSessionId: text("stripe_checkout_session_id")
+      .notNull()
+      .unique(),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+    amountTotal: integer("amount_total"),
+    currency: text("currency"),
+    usedFirstPassCoupon: boolean("used_first_pass_coupon")
+      .notNull()
+      .default(false),
+    startsAt: timestamp("starts_at", { mode: "date" }).notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("top_talent_passes_user_expires_idx").on(
+      table.userId,
+      table.expiresAt
+    ),
   ]
 );
 
@@ -900,6 +954,11 @@ export type ProfileView = typeof profileViews.$inferSelect;
 export type ProfileInterest = typeof profileInterests.$inferSelect;
 export type NewProfileInterest = typeof profileInterests.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;
+export type BillingProduct = (typeof billingProductEnum.enumValues)[number];
+export type BillingPriceSetting = typeof billingPriceSettings.$inferSelect;
+export type NewBillingPriceSetting = typeof billingPriceSettings.$inferInsert;
+export type TopTalentPass = typeof topTalentPasses.$inferSelect;
+export type NewTopTalentPass = typeof topTalentPasses.$inferInsert;
 export type VerificationEvent = typeof verificationEvents.$inferSelect;
 export type NewVerificationEvent = typeof verificationEvents.$inferInsert;
 export type HireOutcome = typeof hireOutcomes.$inferSelect;

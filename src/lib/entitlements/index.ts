@@ -1,14 +1,16 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   adminEntitlements,
   subscriptions,
+  topTalentPasses,
   type AdminEntitlement,
 } from "@/lib/db/schema";
 import { getBillingAccessMode } from "@/lib/platform-settings";
 import {
   isAdminGrantActive,
   resolveEffectiveEntitlement,
+  type ActivePassSnapshot,
   type AdminGrantSnapshot,
   type EffectiveEntitlement,
   type PaidSubscriptionSnapshot,
@@ -84,15 +86,37 @@ export async function loadActiveAdminGrant(
   return grant;
 }
 
+export async function loadActivePass(
+  userId: string,
+  now: Date = new Date()
+): Promise<ActivePassSnapshot | null> {
+  const [pass] = await db
+    .select({ expiresAt: topTalentPasses.expiresAt })
+    .from(topTalentPasses)
+    .where(
+      and(eq(topTalentPasses.userId, userId), gt(topTalentPasses.expiresAt, now))
+    )
+    .orderBy(desc(topTalentPasses.expiresAt))
+    .limit(1);
+
+  if (!pass) {
+    return null;
+  }
+
+  return { expiresAt: pass.expiresAt };
+}
+
 export async function getEffectiveEntitlement(
   userId: string,
   now: Date = new Date()
 ): Promise<EffectiveEntitlement> {
-  const [billingAccessMode, paidSubscription, grantRow] = await Promise.all([
-    getBillingAccessMode(),
-    loadPaidSubscriptionSnapshot(userId),
-    loadActiveAdminGrant(userId, now),
-  ]);
+  const [billingAccessMode, paidSubscription, grantRow, activePass] =
+    await Promise.all([
+      getBillingAccessMode(),
+      loadPaidSubscriptionSnapshot(userId),
+      loadActiveAdminGrant(userId, now),
+      loadActivePass(userId, now),
+    ]);
 
   const adminGrant = grantRow ? toAdminGrantSnapshot(grantRow) : null;
 
@@ -100,6 +124,7 @@ export async function getEffectiveEntitlement(
     billingAccessMode,
     paidSubscription,
     adminGrant,
+    activePass,
     now,
   });
 }
@@ -109,11 +134,13 @@ export {
   resolveAdminGrantWindow,
   isAdminGrantActive,
   isPaidSubscriptionActive,
+  isPassActive,
   addUtcDays,
   type EffectiveEntitlement,
   type EntitlementSource,
   type PaidSubscriptionSnapshot,
   type AdminGrantSnapshot,
+  type ActivePassSnapshot,
   type AdminGrantRequest,
   type ResolvedAdminGrantWindow,
 } from "./resolve";

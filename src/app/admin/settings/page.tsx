@@ -2,6 +2,7 @@ import React from "react";
 import { requireAdminPage } from "@/lib/admin/guard";
 import { getPlatformBillingSettings } from "@/lib/platform-settings";
 import { BillingSettingsPanel } from "@/components/admin/BillingSettingsPanel";
+import { BillingPricesPanel } from "@/components/admin/BillingPricesPanel";
 
 export default async function AdminSettingsPage(): Promise<React.ReactElement> {
   await requireAdminPage("/admin/settings");
@@ -21,6 +22,7 @@ export default async function AdminSettingsPage(): Promise<React.ReactElement> {
         updatedAt={settings.updatedAt?.toISOString() ?? null}
         updatedBy={settings.updatedBy}
       />
+      <BillingPricesPanel />
     </div>
   );
 }

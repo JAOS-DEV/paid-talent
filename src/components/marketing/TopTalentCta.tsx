@@ -19,6 +19,7 @@ export function TopTalentCta(): React.ReactElement {
   const { data: session, status } = useSession();
   const [billingAccessMode, setBillingAccessMode] =
     useState<BillingAccessMode>("enforced");
+  const [isVerified, setIsVerified] = useState(false);
   const [billingLoaded, setBillingLoaded] = useState(false);
 
   const user = session?.user;
@@ -32,6 +33,7 @@ export function TopTalentCta(): React.ReactElement {
 
     if (!isRecruiter) {
       setBillingAccessMode("enforced");
+      setIsVerified(false);
       setBillingLoaded(true);
       return;
     }
@@ -41,19 +43,27 @@ export function TopTalentCta(): React.ReactElement {
 
     const load = async (): Promise<void> => {
       try {
-        const response = await fetch("/api/stripe/status");
-        if (!response.ok) {
-          return;
+        const [statusRes, accessRes] = await Promise.all([
+          fetch("/api/stripe/status"),
+          fetch("/api/recruiter/access"),
+        ]);
+        if (statusRes.ok) {
+          const data = (await statusRes.json()) as {
+            billingAccessMode?: string;
+          };
+          if (
+            !cancelled &&
+            (data.billingAccessMode === "open_access" ||
+              data.billingAccessMode === "enforced")
+          ) {
+            setBillingAccessMode(data.billingAccessMode);
+          }
         }
-        const data = (await response.json()) as {
-          billingAccessMode?: string;
-        };
-        if (
-          !cancelled &&
-          (data.billingAccessMode === "open_access" ||
-            data.billingAccessMode === "enforced")
-        ) {
-          setBillingAccessMode(data.billingAccessMode);
+        if (accessRes.ok) {
+          const data = (await accessRes.json()) as { isVerified?: boolean };
+          if (!cancelled) {
+            setIsVerified(data.isVerified === true);
+          }
         }
       } catch {
         // Keep enforced default
@@ -77,6 +87,22 @@ export function TopTalentCta(): React.ReactElement {
 
   if (isRecruiter) {
     const openAccess = billingAccessMode === "open_access";
+    if (!openAccess && !isVerified) {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-charcoal-400">{t("verifyRequiredNote")}</p>
+          <Link
+            href="/recruiter/verification"
+            className="inline-flex w-full sm:w-auto"
+          >
+            <Button variant="gold" size="lg" className="w-full sm:w-auto">
+              {t("ctaVerify")}
+            </Button>
+          </Link>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-3">
         <Link

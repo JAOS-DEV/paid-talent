@@ -115,9 +115,10 @@ src/
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/api/stripe/checkout` | POST | Create Stripe Checkout session |
+| `/api/stripe/checkout` | POST | Create Stripe Checkout session (`monthly` / `annual` / `pass_7d`) |
+| `/api/stripe/prices` | GET | Configured product amounts + discount eligibility |
 | `/api/stripe/portal` | POST | Create Stripe Customer Portal session |
-| `/api/stripe/webhook` | POST | Handle Stripe webhook events |
+| `/api/stripe/webhook` | POST | Handle Stripe webhook events (public machine route) |
 
 ### Interest Routes (`/api/interests`)
 
@@ -556,19 +557,38 @@ preview is scoped to `verification-docs/` or `verification-liveness/`.
 
 ```
 src/lib/stripe/index.ts
+src/lib/billing/price-settings.ts
 ```
 
-### Plans
+### Products (admin-configured Stripe Price IDs)
 
-| Plan | ID | Features |
-|------|----|----|
-| Free | `free` | Basic search and interest |
-| Top Talent Unlock | `top_talent_unlock` | Message Top Talent, higher contact-request limits, inbox priority + Verified Pro badge, longer opening message |
+| Product | Checkout mode | Notes |
+|---------|---------------|-------|
+| `monthly` | `subscription` | Recurring THB monthly price |
+| `annual` | `subscription` | Recurring THB yearly price |
+| `pass_7d` | `payment` | One-time 7-day Top Talent pass |
+
+Live Price / Coupon IDs are stored in `billing_price_settings` and edited in Admin → Settings. Amounts are never hardcoded in app code. Optional launch coupon (limited seats) and first-pass coupon are applied at Checkout when eligible.
+
+### Entitlement sources
+
+| Source | Grants Pro |
+|--------|------------|
+| Paid subscription (`top_talent_unlock`) | Yes |
+| Admin grant / lifetime grant | Yes |
+| Active `top_talent_passes` row (`pass_7d`) | Yes until `expires_at` |
+| Platform `open_access` | Paywall override only |
+
+Only verified recruiters (identity + approved venue) may start Checkout.
+
+### Middleware: public machine routes
+
+`/api/stripe/webhook`, `/api/line/webhook`, and `/api/cron` are listed in `MACHINE_API_ROUTES` and must pass the auth middleware **without** a session. Handlers authenticate themselves (e.g. Stripe signature).
 
 ### Webhook Events Handled
 
-- `checkout.session.completed` - Activate subscription
-- `customer.subscription.updated` - Update status
+- `checkout.session.completed` - Activate subscription or insert/stack 7-day pass
+- `customer.subscription.created` / `updated` - Update status and period
 - `customer.subscription.deleted` - Cancel subscription
 - `invoice.payment_failed` - Mark as past_due
 
@@ -578,6 +598,7 @@ When `STRIPE_SECRET_KEY` is not set:
 - Checkout returns mock session
 - Portal returns redirect URL
 - Webhooks acknowledge but don't process
+- Admin price validation returns warnings instead of calling Stripe
 
 ---
 
