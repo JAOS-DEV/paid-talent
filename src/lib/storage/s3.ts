@@ -200,6 +200,27 @@ export async function getStagedProfilePhotoBuffer(key: string): Promise<Buffer> 
   return Buffer.concat(chunks);
 }
 
+export async function getPublicMediaObjectBuffer(key: string): Promise<Buffer> {
+  assertPublicMediaObjectKey(key);
+  const publicClient = createPublicMediaClient();
+  const command = new GetObjectCommand({
+    Bucket: getPublicMediaBucketName(),
+    Key: key,
+  });
+
+  const response = await publicClient.send(command);
+  const chunks: Uint8Array[] = [];
+
+  if (response.Body) {
+    const stream = response.Body as AsyncIterable<Uint8Array>;
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+  }
+
+  return Buffer.concat(chunks);
+}
+
 export async function createModerationStagingSignedGet(
   key: string,
   expiresIn: number = 300

@@ -13,11 +13,14 @@ import { isProfileTopTalent, recordProfileView } from "@/lib/ranking";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 import { getApprovedPhotosForWorker } from "@/lib/moderation";
 import { isSearchableWorker } from "@/lib/verification";
+import { getRecruiterAccess } from "@/lib/recruiter-access";
 import {
   mapApprovedPhotosToPublic,
+  resolveWorkerDetailMode,
+  toRecruiterWorkerTeaserDto,
   toWorkerProfileDetail,
   type WorkerProfileDetail,
-} from "@/lib/worker-profile/recruiter-dto";
+} from "@/lib/recruiter-access/worker-dto";
 import {
   deniedActiveUserResponse,
   requireActiveRecruiter,
@@ -30,7 +33,7 @@ interface RouteParams {
 export type { WorkerProfileDetail };
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse> {
   try {
@@ -39,6 +42,7 @@ export async function GET(
       return deniedActiveUserResponse(actor);
     }
 
+    const access = await getRecruiterAccess(actor.user.userId);
     const { id } = await params;
 
     const [profile] = await db
@@ -69,9 +73,20 @@ export async function GET(
       );
     }
 
-    await recordProfileView(workerProfile.id, actor.user.userId);
-
     const isTopTalent = await isProfileTopTalent(workerProfile.id);
+    const detailMode = resolveWorkerDetailMode(access, isTopTalent);
+
+    if (detailMode !== "full") {
+      return NextResponse.json({
+        profile: toRecruiterWorkerTeaserDto(
+          workerProfile,
+          isTopTalent,
+          detailMode === "locked_top_talent"
+        ),
+      });
+    }
+
+    await recordProfileView(workerProfile.id, actor.user.userId);
 
     const [interestWithOutcome] = await db
       .select({

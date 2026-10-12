@@ -26,14 +26,17 @@ import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
 import {
   deniedActiveUserResponse,
   requireActiveAppUser,
-  requireActiveRecruiter,
 } from "@/lib/auth/require-active-user";
+import {
+  deniedVerifiedRecruiterResponse,
+  requireVerifiedRecruiter,
+} from "@/lib/recruiter-access";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const actor = await requireActiveRecruiter();
+    const actor = await requireVerifiedRecruiter();
     if (!actor.ok) {
-      return deniedActiveUserResponse(actor);
+      return deniedVerifiedRecruiterResponse(actor);
     }
 
     const body = await request.json();

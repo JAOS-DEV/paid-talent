@@ -693,7 +693,11 @@
       "interestSent": "ส่งความสนใจแล้ว",
       "expressInterest": "แสดงความสนใจ",
       "interestHint": "ใช้กับปุ่มแสดงความสนใจบนการ์ดด้านล่าง ไม่บังคับ — เลือกความสนใจทั่วไปได้หากยังไม่ระบุตำแหน่ง",
-      "verified": "ยืนยันแล้ว"
+      "verified": "ยืนยันแล้ว",
+      "verifyToSeeFull": "ยืนยันตัวตนเพื่อดูโปรไฟล์เต็ม",
+      "teaserNameHidden": "ผู้ทำงานที่ยืนยันแล้ว",
+      "lockedTopTalentHint": "ผู้รับสมัคร Verified Pro สามารถดูและส่งข้อความถึง Top Talent ได้",
+      "upgradeForTopTalent": "อัปเกรดเพื่อดู Top Talent"
     },
     "workerDetail": {
       "profileNotFound": "ไม่พบโปรไฟล์",
@@ -707,7 +711,21 @@
       "interestSentBody": "ส่งความสนใจไปยังผู้ทำงานคนนี้แล้ว",
       "hireStatus": "สถานะการจ้าง",
       "hiredOn": "จ้างแล้ว:",
-      "startedOn": "เริ่มงานแล้ว:"
+      "startedOn": "เริ่มงานแล้ว:",
+      "verifyToSeeFull": "ยืนยันตัวตนเพื่อดูโปรไฟล์เต็ม"
+    },
+    "accessBanner": {
+      "unverifiedTitle": "ดูโปรไฟล์แบบตัวอย่าง",
+      "unverifiedBody": "คุณเห็นได้ว่ามีผู้ทำงานที่ยืนยันตัวตนจริงอยู่บนแพลตฟอร์ม ยืนยันตัวตนเพื่อปลดล็อกโปรไฟล์เต็มและคำขอติดต่อ",
+      "unverifiedVenueBody": "ยืนยันตัวตนของคุณแล้ว เพิ่มลิงก์สถานที่และรอการอนุมัติเพื่อปลดล็อกโปรไฟล์เต็ม",
+      "verifyCta": "ยืนยันตัวตน",
+      "addVenueCta": "เพิ่มสถานที่",
+      "freeTitle": "ผู้รับสมัครที่ยืนยันแล้ว",
+      "freeBody": "คุณดูโปรไฟล์เต็มได้ อัปเกรดเป็น Verified Pro เพื่อดูและส่งข้อความถึง Top Talent",
+      "freeOpenAccessBody": "คุณดูโปรไฟล์เต็มรวมถึง Top Talent ได้ ลิมิตการส่งข้อความพรีเมียมอาจยังต้องสมัครสมาชิกในภายหลัง",
+      "upgradeCta": "อัปเกรด",
+      "proTitle": "Verified Pro",
+      "proBody": "คุณดูโปรไฟล์ Top Talent และใช้ฟีเจอร์ข้อความพรีเมียมได้"
     },
     "profile": {
       "title": "โปรไฟล์สถานที่",
