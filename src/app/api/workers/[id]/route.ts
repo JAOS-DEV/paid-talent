@@ -9,20 +9,15 @@ import {
 } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { getLatestConfirmationRequestForInterest } from "@/lib/hire-outcomes/queries";
-import type { HireConfirmationRequestedStatus, HireConfirmationRequestStatus } from "@/lib/db/schema";
 import { isProfileTopTalent, recordProfileView } from "@/lib/ranking";
-import {
-  canViewContactDetails,
-} from "@/lib/helpers/contact-visibility";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 import { getApprovedPhotosForWorker } from "@/lib/moderation";
 import { isSearchableWorker } from "@/lib/verification";
 import {
   mapApprovedPhotosToPublic,
-  type PublicWorkerPhoto,
-} from "@/lib/worker-profile/public-profile";
-import type { HireOutcomeStatus } from "@/lib/db/schema";
-import { getEffectiveEntitlement } from "@/lib/entitlements";
+  toWorkerProfileDetail,
+  type WorkerProfileDetail,
+} from "@/lib/worker-profile/recruiter-dto";
 import {
   deniedActiveUserResponse,
   requireActiveRecruiter,
@@ -32,47 +27,7 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export type WorkerPhoto = PublicWorkerPhoto;
-
-export interface WorkerProfileDetail {
-  id: string;
-  userId: string;
-  displayName: string;
-  photoUrl: string | null;
-  photos: WorkerPhoto[];
-  location: string | null;
-  area: string | null;
-  bio: string | null;
-  description: string | null;
-  jobRoles: string[];
-  experience: string | null;
-  experienceYears: number | null;
-  languages: string[];
-  availability: string[];
-  expectedPayMin: number | null;
-  expectedPayMax: number | null;
-  expectedPayPeriod: string | null;
-  payCurrency: string | null;
-  isVerified: boolean;
-  isTopTalent: boolean;
-  contact: {
-    isLocked: boolean;
-    lineId: string | null;
-    whatsappNumber: string | null;
-    phoneNumber: string | null;
-  };
-  hasExpressedInterest: boolean;
-  interestId?: string;
-  hireOutcomeStatus?: HireOutcomeStatus;
-  hiredAt?: string | null;
-  startedAt?: string | null;
-  confirmationRequest?: {
-    id: string;
-    requestedStatus: HireConfirmationRequestedStatus;
-    requestStatus: HireConfirmationRequestStatus;
-    requestedAt: string;
-  } | null;
-}
+export type { WorkerProfileDetail };
 
 export async function GET(
   request: NextRequest,
@@ -117,15 +72,6 @@ export async function GET(
     await recordProfileView(workerProfile.id, actor.user.userId);
 
     const isTopTalent = await isProfileTopTalent(workerProfile.id);
-    const isOwnProfile = workerProfile.userId === actor.user.userId;
-    const entitlement = await getEffectiveEntitlement(actor.user.userId);
-
-    const contactVisible = canViewContactDetails({
-      isOwnProfile,
-      isTopTalent,
-      subscription: entitlement.paidSubscription,
-      hasPremiumAccess: entitlement.hasPremiumAccess,
-    });
 
     const [interestWithOutcome] = await db
       .select({
@@ -152,52 +98,26 @@ export async function GET(
 
     const approvedPhotos = await getApprovedPhotosForWorker(workerProfile.id);
     const photos = mapApprovedPhotosToPublic(approvedPhotos);
-    const primary =
-      photos.find((item) => item.isCurrentApproved) ?? photos[0] ?? null;
 
-    const result: WorkerProfileDetail = {
-      id: workerProfile.id,
-      userId: workerProfile.userId,
-      displayName: workerProfile.displayName,
-      photoUrl: primary?.photoUrl ?? null,
-      photos,
-      location: workerProfile.location,
-      area: workerProfile.area,
-      bio: workerProfile.bio,
-      description: workerProfile.description,
-      jobRoles: (workerProfile.jobRoles as string[]) ?? [],
-      experience: workerProfile.experience,
-      experienceYears: workerProfile.experienceYears,
-      languages: (workerProfile.languages as string[]) ?? [],
-      availability: workerProfile.availability ?? [],
-      expectedPayMin: workerProfile.expectedPayMin,
-      expectedPayMax: workerProfile.expectedPayMax,
-      expectedPayPeriod: workerProfile.expectedPayPeriod,
-      payCurrency: workerProfile.payCurrency,
-      isVerified: workerProfile.isVerified,
+    const result = toWorkerProfileDetail(workerProfile, {
       isTopTalent,
-      contact: {
-        isLocked: !contactVisible,
-        lineId: contactVisible ? workerProfile.lineId : null,
-        whatsappNumber: contactVisible ? workerProfile.whatsappNumber : null,
-        phoneNumber: contactVisible ? workerProfile.phoneNumber : null,
-      },
+      photos,
       hasExpressedInterest: !!interestWithOutcome,
       ...(interestWithOutcome && {
         interestId: interestWithOutcome.interestId,
         hireOutcomeStatus: interestWithOutcome.outcomeStatus ?? "interested",
-        hiredAt: interestWithOutcome.hiredAt?.toISOString() ?? null,
-        startedAt: interestWithOutcome.startedAt?.toISOString() ?? null,
+        hiredAt: interestWithOutcome.hiredAt,
+        startedAt: interestWithOutcome.startedAt,
         confirmationRequest: confirmationRequest
           ? {
               id: confirmationRequest.id,
               requestedStatus: confirmationRequest.requestedStatus,
               requestStatus: confirmationRequest.requestStatus,
-              requestedAt: confirmationRequest.requestedAt.toISOString(),
+              requestedAt: confirmationRequest.requestedAt,
             }
           : null,
       }),
-    };
+    });
 
     return NextResponse.json({ profile: result });
   } catch (error) {

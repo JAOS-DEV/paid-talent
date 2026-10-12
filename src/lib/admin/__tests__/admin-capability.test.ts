@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import { resolveSessionIsAdmin } from "../allowlist";
-import { canViewContactDetails } from "@/lib/helpers/contact-visibility";
+import { canAccessTopTalentContact } from "@/lib/helpers/contact-visibility";
 import enMessages from "../../../../messages/en.json";
 
 const SRC_ROOT = path.join(process.cwd(), "src");
@@ -94,36 +94,13 @@ describe("Top Talent vs entitlement", () => {
     expect(ranking).not.toContain("open_access");
   });
 
-  it("denies gated contact for Top Talent without entitlement in enforced mode", () => {
+  it("treats canAccessTopTalentContact as paid Top Talent plan only", () => {
+    expect(canAccessTopTalentContact(null)).toBe(false);
     expect(
-      canViewContactDetails({
-        isOwnProfile: false,
-        isTopTalent: true,
-        subscription: null,
-        hasPremiumAccess: false,
-      })
-    ).toBe(false);
-  });
-
-  it("allows gated contact for Top Talent with entitlement", () => {
-    expect(
-      canViewContactDetails({
-        isOwnProfile: false,
-        isTopTalent: true,
-        subscription: null,
-        hasPremiumAccess: true,
-      })
+      canAccessTopTalentContact({ status: "active", plan: "top_talent_unlock" })
     ).toBe(true);
-  });
-
-  it("allows gated contact in open access even without a paid subscription", () => {
-    expect(
-      canViewContactDetails({
-        isOwnProfile: false,
-        isTopTalent: true,
-        subscription: null,
-        hasPremiumAccess: true,
-      })
-    ).toBe(true);
+    expect(canAccessTopTalentContact({ status: "active", plan: "free" })).toBe(
+      false
+    );
   });
 });

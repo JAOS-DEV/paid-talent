@@ -3,7 +3,47 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { eq, and } from "drizzle-orm";
 import * as schema from "./schema";
-import { requireLocalDatabaseUrl, describeDatabaseTarget } from "./safety";
+import {
+  parseDatabaseUrl,
+  requireLocalDatabaseUrl,
+  describeDatabaseTarget,
+} from "./safety";
+
+/**
+ * Seeded worker LINE / WhatsApp / phone values are private profile fields only.
+ * They must never appear in recruiter-facing APIs or UI.
+ */
+
+function allowProductionSeed(): boolean {
+  return (
+    process.argv.includes("--force-production") ||
+    process.env.SEED_ALLOW_PRODUCTION === "1"
+  );
+}
+
+function refuseProductionLikeSeed(databaseUrl: string | undefined): void {
+  if (allowProductionSeed()) {
+    return;
+  }
+
+  const parsed = parseDatabaseUrl(databaseUrl);
+  const neonHost =
+    parsed.ok && parsed.parsed.host.toLowerCase().includes("neon.tech");
+  const productionEnv = process.env.NODE_ENV === "production";
+
+  if (neonHost || productionEnv) {
+    console.error(
+      "❌ ERROR: Refusing to seed a production-like database."
+    );
+    console.error(
+      "   DATABASE_URL looks like Neon production or NODE_ENV=production."
+    );
+    console.error(
+      "   Pass --force-production or set SEED_ALLOW_PRODUCTION=1 to override."
+    );
+    process.exit(1);
+  }
+}
 
 type HireOutcomeStatusType = "interested" | "hired" | "started";
 
@@ -334,20 +374,29 @@ function generateDateOfBirth(): string {
 }
 
 async function seed(): Promise<void> {
-  if (process.env.NODE_ENV === "production") {
-    console.error("❌ ERROR: Cannot run seed in production environment!");
-    console.error("   Set NODE_ENV to 'development' or 'test' to run seeds.");
-    process.exit(1);
-  }
+  refuseProductionLikeSeed(process.env.DATABASE_URL);
 
   let connectionString: string;
-  try {
-    connectionString = requireLocalDatabaseUrl(process.env.DATABASE_URL, {
-      action: "seed database",
-    });
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : "Refusing to seed database.");
-    process.exit(1);
+  if (allowProductionSeed()) {
+    if (!process.env.DATABASE_URL?.trim()) {
+      console.error("DATABASE_URL is not set.");
+      process.exit(1);
+    }
+    connectionString = process.env.DATABASE_URL;
+    console.warn(
+      "⚠️  SEED OVERRIDE: running with --force-production / SEED_ALLOW_PRODUCTION=1"
+    );
+  } else {
+    try {
+      connectionString = requireLocalDatabaseUrl(process.env.DATABASE_URL, {
+        action: "seed database",
+      });
+    } catch (error) {
+      console.error(
+        error instanceof Error ? error.message : "Refusing to seed database."
+      );
+      process.exit(1);
+    }
   }
 
   console.log("🌱 Starting database seed...\n");

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, use, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Header, Footer } from "@/components/layout";
@@ -17,7 +17,7 @@ import {
 } from "@/components/hire-outcomes";
 import { OpeningInterestSelect } from "@/components/recruiter";
 import { WorkerPublicProfileView } from "@/components/worker-profile";
-import type { WorkerProfileDetail } from "@/app/api/workers/[id]/route";
+import type { WorkerProfileDetail } from "@/lib/worker-profile/recruiter-dto";
 import type {
   HireConfirmationRequestStatus,
   HireConfirmationRequestedStatus,
@@ -45,7 +45,6 @@ export default function ProfileDetailPage({
 }: ProfilePageProps): React.ReactElement {
   const { id } = use(params);
   const { data: session, status } = useSession();
-  const router = useRouter();
   const t = useTranslations("recruiter.workerDetail");
   const [profile, setProfile] = useState<WorkerProfileDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -186,23 +185,6 @@ export default function ProfileDetailPage({
     }
   };
 
-  const handleUnlock = async (): Promise<void> => {
-    try {
-      const response = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.url) {
-          router.push(data.url);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to start checkout:", err);
-    }
-  };
-
   const handleRequestCreated = useCallback(
     (requestedStatus: HireConfirmationRequestedStatus) => {
       setInterestOutcome((prev) =>
@@ -306,31 +288,13 @@ export default function ProfileDetailPage({
                   <HireOutcomeStatusBadge status={interestOutcome.status} />
                 ) : null
               }
-              onUnlockContact={() => {
-                void handleUnlock();
-              }}
             />
           </div>
 
           <Card padding="lg">
             <CardContent>
               <div className="flex flex-col sm:flex-row gap-3">
-                {profile.contact.isLocked ? (
-                  <>
-                    <Button
-                      variant="gold"
-                      fullWidth
-                      onClick={handleUnlock}
-                    >
-                      {t("unlockToExpress")}
-                    </Button>
-                    <Link href="/recruiter/search" className="flex-1">
-                      <Button variant="outline" fullWidth>
-                        {t("backToSearch")}
-                      </Button>
-                    </Link>
-                  </>
-                ) : interestOutcome ? (
+                {interestOutcome ? (
                   <>
                     <div className="flex-1 flex flex-col sm:flex-row gap-3">
                       <HireOutcomeActions

@@ -66,7 +66,7 @@ describe("TopTalentCta", () => {
     expect(link).toHaveAttribute("href", "/recruiter/upgrade");
     expect(
       screen.queryByText(
-        /Top Talent contact details are currently free for all recruiters/i
+        /Premium Top Talent messaging and limits are currently free for all recruiters/i
       )
     ).not.toBeInTheDocument();
     expect(fetch).toHaveBeenCalledWith("/api/stripe/status");
@@ -85,7 +85,7 @@ describe("TopTalentCta", () => {
     expect(link).toHaveAttribute("href", "/recruiter/search");
     expect(
       screen.getByText(
-        "Top Talent contact details are currently free for all recruiters while we're in beta."
+        "Premium Top Talent messaging and limits are currently free for all recruiters while we're in beta. Contact details remain private."
       )
     ).toBeInTheDocument();
     expect(

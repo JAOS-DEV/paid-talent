@@ -13,25 +13,12 @@ import {
   deniedActiveUserResponse,
   requireActiveRecruiter,
 } from "@/lib/auth/require-active-user";
+import {
+  toSearchWorkerResult,
+  type SearchWorkerResult,
+} from "@/lib/worker-profile/recruiter-dto";
 
-export interface SearchWorkerResult {
-  id: string;
-  userId: string;
-  displayName: string;
-  photoUrl: string | null;
-  location: string | null;
-  area: string | null;
-  bio: string | null;
-  jobRoles: string[];
-  availability: string[];
-  experienceYears: number | null;
-  languages: string[];
-  expectedPayMin: number | null;
-  expectedPayPeriod: string | null;
-  payCurrency: string | null;
-  isVerified: boolean;
-  isTopTalent: boolean;
-}
+export type { SearchWorkerResult };
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -128,24 +115,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const total = totalResult[0]?.count ?? 0;
 
     const results: SearchWorkerResult[] = await Promise.all(
-      searchableProfiles.map(async (profile) => ({
-        id: profile.id,
-        userId: profile.userId,
-        displayName: profile.displayName,
-        photoUrl: profile.photoUrl,
-        location: profile.location,
-        area: profile.area,
-        bio: profile.bio,
-        jobRoles: (profile.jobRoles as string[]) ?? [],
-        availability: profile.availability ?? [],
-        experienceYears: profile.experienceYears,
-        languages: (profile.languages as string[]) ?? [],
-        expectedPayMin: profile.expectedPayMin,
-        expectedPayPeriod: profile.expectedPayPeriod,
-        payCurrency: profile.payCurrency,
-        isVerified: profile.verificationStatus === "verified",
-        isTopTalent: await isProfileTopTalent(profile.id),
-      }))
+      searchableProfiles.map(async (profile) =>
+        toSearchWorkerResult(profile, await isProfileTopTalent(profile.id))
+      )
     );
 
     return NextResponse.json({

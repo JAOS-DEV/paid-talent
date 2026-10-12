@@ -34,4 +34,32 @@ describe("worker recruiter preview architecture", () => {
     expect(page).not.toContain("HireOutcomeActions");
     expect(page).not.toContain("/api/workers/");
   });
+
+  it("recruiter DTOs omit contact and userId; preview keeps ownContact only", () => {
+    const recruiterDto = readFileSync(
+      path.join(process.cwd(), "src/lib/worker-profile/recruiter-dto.ts"),
+      "utf8"
+    );
+    const publicProfile = readFileSync(
+      path.join(process.cwd(), "src/lib/worker-profile/public-profile.ts"),
+      "utf8"
+    );
+    const preview = readFileSync(
+      path.join(process.cwd(), "src/lib/worker-profile/preview.ts"),
+      "utf8"
+    );
+    const detailRoute = readFileSync(
+      path.join(process.cwd(), "src/app/api/workers/[id]/route.ts"),
+      "utf8"
+    );
+
+    expect(recruiterDto).toContain("toWorkerProfileDetail");
+    expect(recruiterDto).toContain("toSearchWorkerResult");
+    expect(recruiterDto).not.toMatch(/lineId|whatsappNumber|phoneNumber/);
+    expect(publicProfile).not.toContain("contact:");
+    expect(publicProfile).toContain("ownContact");
+    expect(preview).toContain("ownContact");
+    expect(detailRoute).toContain("toWorkerProfileDetail");
+    expect(detailRoute).not.toContain("canViewContactDetails");
+  });
 });

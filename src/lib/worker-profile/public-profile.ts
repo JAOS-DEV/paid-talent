@@ -8,13 +8,17 @@ export interface PublicWorkerPhoto {
   isCurrentApproved: boolean;
 }
 
-export interface PublicWorkerContact {
-  isLocked: boolean;
+/** Contact values shown only on the worker's own preview (never to recruiters). */
+export interface OwnWorkerContact {
   lineId: string | null;
   whatsappNumber: string | null;
   phoneNumber: string | null;
 }
 
+/**
+ * Public profile shape shared by recruiter views and the worker preview shell.
+ * Never includes contact details or userId.
+ */
 export interface PublicWorkerProfileView {
   id: string;
   displayName: string;
@@ -36,7 +40,11 @@ export interface PublicWorkerProfileView {
   payCurrency: string | null;
   isVerified: boolean;
   isTopTalent: boolean;
-  contact: PublicWorkerContact;
+}
+
+/** Worker-only preview DTO: public fields plus private ownContact. */
+export interface WorkerOwnPreviewView extends PublicWorkerProfileView {
+  ownContact: OwnWorkerContact;
 }
 
 export function mapApprovedPhotosToPublic(
@@ -98,7 +106,6 @@ export function buildPublicWorkerProfileView(input: {
   payCurrency: string | null;
   isVerified: boolean;
   isTopTalent: boolean;
-  contact: PublicWorkerContact;
 }): PublicWorkerProfileView {
   return {
     id: input.id,
@@ -120,6 +127,5 @@ export function buildPublicWorkerProfileView(input: {
     payCurrency: input.payCurrency,
     isVerified: input.isVerified,
     isTopTalent: input.isTopTalent,
-    contact: input.contact,
   };
 }
