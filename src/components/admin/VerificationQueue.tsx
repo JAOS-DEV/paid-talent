@@ -54,15 +54,23 @@ function formatDate(value: string | null): string {
   }
 }
 
+type VerificationSubjectType = "worker" | "recruiter";
+
 interface VerificationCardProps {
   worker: PendingWorker;
+  subjectType: VerificationSubjectType;
   onResolved: (id: string) => void;
 }
 
 function VerificationCard({
   worker,
+  subjectType,
   onResolved,
 }: VerificationCardProps): React.ReactElement {
+  const apiBase =
+    subjectType === "recruiter"
+      ? "/api/admin/recruiters"
+      : "/api/admin/workers";
   const [docType, setDocType] = useState<VerificationDocType | "">("");
   const [last4, setLast4] = useState("");
   const [issuingCountry, setIssuingCountry] = useState("");
@@ -94,7 +102,7 @@ function VerificationCard({
     setMediaLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/workers/${worker.id}/media`);
+      const response = await fetch(`${apiBase}/${worker.id}/media`);
       const data = await response.json();
       if (!response.ok) {
         setError(data.error || "Failed to load verification media");
@@ -109,7 +117,7 @@ function VerificationCard({
     } finally {
       setMediaLoading(false);
     }
-  }, [idDocumentUrl, livenessVideoUrl, worker.id]);
+  }, [apiBase, idDocumentUrl, livenessVideoUrl, worker.id]);
 
   const submit = useCallback(
     async (action: "approve" | "reject") => {
@@ -132,7 +140,7 @@ function VerificationCard({
       setSuccess(null);
 
       try {
-        const response = await fetch(`/api/admin/workers/${worker.id}/verify`, {
+        const response = await fetch(`${apiBase}/${worker.id}/verify`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -157,7 +165,7 @@ function VerificationCard({
         setSubmitting(null);
       }
     },
-    [worker, docType, last4, issuingCountry, notes, onResolved]
+    [apiBase, worker, docType, last4, issuingCountry, notes, onResolved]
   );
 
   return (
@@ -166,7 +174,10 @@ function VerificationCard({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-charcoal-100">
-              {worker.displayName || "Unnamed worker"}
+              {worker.displayName ||
+                (subjectType === "recruiter"
+                  ? "Unnamed venue"
+                  : "Unnamed worker")}
             </h2>
             <p className="text-sm text-charcoal-400">{worker.email || "No email"}</p>
             <p className="text-sm text-charcoal-500 mt-1">
@@ -350,33 +361,43 @@ function VerificationCard({
 
 export function VerificationQueue({
   initialWorkers,
+  subjectType = "worker",
 }: {
   initialWorkers: PendingWorker[];
+  subjectType?: VerificationSubjectType;
 }): React.ReactElement {
   const [workers, setWorkers] = useState<PendingWorker[]>(initialWorkers);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  const pendingPath =
+    subjectType === "recruiter"
+      ? "/api/admin/recruiters/pending"
+      : "/api/admin/workers/pending";
+  const emptyLabel =
+    subjectType === "recruiter"
+      ? "No recruiter identity verifications are waiting for review."
+      : "No identity verifications are waiting for review.";
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/workers/pending");
+      const res = await fetch(pendingPath);
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to load pending verifications");
         setWorkers([]);
         return;
       }
-      setWorkers(data.workers || []);
+      setWorkers(data.workers || data.recruiters || []);
       setBanner(null);
     } catch {
       setError("Failed to load pending verifications");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pendingPath]);
 
   const handleResolved = useCallback((id: string) => {
     setWorkers((prev) => prev.filter((w) => w.id !== id));
@@ -406,9 +427,7 @@ export function VerificationQueue({
     return (
       <div className="space-y-2">
         {banner && <p className="text-green-400 text-sm">{banner}</p>}
-        <p className="text-charcoal-400">
-          No identity verifications are waiting for review.
-        </p>
+        <p className="text-charcoal-400">{emptyLabel}</p>
         <Button type="button" variant="ghost" size="sm" onClick={() => void load()}>
           Refresh
         </Button>
@@ -429,6 +448,7 @@ export function VerificationQueue({
         <VerificationCard
           key={worker.id}
           worker={worker}
+          subjectType={subjectType}
           onResolved={handleResolved}
         />
       ))}

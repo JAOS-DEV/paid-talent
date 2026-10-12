@@ -107,6 +107,9 @@ export const adminAuditActionEnum = pgEnum("admin_audit_action", [
   "identity_verification_approved",
   "identity_verification_rejected",
   "identity_verification_revoked",
+  "recruiter_verification_approved",
+  "recruiter_verification_rejected",
+  "recruiter_verification_revoked",
   "photo_approved",
   "photo_rejected",
 ]);
@@ -308,12 +311,30 @@ export const recruiterProfiles = pgTable(
     subArea: text("sub_area"),
     blurb: text("blurb"),
     isVerified: boolean("is_verified").notNull().default(false),
+    verificationStatus: verificationStatusEnum("verification_status")
+      .notNull()
+      .default("unverified"),
+    idDocumentKey: text("id_document_key"),
+    livenessVideoKey: text("liveness_video_key"),
+    challengeCode: text("challenge_code"),
+    challengeIssuedAt: timestamp("challenge_issued_at", { mode: "date" }),
+    idDocumentSubmittedAt: timestamp("id_document_submitted_at", {
+      mode: "date",
+    }),
+    verificationReviewedAt: timestamp("verification_reviewed_at", {
+      mode: "date",
+    }),
+    verificationReviewedBy: text("verification_reviewed_by"),
+    verifiedAt: timestamp("verified_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
     index("recruiter_profiles_user_id_idx").on(table.userId),
     index("recruiter_profiles_area_idx").on(table.area),
+    index("recruiter_profiles_verification_status_idx").on(
+      table.verificationStatus
+    ),
   ]
 );
 
@@ -486,6 +507,10 @@ export const verificationEvents = pgTable(
       () => workerProfiles.id,
       { onDelete: "set null" }
     ),
+    recruiterProfileId: uuid("recruiter_profile_id").references(
+      () => recruiterProfiles.id,
+      { onDelete: "set null" }
+    ),
     decision: verificationDecisionEnum("decision").notNull(),
     actorUserId: uuid("actor_user_id").references(() => users.id, {
       onDelete: "set null",
@@ -512,6 +537,9 @@ export const verificationEvents = pgTable(
     index("verification_events_user_id_idx").on(table.userId),
     index("verification_events_worker_profile_id_idx").on(
       table.workerProfileId
+    ),
+    index("verification_events_recruiter_profile_id_idx").on(
+      table.recruiterProfileId
     ),
     index("verification_events_decision_idx").on(table.decision),
     index("verification_events_created_at_idx").on(table.createdAt),
@@ -771,6 +799,10 @@ export const verificationEventsRelations = relations(
     workerProfile: one(workerProfiles, {
       fields: [verificationEvents.workerProfileId],
       references: [workerProfiles.id],
+    }),
+    recruiterProfile: one(recruiterProfiles, {
+      fields: [verificationEvents.recruiterProfileId],
+      references: [recruiterProfiles.id],
     }),
     actor: one(users, {
       fields: [verificationEvents.actorUserId],

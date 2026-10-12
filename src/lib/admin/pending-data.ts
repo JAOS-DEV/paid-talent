@@ -1,4 +1,4 @@
-import { db, workerProfiles, users, profilePhotos } from "@/lib/db";
+import { db, workerProfiles, recruiterProfiles, users, profilePhotos } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import {
   getSignedIdDocumentUrl,
@@ -150,6 +150,127 @@ export async function listPendingWorkersForAdmin(options: {
   return { workers, count: workers.length };
 }
 
+export async function listPendingRecruitersForAdmin(options: {
+  adminEmail: string;
+  includeSignedMedia?: boolean;
+}): Promise<{
+  recruiters: Array<{
+    id: string;
+    userId: string;
+    displayName: string;
+    email: string | null;
+    location: string | null;
+    area: string | null;
+    verificationStatus: string;
+    idDocumentSubmittedAt: Date | null;
+    createdAt: Date;
+    hasIdDocument: boolean;
+    hasLivenessVideo: boolean;
+    hasChallengeCode: boolean;
+    challengeCode: string | null;
+    challengeCodeDisplay: string | null;
+    challengeIssuedAt: Date | null;
+    idDocumentUrl: string | null;
+    livenessVideoUrl: string | null;
+    livenessVideoContentType: string | null;
+    canApprove: boolean;
+  }>;
+  count: number;
+}> {
+  const pendingRecruiters = await db
+    .select({
+      id: recruiterProfiles.id,
+      userId: recruiterProfiles.userId,
+      organizationName: recruiterProfiles.organizationName,
+      email: users.email,
+      location: recruiterProfiles.location,
+      area: recruiterProfiles.area,
+      verificationStatus: recruiterProfiles.verificationStatus,
+      idDocumentKey: recruiterProfiles.idDocumentKey,
+      livenessVideoKey: recruiterProfiles.livenessVideoKey,
+      challengeCode: recruiterProfiles.challengeCode,
+      challengeIssuedAt: recruiterProfiles.challengeIssuedAt,
+      idDocumentSubmittedAt: recruiterProfiles.idDocumentSubmittedAt,
+      createdAt: recruiterProfiles.createdAt,
+    })
+    .from(recruiterProfiles)
+    .innerJoin(users, eq(recruiterProfiles.userId, users.id))
+    .where(eq(recruiterProfiles.verificationStatus, "pending"))
+    .orderBy(recruiterProfiles.idDocumentSubmittedAt);
+
+  const recruiters = await Promise.all(
+    pendingRecruiters.map(async (recruiter) => {
+      let idDocumentUrl: string | null = null;
+      let livenessVideoUrl: string | null = null;
+      const includeSignedMedia = options.includeSignedMedia === true;
+      const livenessVideoContentType = contentTypeFromLivenessObjectKey(
+        recruiter.livenessVideoKey
+      );
+
+      if (includeSignedMedia && recruiter.idDocumentKey) {
+        try {
+          idDocumentUrl = await getSignedIdDocumentUrl(
+            options.adminEmail,
+            recruiter.idDocumentKey,
+            300
+          );
+        } catch (error) {
+          if (!(error instanceof PrivateStorageConfigError)) {
+            console.warn(
+              "[Admin Pending] Could not generate URL for recruiter ID document"
+            );
+          }
+        }
+      }
+
+      if (includeSignedMedia && recruiter.livenessVideoKey) {
+        try {
+          livenessVideoUrl = await getSignedLivenessVideoUrl(
+            options.adminEmail,
+            recruiter.livenessVideoKey,
+            300
+          );
+        } catch (error) {
+          if (!(error instanceof PrivateStorageConfigError)) {
+            console.warn(
+              "[Admin Pending] Could not generate URL for recruiter liveness video"
+            );
+          }
+        }
+      }
+
+      return {
+        id: recruiter.id,
+        userId: recruiter.userId,
+        displayName: recruiter.organizationName?.trim() || "Unnamed venue",
+        email: recruiter.email,
+        location: recruiter.location,
+        area: recruiter.area,
+        verificationStatus: recruiter.verificationStatus,
+        idDocumentSubmittedAt: recruiter.idDocumentSubmittedAt,
+        createdAt: recruiter.createdAt,
+        hasIdDocument: !!recruiter.idDocumentKey,
+        hasLivenessVideo: !!recruiter.livenessVideoKey,
+        hasChallengeCode: !!recruiter.challengeCode,
+        challengeCode: recruiter.challengeCode,
+        challengeCodeDisplay: recruiter.challengeCode
+          ? formatChallengeCodeForDisplay(recruiter.challengeCode)
+          : null,
+        challengeIssuedAt: recruiter.challengeIssuedAt,
+        idDocumentUrl,
+        livenessVideoUrl,
+        livenessVideoContentType,
+        canApprove:
+          !!recruiter.idDocumentKey &&
+          !!recruiter.livenessVideoKey &&
+          !!recruiter.challengeCode,
+      };
+    })
+  );
+
+  return { recruiters, count: recruiters.length };
+}
+
 export async function listPendingPhotosForAdmin(options?: {
   adminEmail?: string;
   includeSignedMedia?: boolean;
@@ -265,6 +386,60 @@ export async function getPendingWorkerMediaForAdmin(input: {
 
   const idDocumentKey = worker.idDocumentKey;
   const livenessVideoKey = worker.livenessVideoKey;
+
+  const [idDocumentUrl, livenessVideoUrl] = await Promise.all([
+    idDocumentKey
+      ? signedUrlOrNull(() =>
+          getSignedIdDocumentUrl(
+            input.adminEmail,
+            idDocumentKey,
+            PRIVATE_SIGNED_GET_MAX_SECONDS
+          )
+        )
+      : Promise.resolve(null),
+    livenessVideoKey
+      ? signedUrlOrNull(() =>
+          getSignedLivenessVideoUrl(
+            input.adminEmail,
+            livenessVideoKey,
+            PRIVATE_SIGNED_GET_MAX_SECONDS
+          )
+        )
+      : Promise.resolve(null),
+  ]);
+
+  return {
+    idDocumentUrl,
+    livenessVideoUrl,
+    livenessVideoContentType: contentTypeFromLivenessObjectKey(livenessVideoKey),
+    expiresIn: PRIVATE_SIGNED_GET_MAX_SECONDS,
+  };
+}
+
+export async function getPendingRecruiterMediaForAdmin(input: {
+  recruiterProfileId: string;
+  adminEmail: string;
+}): Promise<{
+  idDocumentUrl: string | null;
+  livenessVideoUrl: string | null;
+  livenessVideoContentType: string | null;
+  expiresIn: number;
+} | null> {
+  const [recruiter] = await db
+    .select({
+      idDocumentKey: recruiterProfiles.idDocumentKey,
+      livenessVideoKey: recruiterProfiles.livenessVideoKey,
+    })
+    .from(recruiterProfiles)
+    .where(eq(recruiterProfiles.id, input.recruiterProfileId))
+    .limit(1);
+
+  if (!recruiter) {
+    return null;
+  }
+
+  const idDocumentKey = recruiter.idDocumentKey;
+  const livenessVideoKey = recruiter.livenessVideoKey;
 
   const [idDocumentUrl, livenessVideoUrl] = await Promise.all([
     idDocumentKey

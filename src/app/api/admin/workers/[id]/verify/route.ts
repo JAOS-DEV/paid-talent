@@ -1,23 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { db, workerProfiles, verificationEvents, users } from "@/lib/db";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { isAdminEmail } from "@/lib/admin";
-import { recordAdminAuditEvent, verificationActionToAudit } from "@/lib/admin/audit";
-import {
-  canTransitionVerificationStatus,
-  getRetentionExpiryDate,
-  validateAdminApproval,
-  computeFileSha256,
-  VERIFICATION_RETENTION_DAYS,
-} from "@/lib/verification";
-import {
-  getIdDocumentBufferForAdmin,
-  getLivenessVideoBufferForAdmin,
-} from "@/lib/storage/s3";
-import { PrivateStorageConfigError } from "@/lib/storage/config";
-import type { VerificationStatus, VerificationDecision } from "@/lib/db/schema";
+import { reviewSubject } from "@/lib/admin/verification-review";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
 
 const verifyRequestSchema = z.object({
@@ -43,7 +28,7 @@ export async function POST(
 
     const adminCheck = isAdminEmail(session.user.email);
 
-    if (!adminCheck.isAdmin) {
+    if (!adminCheck.isAdmin || !adminCheck.email) {
       return NextResponse.json(
         {
           error: "Forbidden",
@@ -69,188 +54,44 @@ export async function POST(
     const { id: profileId } = await params;
     const { action, docType, last4, issuingCountry, notes } = parsed.data;
 
-    const [existingProfile] = await db
-      .select()
-      .from(workerProfiles)
-      .where(eq(workerProfiles.id, profileId))
-      .limit(1);
+    const result = await reviewSubject({
+      subjectType: "worker",
+      profileId,
+      action,
+      docType,
+      last4,
+      issuingCountry,
+      notes,
+      admin: {
+        userId: session.user.id,
+        email: adminCheck.email,
+      },
+    });
 
-    if (!existingProfile) {
-      return NextResponse.json(
-        { error: "Worker profile not found" },
-        { status: 404 }
-      );
-    }
-
-    if (action === "approve") {
-      const approvalValidation = validateAdminApproval({
-        idDocumentKey: existingProfile.idDocumentKey,
-        livenessVideoKey: existingProfile.livenessVideoKey,
-        challengeCode: existingProfile.challengeCode,
-        verificationStatus: existingProfile.verificationStatus,
-      });
-
-      if (!approvalValidation.canApprove) {
-        return NextResponse.json(
-          {
-            error: "Cannot approve verification",
-            details: approvalValidation.errors,
-          },
-          { status: 400 }
-        );
-      }
-    }
-
-    const targetStatus: VerificationStatus =
-      action === "approve" ? "verified" : "rejected";
-
-    const transitionCheck = canTransitionVerificationStatus(
-      existingProfile.verificationStatus,
-      targetStatus
-    );
-
-    if (!transitionCheck.allowed) {
+    if (!result.ok) {
       return NextResponse.json(
         {
-          error: "Invalid status transition",
-          reason: transitionCheck.reason,
-          currentStatus: existingProfile.verificationStatus,
-          targetStatus,
+          error: result.error,
+          details: result.details,
+          reason: result.reason,
+          currentStatus: result.currentStatus,
+          targetStatus: result.targetStatus,
         },
-        { status: 400 }
+        { status: result.status }
       );
     }
-
-    const [adminUser] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, adminCheck.email!))
-      .limit(1);
-
-    const now = new Date();
-
-    let idDocumentSha256: string | null = null;
-    let livenessVideoSha256: string | null = null;
-
-    if (existingProfile.idDocumentKey) {
-      try {
-        const docBuffer = await getIdDocumentBufferForAdmin(
-          adminCheck.email,
-          existingProfile.idDocumentKey
-        );
-        idDocumentSha256 = computeFileSha256(docBuffer);
-      } catch (error) {
-        if (error instanceof PrivateStorageConfigError) {
-          return NextResponse.json(
-            {
-              error:
-                "Verification storage is temporarily unavailable. Please try again later.",
-            },
-            { status: 503 }
-          );
-        }
-        console.warn(
-          "[Admin Verify Worker] Could not compute hash for ID document"
-        );
-      }
-    }
-
-    if (existingProfile.livenessVideoKey) {
-      try {
-        const videoBuffer = await getLivenessVideoBufferForAdmin(
-          adminCheck.email,
-          existingProfile.livenessVideoKey
-        );
-        livenessVideoSha256 = computeFileSha256(videoBuffer);
-      } catch (error) {
-        if (error instanceof PrivateStorageConfigError) {
-          return NextResponse.json(
-            {
-              error:
-                "Verification storage is temporarily unavailable. Please try again later.",
-            },
-            { status: 503 }
-          );
-        }
-        console.warn(
-          "[Admin Verify Worker] Could not compute hash for liveness video"
-        );
-      }
-    }
-
-    const decision: VerificationDecision =
-      action === "approve"
-        ? "approved"
-        : action === "revoke"
-          ? "revoked"
-          : "rejected";
-
-    const retentionExpiresAt =
-      decision === "approved" ||
-      decision === "rejected" ||
-      decision === "revoked"
-        ? getRetentionExpiryDate(now, VERIFICATION_RETENTION_DAYS)
-        : null;
-
-    await db.insert(verificationEvents).values({
-      userId: existingProfile.userId,
-      workerProfileId: existingProfile.id,
-      decision,
-      actorUserId: adminUser?.id ?? null,
-      actorType: "admin",
-      method: "manual_id_review",
-      docType: docType ?? null,
-      idDocumentKey: existingProfile.idDocumentKey,
-      idDocumentSha256,
-      livenessVideoKey: existingProfile.livenessVideoKey,
-      livenessVideoSha256,
-      challengeCode: existingProfile.challengeCode,
-      last4: last4 ?? null,
-      issuingCountry: issuingCountry ?? null,
-      notes: notes ?? null,
-      retentionExpiresAt,
-      createdAt: now,
-    });
-
-    await recordAdminAuditEvent({
-      action: verificationActionToAudit(action),
-      actorAdminEmail: adminCheck.email ?? session.user.email ?? "",
-      actorUserId: session.user.id,
-      targetUserId: existingProfile.userId,
-      targetType: "verification",
-      targetId: existingProfile.id,
-      reason: notes ?? null,
-      metadata: {
-        decision,
-        currentStatus: existingProfile.verificationStatus,
-        targetStatus,
-      },
-      createdAt: now,
-    });
-
-    const [updatedProfile] = await db
-      .update(workerProfiles)
-      .set({
-        verificationStatus: targetStatus,
-        isVerified: targetStatus === "verified",
-        verificationReviewedAt: now,
-        verificationReviewedBy: adminCheck.email,
-        updatedAt: now,
-      })
-      .where(eq(workerProfiles.id, profileId))
-      .returning();
 
     return NextResponse.json({
       success: true,
       profile: {
-        id: updatedProfile.id,
-        userId: updatedProfile.userId,
-        displayName: updatedProfile.displayName,
-        verificationStatus: updatedProfile.verificationStatus,
-        verificationReviewedAt: updatedProfile.verificationReviewedAt,
-        verificationReviewedBy: updatedProfile.verificationReviewedBy,
+        id: result.profile.id,
+        userId: result.profile.userId,
+        displayName: result.profile.displayName,
+        verificationStatus: result.profile.verificationStatus,
+        verificationReviewedAt: result.profile.verificationReviewedAt,
+        verificationReviewedBy: result.profile.verificationReviewedBy,
       },
-      action,
+      action: result.action,
       eventLogged: true,
     });
   } catch (error) {

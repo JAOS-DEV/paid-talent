@@ -23,6 +23,9 @@ interface LiveLivenessRecorderProps {
   stream: MediaStream;
   challengeDisplayCode: string;
   uploading?: boolean;
+  translationNamespace?:
+    | "worker.verificationFlow"
+    | "recruiter.verification";
   onRecorded: (blob: Blob, contentType: LivenessUploadContentType) => void;
   onCancel: () => void;
   onError: (message: string) => void;
@@ -94,12 +97,13 @@ export function LiveLivenessRecorder({
   stream,
   challengeDisplayCode,
   uploading = false,
+  translationNamespace = "worker.verificationFlow",
   onRecorded,
   onCancel,
   onError,
   onReacquireCamera,
 }: LiveLivenessRecorderProps): React.ReactElement {
-  const t = useTranslations("worker.verificationFlow");
+  const t = useTranslations(translationNamespace);
   const livePreviewRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
