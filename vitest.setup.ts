@@ -50,14 +50,61 @@ vi.mock("@/lib/db", () => ({
   platformSettings: {},
 }));
 
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (data: unknown, init?: { status?: number }) => ({
-      json: async () => data,
-      status: init?.status ?? 200,
-    }),
-  },
-}));
+vi.mock("next/server", () => {
+  class MockNextRequest extends Request {
+    get nextUrl(): URL {
+      return new URL(this.url);
+    }
+
+    get cookies(): {
+      get: (name: string) => { name: string; value: string } | undefined;
+    } {
+      const header = this.headers.get("cookie") ?? "";
+      return {
+        get(name: string) {
+          const match = header
+            .split(";")
+            .map((part) => part.trim())
+            .find((part) => part.startsWith(`${name}=`));
+          if (!match) return undefined;
+          return { name, value: decodeURIComponent(match.slice(name.length + 1)) };
+        },
+      };
+    }
+  }
+
+  return {
+    NextRequest: MockNextRequest,
+    NextResponse: {
+      json: (data: unknown, init?: { status?: number }) => ({
+        json: async () => data,
+        status: init?.status ?? 200,
+        headers: new Headers(),
+        cookies: { set: () => undefined },
+      }),
+      redirect: (url: string | URL, status = 307) => {
+        const location = typeof url === "string" ? url : url.toString();
+        const headers = new Headers({ location });
+        return {
+          status,
+          headers,
+          cookies: {
+            set: (
+              name: string,
+              value: string,
+              options?: Record<string, unknown>
+            ) => {
+              void name;
+              void value;
+              void options;
+            },
+          },
+          json: async () => ({}),
+        };
+      },
+    },
+  };
+});
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),

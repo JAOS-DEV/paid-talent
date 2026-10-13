@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import * as NextServer from "next/server";
 import { db } from "@/lib/db";
 import {
@@ -112,6 +112,9 @@ export async function deliver(notificationId: string): Promise<void> {
             inArray(notifications.emailStatus, RETRYABLE_STATUSES),
             inArray(notifications.lineStatus, RETRYABLE_STATUSES)
           ),
+          // Once any channel sent, the notification is finished — do not re-claim.
+          ne(notifications.emailStatus, "sent"),
+          ne(notifications.lineStatus, "sent"),
           lt(notifications.attempts, MAX_ATTEMPTS),
           claimAvailable()
         )
@@ -140,9 +143,6 @@ export async function deliver(notificationId: string): Promise<void> {
       user?.role === "recruiter" || user?.role === "worker"
         ? user.role
         : undefined;
-    const rendered = renderNotification(row.type, row.payload, locale, {
-      role,
-    });
 
     // Throttle external delivery for new_message when a recent unread
     // notification with the same dedupe key was already sent externally.
@@ -229,7 +229,13 @@ export async function deliver(notificationId: string): Promise<void> {
       }
 
       attempted = true;
-      const result = await channel.send(row.userId, rendered);
+      const rendered = renderNotification(row.type, row.payload, locale, {
+        role,
+        channel: channel.name,
+      });
+      const result = await channel.send(row.userId, rendered, {
+        notificationId: row.id,
+      });
       if (result.ok) {
         delivered = true;
         if (channel.name === "email") {
@@ -241,16 +247,31 @@ export async function deliver(notificationId: string): Promise<void> {
         }
       } else {
         lastError = result.error;
+        // Non-retryable failures are terminal for that channel (fallback continues).
+        const status: DeliveryStatus = result.retryable ? "failed" : "skipped";
         if (channel.name === "email") {
-          emailPatch.emailStatus = "failed";
+          emailPatch.emailStatus = status;
+          emailPatch.lastError = result.error;
         } else {
-          linePatch.lineStatus = "failed";
+          linePatch.lineStatus = status;
+          linePatch.lastError = result.error;
         }
       }
     }
 
-    // Channels not in the list (e.g. LINE before next PR) stay skipped
-    // when they were still retryable on the claimed row.
+    // After any successful send, other pending/failed channels are done.
+    if (delivered) {
+      const emailFinal = emailPatch.emailStatus ?? row.emailStatus;
+      const lineFinal = linePatch.lineStatus ?? row.lineStatus;
+      if (emailFinal === "pending" || emailFinal === "failed") {
+        emailPatch.emailStatus = "skipped";
+      }
+      if (lineFinal === "pending" || lineFinal === "failed") {
+        linePatch.lineStatus = "skipped";
+      }
+    }
+
+    // Channels not in the list stay skipped when they were still retryable.
     if (
       !channels.some((c) => c.name === "line") &&
       isRetryableStatus(row.lineStatus)
@@ -310,6 +331,8 @@ export async function retryPending(now: Date = new Date()): Promise<number> {
           inArray(notifications.emailStatus, ["pending", "failed"]),
           inArray(notifications.lineStatus, ["pending", "failed"])
         ),
+        ne(notifications.emailStatus, "sent"),
+        ne(notifications.lineStatus, "sent"),
         lt(notifications.attempts, MAX_ATTEMPTS),
         sql`${notifications.createdAt} >= ${since}`,
         claimAvailable()

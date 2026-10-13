@@ -6,6 +6,10 @@ export interface RenderedNotification {
   url: string;
 }
 
+export interface NotificationSendOptions {
+  notificationId?: string;
+}
+
 export interface NotificationChannel {
   name: NotificationChannelName;
   isConfigured(): boolean;
@@ -14,7 +18,8 @@ export interface NotificationChannel {
   ): Promise<{ ok: boolean; reason?: string }>;
   send(
     userId: string,
-    rendered: RenderedNotification
+    rendered: RenderedNotification,
+    options?: NotificationSendOptions
   ): Promise<
     { ok: true } | { ok: false; error: string; retryable: boolean }
   >;

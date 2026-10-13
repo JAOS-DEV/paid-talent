@@ -10,6 +10,7 @@ export {
   isEmailTransportConfigured,
   sendDirectEmail,
 } from "@/lib/notifications/email";
+export { LineChannel, lineChannel } from "@/lib/notifications/line";
 export { getNotificationChannels } from "@/lib/notifications/channels";
 export { renderNotification, getAppBaseUrl } from "@/lib/notifications/render";
 export {

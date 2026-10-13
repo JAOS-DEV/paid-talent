@@ -1,10 +1,16 @@
 import { emailChannel } from "@/lib/notifications/email";
+import { lineChannel } from "@/lib/notifications/line";
 import type { NotificationChannel } from "@/lib/notifications/types";
 
 /**
- * Delivery channel order. LINE is added in a follow-up PR.
- * Prefer LINE when present, then email; stop at first success.
+ * Delivery channel order. Prefer LINE when configured, then email;
+ * stop at first success (see deliver()).
  */
 export function getNotificationChannels(): NotificationChannel[] {
-  return [emailChannel];
+  const channels: NotificationChannel[] = [];
+  if (lineChannel.isConfigured()) {
+    channels.push(lineChannel);
+  }
+  channels.push(emailChannel);
+  return channels;
 }

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { userNotificationPrefs, users } from "@/lib/db/schema";
 import type {
   NotificationChannel,
+  NotificationSendOptions,
   RenderedNotification,
 } from "@/lib/notifications/types";
 
@@ -126,8 +127,10 @@ export class EmailChannel implements NotificationChannel {
 
   async send(
     userId: string,
-    rendered: RenderedNotification
+    rendered: RenderedNotification,
+    _options?: NotificationSendOptions
   ): Promise<{ ok: true } | { ok: false; error: string; retryable: boolean }> {
+    void _options;
     const [user] = await db
       .select({ email: users.email })
       .from(users)

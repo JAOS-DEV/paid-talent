@@ -4,6 +4,7 @@ import {
   deniedActiveUserResponse,
   requireActiveAppUser,
 } from "@/lib/auth/require-active-user";
+import { getLineLinkStatusForUser } from "@/lib/line/link-status";
 import { isEmailTransportConfigured } from "@/lib/notifications/email";
 import {
   getNotificationPrefs,
@@ -16,17 +17,19 @@ const putSchema = z.object({
   locale: z.enum(["en", "th"]).optional(),
 });
 
-function prefsResponse(prefs: {
+async function prefsResponse(prefs: {
+  userId: string;
   emailEnabled: boolean;
   lineEnabled: boolean;
   locale: string;
 }) {
+  const line = await getLineLinkStatusForUser(prefs.userId);
   return {
     emailEnabled: prefs.emailEnabled,
     lineEnabled: prefs.lineEnabled,
     locale: prefs.locale === "en" || prefs.locale === "th" ? prefs.locale : "th",
-    lineConfigured: false,
     emailConfigured: isEmailTransportConfigured(),
+    ...line,
   };
 }
 
@@ -40,7 +43,14 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const prefs = await getNotificationPrefs(actor.user.userId);
-    return NextResponse.json(prefsResponse(prefs));
+    return NextResponse.json(
+      await prefsResponse({
+        userId: prefs.userId,
+        emailEnabled: prefs.emailEnabled,
+        lineEnabled: prefs.lineEnabled,
+        locale: prefs.locale,
+      })
+    );
   } catch (error) {
     console.error("[NotificationPrefs] get failed:", error);
     return NextResponse.json(
@@ -75,7 +85,14 @@ export async function PUT(request: Request): Promise<NextResponse> {
       locale: validation.data.locale,
     });
 
-    return NextResponse.json(prefsResponse(prefs));
+    return NextResponse.json(
+      await prefsResponse({
+        userId: prefs.userId,
+        emailEnabled: prefs.emailEnabled,
+        lineEnabled: prefs.lineEnabled,
+        locale: prefs.locale,
+      })
+    );
   } catch (error) {
     console.error("[NotificationPrefs] put failed:", error);
     return NextResponse.json(

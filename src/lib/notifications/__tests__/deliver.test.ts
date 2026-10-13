@@ -4,13 +4,17 @@ const getMessagingSettings = vi.fn();
 const canDeliverTo = vi.fn();
 const send = vi.fn();
 const isConfigured = vi.fn(() => true);
+const lineCanDeliverTo = vi.fn();
+const lineSend = vi.fn();
+const lineIsConfigured = vi.fn(() => false);
 const afterMock = vi.fn();
+let includeLineChannel = false;
 
 const selectResults: unknown[][] = [];
 const updateSets: Array<Record<string, unknown>> = [];
 const claimSets: Array<Record<string, unknown>> = [];
 const claimWheres: unknown[] = [];
-/** Claim returning() queue — first update in deliver() is the atomic claim. */
+/** Claim returning() rows — first update in deliver() is the atomic claim. */
 const claimResults: unknown[][] = [];
 let rowState: Record<string, unknown> | null = null;
 let selectShouldThrow = false;
@@ -30,14 +34,29 @@ vi.mock("@/lib/messaging/settings", () => ({
 }));
 
 vi.mock("@/lib/notifications/channels", () => ({
-  getNotificationChannels: () => [
-    {
-      name: "email" as const,
+  getNotificationChannels: () => {
+    const channels: Array<{
+      name: "email" | "line";
+      isConfigured: () => boolean;
+      canDeliverTo: (...args: unknown[]) => unknown;
+      send: (...args: unknown[]) => unknown;
+    }> = [];
+    if (includeLineChannel) {
+      channels.push({
+        name: "line",
+        isConfigured: () => lineIsConfigured(),
+        canDeliverTo: (...args: unknown[]) => lineCanDeliverTo(...args),
+        send: (...args: unknown[]) => lineSend(...args),
+      });
+    }
+    channels.push({
+      name: "email",
       isConfigured: () => isConfigured(),
       canDeliverTo: (...args: unknown[]) => canDeliverTo(...args),
       send: (...args: unknown[]) => send(...args),
-    },
-  ],
+    });
+    return channels;
+  },
 }));
 
 vi.mock("@/lib/db", () => {
@@ -198,9 +217,13 @@ describe("deliver + retryPending", () => {
     claimResults.length = 0;
     rowState = null;
     selectShouldThrow = false;
+    includeLineChannel = false;
     isConfigured.mockReturnValue(true);
     canDeliverTo.mockResolvedValue({ ok: true });
     send.mockResolvedValue({ ok: true });
+    lineIsConfigured.mockReturnValue(true);
+    lineCanDeliverTo.mockResolvedValue({ ok: true });
+    lineSend.mockResolvedValue({ ok: true });
     getMessagingSettings.mockResolvedValue({ notifyCooldownMinutes: 30 });
   });
 
@@ -373,5 +396,62 @@ describe("deliver + retryPending", () => {
     const result = fn();
     expect(result).toEqual(expect.any(Promise));
     await result;
+  });
+
+  it("LINE retryable failure then email success → line skipped; retry does not call LINE", async () => {
+    includeLineChannel = true;
+    claimResults.push([baseRow()]);
+    selectResults.push(
+      [{ role: "worker", accountStatus: "active" }],
+      [{ emailEnabled: true, lineEnabled: true, locale: "en" }]
+    );
+    lineSend.mockResolvedValue({
+      ok: false,
+      error: "line_http_503",
+      retryable: true,
+    });
+    send.mockResolvedValue({ ok: true });
+
+    await deliver("n1");
+
+    expect(lineSend).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(updateSets.some((p) => p.lineStatus === "skipped")).toBe(true);
+    expect(updateSets.some((p) => p.emailStatus === "sent")).toBe(true);
+
+    // retryPending: row already has email sent → claim returns empty
+    selectResults.push([]);
+    claimResults.push([]);
+    const count = await retryPending(new Date());
+    expect(count).toBe(0);
+    expect(lineSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("LINE 429 (retryable:false) → line skipped, email sent, no retry", async () => {
+    includeLineChannel = true;
+    claimResults.push([baseRow()]);
+    selectResults.push(
+      [{ role: "worker", accountStatus: "active" }],
+      [{ emailEnabled: true, lineEnabled: true, locale: "en" }]
+    );
+    lineSend.mockResolvedValue({
+      ok: false,
+      error: "line_quota_429",
+      retryable: false,
+    });
+    send.mockResolvedValue({ ok: true });
+
+    await deliver("n1");
+
+    expect(lineSend).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(updateSets.some((p) => p.lineStatus === "skipped")).toBe(true);
+    expect(updateSets.some((p) => p.emailStatus === "sent")).toBe(true);
+
+    selectResults.push([]);
+    claimResults.push([]);
+    const count = await retryPending(new Date());
+    expect(count).toBe(0);
+    expect(lineSend).toHaveBeenCalledTimes(1);
   });
 });
