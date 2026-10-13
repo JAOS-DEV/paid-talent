@@ -12,6 +12,7 @@ import {
   type ReportReason,
 } from "@/lib/db/schema";
 import { getMessagingSettings } from "@/lib/messaging/settings";
+import { notify } from "@/lib/notifications";
 import { notifyAdmins } from "@/lib/safety/notify-admins";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -264,6 +265,10 @@ async function maybeAutoPauseRecruiter(input: {
       threshold: settings.autoPauseReportThreshold,
       windowDays: settings.autoPauseWindowDays,
     },
+  });
+
+  await notify(input.reportedUserId, "messaging_paused", {
+    reason: "auto_reports",
   });
 
   return true;

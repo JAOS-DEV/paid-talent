@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { runMessagingMaintenance } from "@/lib/contact-requests";
+import { retryPending } from "@/lib/notifications";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const secret = process.env.CRON_SECRET;
@@ -18,7 +19,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   try {
     const counts = await runMessagingMaintenance();
-    return NextResponse.json({ ok: true, ...counts });
+    const notificationsRetried = await retryPending();
+    return NextResponse.json({ ok: true, ...counts, notificationsRetried });
   } catch (error) {
     console.error("[Cron] messaging-maintenance failed:", error);
     return NextResponse.json(

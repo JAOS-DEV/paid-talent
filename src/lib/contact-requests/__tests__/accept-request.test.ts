@@ -11,6 +11,12 @@ vi.mock("@/lib/messaging/settings", () => ({
   getMessagingSettings: (...args: unknown[]) => getMessagingSettings(...args),
 }));
 
+vi.mock("@/lib/notifications", () => ({
+  notify: vi.fn(async () => null),
+  lookupUserDisplayName: vi.fn(async () => "Worker"),
+  lookupVenueName: vi.fn(async () => "Venue"),
+}));
+
 vi.mock("@/lib/db", () => {
   const contactRequests = {
     id: "id",

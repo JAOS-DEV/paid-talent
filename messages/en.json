@@ -43,10 +43,79 @@
     "requests": "Requests",
     "messages": "Messages",
     "messagesUnread": "Messages ({count})",
+    "notifications": "Notifications",
+    "notificationsUnread": "Notifications ({count})",
     "verification": "Verification",
     "searchWorkers": "Search Workers",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
+  },
+  "notifications": {
+    "bellLabel": "Notifications",
+    "empty": "No notifications yet",
+    "markAllRead": "Mark all as read",
+    "viewSettings": "Notification settings",
+    "loadFailed": "Could not load notifications",
+    "settings": {
+      "title": "Notifications",
+      "subtitle": "In-app notifications are always on. Turn email or LINE off any time.",
+      "emailEnabled": "Email notifications",
+      "lineEnabled": "LINE notifications",
+      "lineComingSoon": "Coming soon",
+      "locale": "Language for notifications",
+      "localeEn": "English",
+      "localeTh": "Thai",
+      "save": "Save preferences",
+      "saved": "Preferences saved",
+      "saveFailed": "Could not save preferences",
+      "inboundTitle": "Incoming contact requests",
+      "inboundDailyLimit": "Daily request limit",
+      "inboundPause": "Pause new contact requests"
+    },
+    "contact_request_received": {
+      "subject": "New contact request",
+      "text": "{recruiterName} sent you a contact request from {venueName}."
+    },
+    "contact_request_accepted": {
+      "subject": "Contact request accepted",
+      "text": "{workerName} accepted your contact request."
+    },
+    "contact_request_declined": {
+      "subject": "Contact request declined",
+      "text": "{workerName} declined your contact request."
+    },
+    "new_message": {
+      "subject": "New message",
+      "text": "You have a new message from {senderName}."
+    },
+    "contact_shared": {
+      "subject": "Contact details shared",
+      "text": "{sharerName} shared contact details with you."
+    },
+    "verification_approved": {
+      "subject": "Verification approved",
+      "text": "Your identity verification was approved."
+    },
+    "verification_rejected": {
+      "subject": "Verification update",
+      "text": "Your identity verification was not approved. You can review and try again."
+    },
+    "venue_approved": {
+      "subject": "Venue approved",
+      "text": "Your venue {venueName} was approved."
+    },
+    "venue_rejected": {
+      "subject": "Venue update",
+      "text": "Your venue {venueName} was not approved. Check your dashboard for details."
+    },
+    "messaging_paused": {
+      "subject": "Messaging paused",
+      "text": "Your messaging has been paused while our team reviews your account."
+    },
+    "safety_notice": {
+      "subject": "Safety notice",
+      "text": "There is a safety update on your account. Please open Paid Talent for details."
+    }
   },
   "language": {
     "label": "Language"

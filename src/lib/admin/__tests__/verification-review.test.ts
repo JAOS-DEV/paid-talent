@@ -46,6 +46,10 @@ vi.mock("@/lib/storage/s3", () => ({
     getLivenessVideoBufferForAdmin(...args),
 }));
 
+vi.mock("@/lib/notifications", () => ({
+  notify: vi.fn(async () => null),
+}));
+
 import { reviewSubject } from "@/lib/admin/verification-review";
 
 describe("reviewSubject recruiter approval", () => {

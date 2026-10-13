@@ -199,6 +199,27 @@ export const reportStatusEnum = pgEnum("report_status", [
   "dismissed",
 ]);
 
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "contact_request_received",
+  "contact_request_accepted",
+  "contact_request_declined",
+  "new_message",
+  "contact_shared",
+  "verification_approved",
+  "verification_rejected",
+  "venue_approved",
+  "venue_rejected",
+  "messaging_paused",
+  "safety_notice",
+]);
+
+export const deliveryStatusEnum = pgEnum("delivery_status", [
+  "pending",
+  "sent",
+  "skipped",
+  "failed",
+]);
+
 export const users = pgTable(
   "users",
   {
@@ -792,6 +813,43 @@ export const userNotificationPrefs = pgTable("user_notification_prefs", {
   updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
 });
 
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: notificationTypeEnum("type").notNull(),
+    payload: jsonb("payload").$type<Record<string, string>>().notNull(),
+    dedupeKey: text("dedupe_key"),
+    readAt: timestamp("read_at", { mode: "date" }),
+    emailStatus: deliveryStatusEnum("email_status")
+      .notNull()
+      .default("pending"),
+    lineStatus: deliveryStatusEnum("line_status")
+      .notNull()
+      .default("pending"),
+    emailSentAt: timestamp("email_sent_at", { mode: "date" }),
+    lineSentAt: timestamp("line_sent_at", { mode: "date" }),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("notifications_user_read_created_idx").on(
+      table.userId,
+      table.readAt,
+      table.createdAt
+    ),
+    index("notifications_delivery_created_idx").on(
+      table.emailStatus,
+      table.lineStatus,
+      table.createdAt
+    ),
+  ]
+);
+
 export const hireOutcomes = pgTable(
   "hire_outcomes",
   {
@@ -1141,6 +1199,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.id],
     references: [userNotificationPrefs.userId],
   }),
+  notifications: many(notifications),
   adminEntitlements: many(adminEntitlements),
 }));
 
@@ -1375,6 +1434,13 @@ export const userNotificationPrefsRelations = relations(
   })
 );
 
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
 export const hireOutcomesRelations = relations(hireOutcomes, ({ one }) => ({
   interest: one(profileInterests, {
     fields: [hireOutcomes.interestId],
@@ -1486,6 +1552,11 @@ export type ContactShareChannel =
   (typeof contactShareChannelEnum.enumValues)[number];
 export type UserNotificationPref = typeof userNotificationPrefs.$inferSelect;
 export type NewUserNotificationPref = typeof userNotificationPrefs.$inferInsert;
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;
+export type NotificationType =
+  (typeof notificationTypeEnum.enumValues)[number];
+export type DeliveryStatus = (typeof deliveryStatusEnum.enumValues)[number];
 export type Subscription = typeof subscriptions.$inferSelect;
 export type BillingProduct = (typeof billingProductEnum.enumValues)[number];
 export type BillingPriceSetting = typeof billingPriceSettings.$inferSelect;

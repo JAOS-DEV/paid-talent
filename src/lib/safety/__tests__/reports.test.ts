@@ -16,6 +16,10 @@ vi.mock("@/lib/safety/notify-admins", () => ({
   notifyAdmins: (...args: unknown[]) => notifyAdmins(...args),
 }));
 
+vi.mock("@/lib/notifications", () => ({
+  notify: vi.fn(async () => null),
+}));
+
 vi.mock("@/lib/db", () => {
   const chainSelect = {
     from: vi.fn(() => chainSelect),

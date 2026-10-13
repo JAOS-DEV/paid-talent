@@ -97,6 +97,22 @@ describe("resolveMiddlewareGate", () => {
         setCallbackUrl: true,
       });
     });
+
+    it("requires a session for /settings (not public)", () => {
+      expect(
+        resolveMiddlewareGate({
+          pathname: "/settings/notifications",
+          hasSession: false,
+          ageVerified: false,
+          isApiRoute: false,
+          isAuthApiRoute: false,
+        })
+      ).toEqual({
+        action: "redirect",
+        destination: "/auth/signin",
+        setCallbackUrl: true,
+      });
+    });
   });
 
   describe("authenticated unverified users (ageVerified=false)", () => {

@@ -44,6 +44,11 @@ import { getRecruiterAccess } from "@/lib/recruiter-access";
 import { isBlockedEitherWay } from "@/lib/safety/blocks";
 import { isSearchableWorker } from "@/lib/verification";
 import {
+  lookupUserDisplayName,
+  lookupVenueName,
+  notify,
+} from "@/lib/notifications";
+import {
   capDenyError,
   serviceError,
   type ContactRequestServiceError,
@@ -350,7 +355,7 @@ export async function createContactRequest(
   const openAccess = access.billingAccessMode === "open_access";
 
   try {
-    return await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       await advisoryLocks(tx, input.recruiterUserId, input.workerProfileId);
 
       const counts = await getRecruiterCapCounts(
@@ -490,6 +495,21 @@ export async function createContactRequest(
         limits: withRemaining(evaluation.limits, nextCounts),
       };
     });
+
+    if (result.ok && result.request.status === "pending") {
+      const [recruiterName, venueName] = await Promise.all([
+        lookupUserDisplayName(input.recruiterUserId),
+        lookupVenueName(input.venueId),
+      ]);
+      await notify(result.request.workerUserId, "contact_request_received", {
+        contactRequestId: result.request.id,
+        recruiterName,
+        venueName,
+        venueId: input.venueId,
+      });
+    }
+
+    return result;
   } catch (error) {
     if (isUniqueViolation(error)) {
       return capDenyError("duplicate");
@@ -515,7 +535,7 @@ export async function releaseQueuedForWorker(
 ): Promise<number> {
   const settings = await getMessagingSettings();
 
-  return db.transaction(async (tx) => {
+  const releasedRows = await db.transaction(async (tx) => {
     await workerAdvisoryLock(tx, workerProfileId);
 
     const [worker] = await tx
@@ -524,7 +544,7 @@ export async function releaseQueuedForWorker(
       .where(eq(workerProfiles.id, workerProfileId))
       .limit(1);
 
-    if (!worker) return 0;
+    if (!worker) return [] as ContactRequest[];
 
     const [prefs] = await tx
       .select()
@@ -532,7 +552,7 @@ export async function releaseQueuedForWorker(
       .where(eq(userNotificationPrefs.userId, worker.userId))
       .limit(1);
 
-    if (prefs?.inboundPaused) return 0;
+    if (prefs?.inboundPaused) return [] as ContactRequest[];
 
     const limit = resolveWorkerInboundLimit(
       prefs?.inboundDailyLimit ?? null,
@@ -552,7 +572,7 @@ export async function releaseQueuedForWorker(
       );
 
     const slots = Math.max(0, limit - Number(deliveredRow?.value ?? 0));
-    if (slots <= 0) return 0;
+    if (slots <= 0) return [] as ContactRequest[];
 
     const queued = await tx
       .select()
@@ -566,9 +586,9 @@ export async function releaseQueuedForWorker(
       .orderBy(desc(contactRequests.isPro), asc(contactRequests.createdAt))
       .limit(slots);
 
-    let released = 0;
+    const released: ContactRequest[] = [];
     for (const row of queued) {
-      await tx
+      const [updated] = await tx
         .update(contactRequests)
         .set({
           status: "pending",
@@ -578,12 +598,31 @@ export async function releaseQueuedForWorker(
           ),
           updatedAt: now,
         })
-        .where(eq(contactRequests.id, row.id));
-      released += 1;
+        .where(eq(contactRequests.id, row.id))
+        .returning();
+      if (updated) {
+        released.push(updated);
+      }
     }
 
     return released;
   });
+
+  for (const row of releasedRows) {
+    const venueId = row.venueId ?? "";
+    const [recruiterName, venueName] = await Promise.all([
+      lookupUserDisplayName(row.recruiterUserId),
+      venueId ? lookupVenueName(venueId) : Promise.resolve("a venue"),
+    ]);
+    await notify(row.workerUserId, "contact_request_received", {
+      contactRequestId: row.id,
+      recruiterName,
+      venueName,
+      venueId,
+    });
+  }
+
+  return releasedRows.length;
 }
 
 export async function acceptRequest(
@@ -685,6 +724,16 @@ export async function acceptRequest(
       .onConflictDoNothing();
 
     return { ok: true as const, request: updated, conversation };
+  }).then(async (result) => {
+    if (result.ok) {
+      const workerName = await lookupUserDisplayName(workerUserId);
+      await notify(result.request.recruiterUserId, "contact_request_accepted", {
+        contactRequestId: result.request.id,
+        conversationId: result.conversation.id,
+        workerName,
+      });
+    }
+    return result;
   });
 }
 
@@ -734,6 +783,12 @@ export async function declineRequest(
       "Only pending requests can be declined"
     );
   }
+
+  const workerName = await lookupUserDisplayName(workerUserId);
+  await notify(updated.recruiterUserId, "contact_request_declined", {
+    contactRequestId: updated.id,
+    workerName,
+  });
 
   return { ok: true, request: updated };
 }
