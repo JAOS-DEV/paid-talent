@@ -316,13 +316,12 @@ function withoutBroadLineHeuristic(result: TextFilterResult): TextFilterResult {
 
 function mergeContactDetection(
   raw: string,
-  normalized: string,
-  strictLine: boolean
+  normalized: string
 ): { blocked: boolean; types: BlockedContactType[]; matches: string[] } {
   const rawDetected = detectBlockedContacts(raw);
   const normDetected = detectBlockedContacts(normalized);
 
-  // Always strip broad LINE from text-filter; LINE rules are applied below.
+  // Always strip broad LINE from text-filter; strict LINE rules are applied below.
   const rawResult = withoutBroadLineHeuristic(rawDetected);
   const normResult = withoutBroadLineHeuristic(normDetected);
 
@@ -335,17 +334,14 @@ function mergeContactDetection(
     ...normResult.matches.map((m) => m.match),
   ]);
 
-  // For opener/follow_up, also keep line_id hits from the helper's broad patterns
-  // when the token looks like an ID (restore broad pattern without casual English).
-  if (strictLine) {
-    for (const result of [rawDetected, normDetected]) {
-      for (const m of result.matches) {
-        if (m.type !== "line_id") continue;
-        const token = m.match.replace(/^.*?(?:line|ไลน์|ไอดี)\s*[:=@\-]?\s*/i, "");
-        if (lineIdTokenLooksLikeId(token.trim()) || /[\d_.@]/.test(m.match)) {
-          types.add("line_id");
-          matches.add(m.match);
-        }
+  // Keep line_id hits from the helper's broad patterns when the token looks like an ID.
+  for (const result of [rawDetected, normDetected]) {
+    for (const m of result.matches) {
+      if (m.type !== "line_id") continue;
+      const token = m.match.replace(/^.*?(?:line|ไลน์|ไอดี)\s*[:=@\-]?\s*/i, "");
+      if (lineIdTokenLooksLikeId(token.trim()) || /[\d_.@]/.test(m.match)) {
+        types.add("line_id");
+        matches.add(m.match);
       }
     }
   }
@@ -359,10 +355,7 @@ function mergeContactDetection(
   }
 
   for (const scan of scanTexts) {
-    const lineMatches = strictLine
-      ? findStrictLineIdMatches(scan)
-      : findLineIdMatches(scan);
-    for (const lineMatch of lineMatches) {
+    for (const lineMatch of findStrictLineIdMatches(scan)) {
       types.add("line_id");
       matches.add(lineMatch);
     }
@@ -403,10 +396,7 @@ function mergeContactDetection(
 
 export type ContactFilterContext = "opener" | "follow_up" | "chat";
 
-export function detectContactInfo(
-  text: string,
-  context: ContactFilterContext = "chat"
-): {
+export function detectContactInfo(text: string): {
   blocked: boolean;
   types: BlockedContactType[];
   matches: string[];
@@ -415,8 +405,8 @@ export function detectContactInfo(
     return { blocked: false, types: [], matches: [] };
   }
   const normalized = normalizeForDetection(text);
-  const strictLine = context === "opener" || context === "follow_up";
-  return mergeContactDetection(text, normalized, strictLine);
+  // Strict detection for every context: chat never blocks, so over-flagging is fine.
+  return mergeContactDetection(text, normalized);
 }
 
 function termMatches(haystack: string, term: string): boolean {
@@ -489,7 +479,7 @@ export function filterOutgoingText(
     return { ok: false, code: "too_long" };
   }
 
-  const contact = detectContactInfo(trimmed, options.context);
+  const contact = detectContactInfo(trimmed);
   const risk = detectRiskKeywords(trimmed);
 
   if (contact.blocked) {

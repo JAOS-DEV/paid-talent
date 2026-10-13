@@ -130,6 +130,48 @@ describe("conversations service", () => {
     );
   });
 
+  it("sendMessage(line neonbar99) inserts message and contact_shared_in_text flag", async () => {
+    limitResults.push([openConversation], [{ value: 0 }]);
+    filterOutgoingText.mockReturnValue({
+      ok: true,
+      risk: { categories: [], terms: [] },
+      nudge: "use_share_button",
+      contactTypes: ["line_id"],
+    });
+    insertReturning.mockResolvedValue([
+      {
+        id: "msg-2",
+        conversationId: "conv-1",
+        senderUserId: "worker-1",
+        kind: "text",
+        body: "line neonbar99",
+        isFlagged: true,
+        createdAt: new Date(),
+      },
+    ]);
+
+    const result = await sendMessage("worker-1", "conv-1", "line neonbar99");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.nudge).toBe("use_share_button");
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "text",
+        body: "line neonbar99",
+        isFlagged: true,
+      })
+    );
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categories: ["contact_shared_in_text"],
+        matchedTerms: ["line_id"],
+        targetType: "message",
+        messageId: "msg-2",
+      })
+    );
+  });
+
   it("returns 409 when conversation is closed", async () => {
     limitResults.push([{ ...openConversation, status: "closed" }]);
     const result = await sendMessage("worker-1", "conv-1", "hello");

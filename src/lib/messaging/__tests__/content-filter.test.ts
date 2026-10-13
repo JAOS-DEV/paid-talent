@@ -34,7 +34,7 @@ describe("content-filter", () => {
   ];
 
   it.each(openerMustBlock)("opener blocks contact info in: %s", (sample) => {
-    expect(detectContactInfo(sample, "opener").blocked).toBe(true);
+    expect(detectContactInfo(sample).blocked).toBe(true);
     expect(
       filterOutgoingText(sample, { maxChars: 2000, context: "opener" }).ok
     ).toBe(false);
@@ -56,14 +56,25 @@ describe("content-filter", () => {
   ];
 
   it.each(openerMustAllow)("opener allows safe text: %s", (sample) => {
-    expect(detectContactInfo(sample, "opener").blocked).toBe(false);
+    expect(detectContactInfo(sample).blocked).toBe(false);
     expect(
       filterOutgoingText(sample, { maxChars: 2000, context: "opener" }).ok
     ).toBe(true);
   });
 
-  it("chat allows contact details, returns nudge and types", () => {
-    for (const sample of ["my line is neonbar99", "081 234 5678"]) {
+  const chatMustNudge = [
+    "line neonbar99",
+    "lineid neonbar99",
+    "ไลน์: neonbar",
+    "แอดไลน์ neonbar99",
+    "แอดไลน์neonbar99",
+    "my line is neonbar99",
+    "081 234 5678",
+  ];
+
+  it.each(chatMustNudge)(
+    "chat allows and nudges contact info in: %s",
+    (sample) => {
       const result = filterOutgoingText(sample, {
         maxChars: 2000,
         context: "chat",
@@ -73,6 +84,23 @@ describe("content-filter", () => {
       expect(result.nudge).toBe("use_share_button");
       expect(result.contactTypes?.length).toBeGreaterThan(0);
     }
+  );
+
+  const chatNoNudge = [
+    "the line was long",
+    "I'm a line cook",
+    "front line staff",
+  ];
+
+  it.each(chatNoNudge)("chat allows with no nudge: %s", (sample) => {
+    const result = filterOutgoingText(sample, {
+      maxChars: 2000,
+      context: "chat",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.nudge).toBeUndefined();
+    expect(result.contactTypes).toBeUndefined();
   });
 
   it("follow_up blocks the same as opener", () => {
@@ -86,7 +114,7 @@ describe("content-filter", () => {
   });
 
   it("flags online casino without contact block", () => {
-    expect(detectContactInfo("online casino job", "chat").blocked).toBe(false);
+    expect(detectContactInfo("online casino job").blocked).toBe(false);
     expect(detectRiskKeywords("online casino job").categories).toContain(
       "scam_work"
     );
