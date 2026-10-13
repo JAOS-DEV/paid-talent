@@ -33,6 +33,7 @@ import {
   BLOCKED_CONTACT_MESSAGE,
   isBlockedEitherWay,
 } from "@/lib/safety/blocks";
+import { lookupUserDisplayName, notify } from "@/lib/notifications";
 import { conversationError, type ConversationServiceError } from "./errors";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -593,6 +594,17 @@ export async function sendMessage(
     })
     .where(eq(conversations.id, conversationId));
 
+  const senderName = await lookupUserDisplayName(userId);
+  await notify(
+    counterpartId,
+    "new_message",
+    {
+      conversationId,
+      senderName,
+    },
+    { dedupeKey: `new_message:${conversationId}:${counterpartId}` }
+  );
+
   return {
     ok: true,
     message: inserted,
@@ -698,6 +710,13 @@ export async function shareContact(
       ),
     })
     .where(eq(conversations.id, conversationId));
+
+  const sharerName = await lookupUserDisplayName(userId);
+  await notify(recipientUserId, "contact_shared", {
+    conversationId,
+    sharerName,
+    channel,
+  });
 
   return { ok: true, message: inserted };
 }

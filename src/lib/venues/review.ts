@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db, venues, recruiterProfiles, users } from "@/lib/db";
 import type { Venue, VenueReviewStatus } from "@/lib/db/schema";
 import { recordAdminAuditEvent } from "@/lib/admin/audit";
+import { notify } from "@/lib/notifications";
 
 export type VenueReviewAction = "approve" | "reject";
 
@@ -85,6 +86,17 @@ export async function reviewVenue(input: {
     },
     createdAt: now,
   });
+
+  if (profile?.userId) {
+    await notify(
+      profile.userId,
+      input.action === "approve" ? "venue_approved" : "venue_rejected",
+      {
+        venueId: existing.id,
+        venueName: existing.name,
+      }
+    );
+  }
 
   return { ok: true, venue: updated, action: input.action };
 }

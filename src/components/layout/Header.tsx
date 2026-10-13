@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import { LanguageToggle } from "@/components/i18n";
 import { MessagesNavLink } from "@/components/messaging/MessagesNavLink";
+import { NotificationsBell } from "@/components/notifications";
 
 const MARK_SRC = "/brand/paid-talent-mark.svg";
 const LOCKUP_SRC = "/brand/paid-talent-logo.svg";
@@ -113,6 +114,13 @@ export function Header(): React.ReactElement {
                   <MessagesNavLink href="/recruiter/messages" />
                 </>
               ) : null}
+              <NotificationsBell />
+              <Link
+                href="/settings/notifications"
+                className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
+              >
+                {t("settings")}
+              </Link>
               <Button
                 variant="ghost"
                 size="header"

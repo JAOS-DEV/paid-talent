@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { recruiterProfiles } from "@/lib/db/schema";
 import { recordAdminAuditEvent } from "@/lib/admin/audit";
 import { trimAdminReason } from "@/lib/admin/account-moderation";
+import { notify } from "@/lib/notifications";
 
 export async function setRecruiterMessagingPaused(input: {
   recruiterUserId: string;
@@ -59,6 +60,10 @@ export async function setRecruiterMessagingPaused(input: {
       reason,
       metadata: { before: profile.messagingPausedAt != null, after: true },
       createdAt: now,
+    });
+
+    await notify(input.recruiterUserId, "messaging_paused", {
+      recruiterProfileId: profile.id,
     });
 
     return { ok: true, isPaused: true };

@@ -8,6 +8,10 @@ vi.mock("@/lib/admin/audit", () => ({
   recordAdminAuditEvent: (...args: unknown[]) => recordAdminAuditEvent(...args),
 }));
 
+vi.mock("@/lib/notifications", () => ({
+  notify: vi.fn(async () => null),
+}));
+
 vi.mock("@/lib/db", () => ({
   db: {
     select: vi.fn(() => ({

@@ -43,10 +43,79 @@
     "requests": "คำขอติดต่อ",
     "messages": "ข้อความ",
     "messagesUnread": "ข้อความ ({count})",
+    "notifications": "การแจ้งเตือน",
+    "notificationsUnread": "การแจ้งเตือน ({count})",
     "verification": "ยืนยันตัวตน",
     "searchWorkers": "ค้นหาผู้ทำงาน",
     "openMenu": "เปิดเมนู",
     "closeMenu": "ปิดเมนู"
+  },
+  "notifications": {
+    "bellLabel": "การแจ้งเตือน",
+    "empty": "ยังไม่มีการแจ้งเตือน",
+    "markAllRead": "ทำเครื่องหมายว่าอ่านแล้วทั้งหมด",
+    "viewSettings": "ตั้งค่าการแจ้งเตือน",
+    "loadFailed": "โหลดการแจ้งเตือนไม่สำเร็จ",
+    "settings": {
+      "title": "การแจ้งเตือน",
+      "subtitle": "การแจ้งเตือนในแอปเปิดอยู่เสมอ คุณปิดอีเมลหรือ LINE ได้ทุกเมื่อ",
+      "emailEnabled": "แจ้งเตือนทางอีเมล",
+      "lineEnabled": "แจ้งเตือนทาง LINE",
+      "lineComingSoon": "เร็วๆ นี้",
+      "locale": "ภาษาสำหรับการแจ้งเตือน",
+      "localeEn": "อังกฤษ",
+      "localeTh": "ไทย",
+      "save": "บันทึกการตั้งค่า",
+      "saved": "บันทึกแล้ว",
+      "saveFailed": "บันทึกการตั้งค่าไม่สำเร็จ",
+      "inboundTitle": "คำขอติดต่อที่เข้ามา",
+      "inboundDailyLimit": "จำนวนคำขอสูงสุดต่อวัน",
+      "inboundPause": "หยุดรับคำขอติดต่อใหม่"
+    },
+    "contact_request_received": {
+      "subject": "มีคำขอติดต่อใหม่",
+      "text": "{recruiterName} ส่งคำขอติดต่อถึงคุณจาก {venueName}"
+    },
+    "contact_request_accepted": {
+      "subject": "คำขอติดต่อได้รับการยอมรับ",
+      "text": "{workerName} ยอมรับคำขอติดต่อของคุณแล้ว"
+    },
+    "contact_request_declined": {
+      "subject": "คำขอติดต่อถูกปฏิเสธ",
+      "text": "{workerName} ปฏิเสธคำขอติดต่อของคุณ"
+    },
+    "new_message": {
+      "subject": "ข้อความใหม่",
+      "text": "คุณมีข้อความใหม่จาก {senderName}"
+    },
+    "contact_shared": {
+      "subject": "มีการแชร์ข้อมูลติดต่อ",
+      "text": "{sharerName} แชร์ข้อมูลติดต่อให้คุณแล้ว"
+    },
+    "verification_approved": {
+      "subject": "ยืนยันตัวตนสำเร็จ",
+      "text": "การยืนยันตัวตนของคุณได้รับการอนุมัติแล้ว"
+    },
+    "verification_rejected": {
+      "subject": "อัปเดตการยืนยันตัวตน",
+      "text": "การยืนยันตัวตนของคุณยังไม่ได้รับการอนุมัติ คุณสามารถตรวจสอบและลองอีกครั้งได้"
+    },
+    "venue_approved": {
+      "subject": "สถานที่ได้รับการอนุมัติ",
+      "text": "สถานที่ {venueName} ของคุณได้รับการอนุมัติแล้ว"
+    },
+    "venue_rejected": {
+      "subject": "อัปเดตสถานที่",
+      "text": "สถานที่ {venueName} ของคุณยังไม่ได้รับการอนุมัติ ตรวจสอบในแดชบอร์ดสำหรับรายละเอียด"
+    },
+    "messaging_paused": {
+      "subject": "การส่งข้อความถูกระงับชั่วคราว",
+      "text": "การส่งข้อความของคุณถูกระงับชั่วคราวระหว่างที่ทีมของเราตรวจสอบบัญชี"
+    },
+    "safety_notice": {
+      "subject": "แจ้งเตือนด้านความปลอดภัย",
+      "text": "มีอัปเดตด้านความปลอดภัยเกี่ยวกับบัญชีของคุณ กรุณาเปิด Paid Talent เพื่อดูรายละเอียด"
+    }
   },
   "language": {
     "label": "ภาษา"

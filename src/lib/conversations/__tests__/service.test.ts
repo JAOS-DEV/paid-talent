@@ -18,6 +18,12 @@ vi.mock("@/lib/safety/blocks", () => ({
   isBlockedEitherWay: (...args: unknown[]) => isBlockedEitherWay(...args),
 }));
 
+vi.mock("@/lib/notifications", () => ({
+  notify: vi.fn(async () => null),
+  lookupUserDisplayName: vi.fn(async () => "Sam"),
+  lookupVenueName: vi.fn(async () => "Venue"),
+}));
+
 const limitResults: unknown[][] = [];
 const insertValues = vi.fn();
 const insertReturning = vi.fn();

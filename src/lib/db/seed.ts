@@ -2176,6 +2176,37 @@ async function seed(): Promise<void> {
       console.log("   ✅ Self-check passed");
     }
 
+    console.log("\n📦 Seeding notification preferences...");
+    const allSeedUserIds = [
+      ...createdWorkers.map((w) => ({ userId: w.userId, email: w.email })),
+      ...createdRecruiters.map((r) => ({ userId: r.userId, email: r.email })),
+    ];
+    for (const seedUser of allSeedUserIds) {
+      const emailOptOut = seedUser.email === "worker2@example.com";
+      await db
+        .insert(schema.userNotificationPrefs)
+        .values({
+          userId: seedUser.userId,
+          emailEnabled: !emailOptOut,
+          lineEnabled: true,
+          locale: "en",
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.userNotificationPrefs.userId,
+          set: {
+            emailEnabled: !emailOptOut,
+            lineEnabled: true,
+            locale: "en",
+            updatedAt: new Date(),
+          },
+        });
+      if (emailOptOut) {
+        console.log(`   🔕 Email opted out: ${seedUser.email}`);
+      }
+    }
+    console.log(`   ✅ Notification prefs for ${allSeedUserIds.length} users`);
+
     console.log("\n" + "=".repeat(60));
     console.log("🎉 SEED COMPLETED SUCCESSFULLY!");
     console.log("=".repeat(60));

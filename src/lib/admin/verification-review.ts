@@ -23,6 +23,7 @@ import {
   getLivenessVideoBufferForAdmin,
 } from "@/lib/storage/s3";
 import { PrivateStorageConfigError } from "@/lib/storage/config";
+import { notify } from "@/lib/notifications";
 
 export type VerificationReviewAction = "approve" | "reject" | "revoke";
 
@@ -263,6 +264,19 @@ export async function reviewSubject(
       : {}),
     updatedAt: now,
   });
+
+  if (input.action === "approve" || input.action === "reject") {
+    await notify(
+      existingProfile.userId,
+      input.action === "approve"
+        ? "verification_approved"
+        : "verification_rejected",
+      {
+        profileId: existingProfile.id,
+        subjectType: input.subjectType,
+      }
+    );
+  }
 
   return {
     ok: true,

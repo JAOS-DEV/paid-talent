@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 const useSession = vi.fn();
@@ -73,9 +73,20 @@ function sessionFor(role: "worker" | "recruiter", isAdmin: boolean) {
 }
 
 describe("Header chrome", () => {
+  const originalFetch = global.fetch;
+
   beforeEach(() => {
     useSession.mockReset();
     signOut.mockReset();
+    global.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ unreadCount: 0, notifications: [] }), {
+        status: 200,
+      })
+    ) as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
   it("keeps a compact Admin control without an Admin Dashboard label", () => {

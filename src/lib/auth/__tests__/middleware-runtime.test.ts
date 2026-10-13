@@ -155,6 +155,17 @@ describe("resolveRoleRouteRedirect", () => {
     expect(resolveRoleRouteRedirect("/recruiter/openings", "recruiter")).toBeNull();
   });
 
+  it("does not role-restrict /settings (session gate only)", () => {
+    expect(resolveRoleRouteRedirect("/settings", "worker")).toBeNull();
+    expect(resolveRoleRouteRedirect("/settings", "recruiter")).toBeNull();
+    expect(
+      resolveRoleRouteRedirect("/settings/notifications", "worker")
+    ).toBeNull();
+    expect(
+      resolveRoleRouteRedirect("/settings/notifications", "recruiter")
+    ).toBeNull();
+  });
+
   it("maps JWT role to a dashboard without a DB completeness lookup", () => {
     expect(getSessionHomePath("worker")).toBe("/worker/dashboard");
     expect(getSessionHomePath("recruiter")).toBe("/recruiter/dashboard");
