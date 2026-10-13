@@ -55,7 +55,6 @@ export interface MessageDto {
   id: string;
   kind: string;
   body: string;
-  senderUserId: string | null;
   isMine: boolean;
   createdAt: string;
 }
@@ -446,7 +445,6 @@ export async function getConversation(
         id: msg.id,
         kind: msg.kind,
         body: msg.body,
-        senderUserId: msg.senderUserId,
         isMine: msg.senderUserId === userId,
         createdAt: msg.createdAt.toISOString(),
       })),

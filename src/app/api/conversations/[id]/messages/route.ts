@@ -45,7 +45,6 @@ export async function POST(
         id: result.message.id,
         kind: result.message.kind,
         body: result.message.body,
-        senderUserId: result.message.senderUserId,
         createdAt: result.message.createdAt.toISOString(),
       },
     });

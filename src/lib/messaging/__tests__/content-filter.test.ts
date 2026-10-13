@@ -14,8 +14,11 @@ describe("content-filter", () => {
     "ศูนย์แปดหนึ่งสองสามสี่ห้าหกเจ็ดแปด",
     "+66 81 234 5678",
     "line: neonbar",
+    "line id neonbar",
     "ไลน์ neonbar99",
+    "ไอดี abc_12",
     "add me on line abc123",
+    "my line is neonbar99",
     "wa.me/66812345678",
     "t.me/abc",
     "https://x.com",
@@ -27,9 +30,7 @@ describe("content-filter", () => {
 
   it.each(mustBlock)("blocks contact info in: %s", (sample) => {
     expect(detectContactInfo(sample).blocked).toBe(true);
-    expect(
-      filterOutgoingText(sample, { maxChars: 2000 }).ok
-    ).toBe(false);
+    expect(filterOutgoingText(sample, { maxChars: 2000 }).ok).toBe(false);
   });
 
   const mustAllow = [
@@ -39,10 +40,21 @@ describe("content-filter", () => {
     "see you on 12/10",
     "I am 25",
     "I'm on Sukhumvit",
+    "the line was long",
+    "call me on the line tomorrow",
+    "I'm a line cook",
+    "front line staff",
   ];
 
   it.each(mustAllow)("allows safe text: %s", (sample) => {
     expect(detectContactInfo(sample).blocked).toBe(false);
+  });
+
+  it("flags online casino without contact block", () => {
+    expect(detectContactInfo("online casino job").blocked).toBe(false);
+    expect(detectRiskKeywords("online casino job").categories).toContain(
+      "scam_work"
+    );
   });
 
   it("flags risk keywords without blocking", () => {

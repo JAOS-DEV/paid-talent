@@ -1,6 +1,7 @@
 import {
   detectBlockedContacts,
   type BlockedContactType,
+  type TextFilterResult,
 } from "@/lib/helpers/text-filter";
 import {
   RISK_KEYWORD_ENTRIES,
@@ -43,9 +44,6 @@ const BARE_DOMAIN =
   /\b[a-z0-9][a-z0-9-]*\.(?:com|net|me|co|th|io|ly|app|link)\b/gi;
 
 const CHAT_HANDLE = /@[a-zA-Z][a-zA-Z0-9_.]{2,29}\b/g;
-
-const LINE_ID_HINT =
-  /\b(?:line|ไลน์|ไอดี)\s*[:=@]?\s*[a-zA-Z0-9_.\-@]{3,30}\b/gi;
 
 const WA_ME = /\bwa\.me\/[^\s]+/gi;
 const WHATSAPP_WORD = /\bwhatsapp\b/gi;
@@ -153,12 +151,126 @@ function homoglyphDigitRuns(text: string): string {
   );
 }
 
+const LINE_ID_COMMON_TOKENS = new Set([
+  "was",
+  "were",
+  "are",
+  "is",
+  "am",
+  "be",
+  "the",
+  "and",
+  "for",
+  "with",
+  "long",
+  "tomorrow",
+  "today",
+  "cook",
+  "staff",
+  "that",
+  "this",
+  "when",
+  "where",
+  "what",
+  "how",
+  "your",
+  "our",
+  "their",
+  "front",
+  "back",
+  "very",
+  "too",
+  "all",
+  "any",
+  "can",
+  "will",
+  "would",
+  "could",
+  "should",
+  "have",
+  "has",
+  "had",
+  "from",
+  "into",
+  "about",
+  "after",
+  "before",
+  "then",
+  "than",
+  "them",
+  "they",
+  "call",
+  "me",
+  "job",
+  "work",
+]);
+
+function lineIdTokenLooksLikeId(token: string): boolean {
+  if (/[\d_.]/.test(token)) {
+    return token.length >= 3;
+  }
+  const lower = token.toLowerCase();
+  return token.length >= 4 && !LINE_ID_COMMON_TOKENS.has(lower);
+}
+
+/** English LINE hints — avoids bare "line <word>" false positives. */
+function findLineIdMatches(text: string): string[] {
+  const matches: string[] = [];
+
+  const explicitPatterns = [
+    /\bline\s*(?:id|ไอดี)?\s*[:=@-]\s*([a-zA-Z0-9_.\-@]{3,30})\b/gi,
+    /\bline\s+(?:id|ไอดี)\s+([a-zA-Z0-9_.\-@]{3,30})\b/gi,
+  ];
+
+  for (const pattern of explicitPatterns) {
+    const re = new RegExp(pattern.source, pattern.flags);
+    let hit;
+    while ((hit = re.exec(text)) !== null) {
+      matches.push(hit[0]);
+    }
+  }
+
+  const phrasePatterns = [
+    /\b(?:add\s+me\s+on|add|my|on)\s+line(?:\s+id)?\s+([a-zA-Z0-9_.\-@]{3,30})\b/gi,
+    /\bmy\s+line\s+is\s+([a-zA-Z0-9_.\-@]{3,30})\b/gi,
+  ];
+
+  for (const pattern of phrasePatterns) {
+    const re = new RegExp(pattern.source, pattern.flags);
+    let hit;
+    while ((hit = re.exec(text)) !== null) {
+      const token = hit[1] ?? "";
+      if (lineIdTokenLooksLikeId(token)) {
+        matches.push(hit[0]);
+      }
+    }
+  }
+
+  const thaiPattern = /(?:^|[^\p{L}\p{N}_])(?:ไลน์|ไอดี)\s+([a-zA-Z0-9_.\-@]{3,30})\b/gu;
+  let thaiHit;
+  while ((thaiHit = thaiPattern.exec(text)) !== null) {
+    matches.push(thaiHit[0]);
+  }
+
+  return matches;
+}
+
+function withoutBroadLineHeuristic(result: TextFilterResult): TextFilterResult {
+  const matches = result.matches.filter((m) => m.type !== "line_id");
+  const reasons = result.reasons.filter((r) => r !== "line_id");
+  return {
+    matches,
+    reasons,
+    containsBlockedContact: matches.length > 0,
+  };
+}
+
 function mergeContactDetection(
   raw: string,
   normalized: string
 ): { blocked: boolean; types: BlockedContactType[]; matches: string[] } {
-  const rawResult = detectBlockedContacts(raw);
-  const normResult = detectBlockedContacts(normalized);
+  const rawResult = withoutBroadLineHeuristic(detectBlockedContacts(raw));
+  const normResult = withoutBroadLineHeuristic(detectBlockedContacts(normalized));
 
   const types = new Set<BlockedContactType>([
     ...rawResult.reasons,
@@ -178,9 +290,12 @@ function mergeContactDetection(
   }
 
   for (const scan of scanTexts) {
+    for (const lineMatch of findLineIdMatches(scan)) {
+      types.add("line_id");
+      matches.add(lineMatch);
+    }
 
     for (const pattern of [
-      LINE_ID_HINT,
       WA_ME,
       WHATSAPP_WORD,
       T_ME,
@@ -195,8 +310,6 @@ function mergeContactDetection(
           types.add("social_handle");
         } else if (pattern === BARE_DOMAIN) {
           types.add("url");
-        } else if (pattern === LINE_ID_HINT) {
-          types.add("line_id");
         } else if (pattern === WA_ME || pattern === WHATSAPP_WORD) {
           types.add("whatsapp");
         } else if (pattern === T_ME) {
