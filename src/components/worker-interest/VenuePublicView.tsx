@@ -1,15 +1,17 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Card, CardContent } from "@/components/ui";
+import { Button, Card, CardContent } from "@/components/ui";
+import { ReportDialog } from "@/components/safety";
 import { workerPrimaryLinkClass } from "./link-styles";
 import { workerInterestOpeningsPath } from "./model";
 import { VenueAvatar } from "./VenueAvatar";
 
 interface VenuePublicViewProps {
   interestId: string;
+  venueId: string | null;
   venueName: string;
   areaLabel: string | null;
   blurb: string | null;
@@ -20,6 +22,7 @@ interface VenuePublicViewProps {
 
 export function VenuePublicView({
   interestId,
+  venueId,
   venueName,
   areaLabel,
   blurb,
@@ -28,6 +31,8 @@ export function VenuePublicView({
   publicVenueLinkLabel = null,
 }: VenuePublicViewProps): React.ReactElement {
   const t = useTranslations("worker.interests");
+  const tSafety = useTranslations("safety.report");
+  const [reportOpen, setReportOpen] = useState(false);
 
   return (
     <Card padding="lg">
@@ -62,14 +67,30 @@ export function VenuePublicView({
             </a>
           </div>
         ) : null}
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
           <Link
             href={workerInterestOpeningsPath(interestId)}
             className={workerPrimaryLinkClass}
           >
             {t("viewOpenings")}
           </Link>
+          {venueId ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setReportOpen(true)}
+            >
+              {tSafety("title")}
+            </Button>
+          ) : null}
         </div>
+        {venueId ? (
+          <ReportDialog
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            reportedVenueId={venueId}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );

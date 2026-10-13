@@ -1,0 +1,283 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const getMessagingSettings = vi.fn();
+const notifyAdmins = vi.fn();
+
+const selectQueue: unknown[][] = [];
+const insertReturning = vi.fn();
+const updateWhere = vi.fn();
+const insertValues = vi.fn();
+
+vi.mock("@/lib/messaging/settings", () => ({
+  getMessagingSettings: (...args: unknown[]) => getMessagingSettings(...args),
+}));
+
+vi.mock("@/lib/safety/notify-admins", () => ({
+  notifyAdmins: (...args: unknown[]) => notifyAdmins(...args),
+}));
+
+vi.mock("@/lib/db", () => {
+  const chainSelect = {
+    from: vi.fn(() => chainSelect),
+    leftJoin: vi.fn(() => chainSelect),
+    innerJoin: vi.fn(() => chainSelect),
+    where: vi.fn(() => chainSelect),
+    orderBy: vi.fn(() => chainSelect),
+    limit: vi.fn(async () => selectQueue.shift() ?? []),
+    then(
+      resolve: (value: unknown) => void,
+      reject?: (reason: unknown) => void
+    ): void {
+      void Promise.resolve(selectQueue.shift() ?? []).then(resolve, reject);
+    },
+  };
+
+  return {
+    db: {
+      select: vi.fn(() => chainSelect),
+      insert: vi.fn(() => ({
+        values: insertValues.mockImplementation(() => ({
+          returning: insertReturning,
+        })),
+      })),
+      update: vi.fn(() => ({
+        set: vi.fn(() => ({
+          where: updateWhere.mockResolvedValue(undefined),
+        })),
+      })),
+    },
+    contactRequests: {
+      id: "id",
+      status: "status",
+      workerUserId: "worker_user_id",
+      recruiterUserId: "recruiter_user_id",
+    },
+    conversations: {
+      id: "id",
+      contactRequestId: "contact_request_id",
+      workerUserId: "worker_user_id",
+    },
+    messages: { id: "id", conversationId: "conversation_id", createdAt: "created_at" },
+    recruiterProfiles: {
+      id: "id",
+      userId: "user_id",
+      messagingPausedAt: "messaging_paused_at",
+    },
+    reports: {
+      id: "id",
+      reporterUserId: "reporter_user_id",
+      reportedUserId: "reported_user_id",
+      contactRequestId: "contact_request_id",
+      conversationId: "conversation_id",
+      createdAt: "created_at",
+    },
+    venues: { id: "id", name: "name", reviewStatus: "review_status" },
+    workerProfiles: { id: "id", userId: "user_id" },
+  };
+});
+
+import { createReport } from "../reports";
+
+describe("createReport", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    selectQueue.length = 0;
+    getMessagingSettings.mockResolvedValue({
+      autoPauseReportThreshold: 3,
+      autoPauseWindowDays: 30,
+    });
+    notifyAdmins.mockResolvedValue(undefined);
+    insertReturning.mockResolvedValue([
+      {
+        id: "report-1",
+        reason: "spam",
+        status: "open",
+        reporterUserId: "worker-1",
+        reportedUserId: "rec-1",
+      },
+    ]);
+  });
+
+  it("returns 403 when reporter is not a participant of the conversation", async () => {
+    selectQueue.push(
+      [{ value: 0 }],
+      [
+        {
+          id: "conv-1",
+          workerUserId: "worker-other",
+          recruiterUserId: "rec-1",
+          contactRequestId: "cr-1",
+        },
+      ]
+    );
+
+    const result = await createReport({
+      reporterUserId: "worker-1",
+      reason: "spam",
+      conversationId: "conv-1",
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: 403,
+      code: "not_participant",
+    });
+  });
+
+  it("always derives reported user from conversation participants", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    selectQueue.push(
+      [{ value: 0 }],
+      [
+        {
+          id: "conv-1",
+          workerUserId: "worker-1",
+          recruiterUserId: "rec-1",
+          contactRequestId: "cr-1",
+        },
+      ],
+      [
+        {
+          openerText: "Hi",
+          followUpText: null,
+          createdAt: now,
+          venueName: null,
+        },
+      ],
+      [],
+      [{ id: "rp-1", messagingPausedAt: null }],
+      [{ value: 1 }]
+    );
+
+    const result = await createReport({
+      reporterUserId: "worker-1",
+      reason: "spam",
+      conversationId: "conv-1",
+      now,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reportedUserId: "rec-1",
+        reporterUserId: "worker-1",
+        conversationId: "conv-1",
+      })
+    );
+  });
+
+  it("standalone worker-profile report does not auto-pause", async () => {
+    selectQueue.push(
+      [{ value: 0 }],
+      [{ userId: "worker-target" }]
+    );
+
+    const result = await createReport({
+      reporterUserId: "rec-1",
+      reason: "spam",
+      reportedWorkerProfileId: "wp-1",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.autoPaused).toBe(false);
+    }
+    expect(notifyAdmins).not.toHaveBeenCalled();
+  });
+
+  it("auto-pauses after 3 interaction-backed distinct worker reporters", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    selectQueue.push(
+      [{ value: 0 }],
+      [
+        {
+          id: "conv-1",
+          workerUserId: "worker-1",
+          recruiterUserId: "rec-1",
+          contactRequestId: "cr-1",
+        },
+      ],
+      [
+        {
+          openerText: "Hi",
+          followUpText: null,
+          createdAt: now,
+          venueName: null,
+        },
+      ],
+      [],
+      [{ id: "rp-1", messagingPausedAt: null }],
+      [{ value: 3 }]
+    );
+
+    const result = await createReport({
+      reporterUserId: "worker-1",
+      reason: "harassment",
+      conversationId: "conv-1",
+      now,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.autoPaused).toBe(true);
+    }
+    expect(notifyAdmins).toHaveBeenCalled();
+  });
+
+  it("rate limits after 10 reports per day", async () => {
+    selectQueue.push([{ value: 10 }]);
+
+    const result = await createReport({
+      reporterUserId: "worker-1",
+      reason: "spam",
+      reportedWorkerProfileId: "wp-1",
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: 429,
+      code: "rate_limited",
+    });
+  });
+
+  it("declines pending request when worker reports it", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    selectQueue.push(
+      [{ value: 0 }],
+      [
+        {
+          id: "cr-1",
+          workerUserId: "worker-1",
+          recruiterUserId: "rec-1",
+          status: "pending",
+          openerText: "Hi",
+          followUpText: null,
+          venueId: null,
+          createdAt: now,
+        },
+      ],
+      [],
+      [
+        {
+          openerText: "Hi",
+          followUpText: null,
+          createdAt: now,
+          venueName: null,
+        },
+      ],
+      [],
+      [{ id: "rp-1", messagingPausedAt: null }],
+      [{ value: 1 }]
+    );
+
+    const result = await createReport({
+      reporterUserId: "worker-1",
+      reason: "spam",
+      contactRequestId: "cr-1",
+      now,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(updateWhere).toHaveBeenCalled();
+  });
+});

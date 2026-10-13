@@ -13,11 +13,17 @@ interface AdminNavItem {
   exact?: boolean;
 }
 
+interface AdminNavItemWithCount extends AdminNavItem {
+  count?: number;
+}
+
 const navItems: AdminNavItem[] = [
   { href: "/admin", label: "Overview", exact: true },
   { href: "/admin/verifications", label: "Identity verification" },
   { href: "/admin/venues", label: "Venues" },
   { href: "/admin/photos", label: "Photo moderation" },
+  { href: "/admin/reports", label: "Reports" },
+  { href: "/admin/flags", label: "Flags" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/activity", label: "Activity" },
   { href: "/admin/settings", label: "Settings" },
@@ -30,8 +36,26 @@ function isActivePath(pathname: string, item: AdminNavItem): boolean {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
-export function AdminNav(): React.ReactElement {
+interface AdminNavProps {
+  openReportCount?: number;
+  openFlagCount?: number;
+}
+
+export function AdminNav({
+  openReportCount = 0,
+  openFlagCount = 0,
+}: AdminNavProps): React.ReactElement {
   const pathname = usePathname();
+
+  const items: AdminNavItemWithCount[] = navItems.map((item) => {
+    if (item.href === "/admin/reports") {
+      return { ...item, count: openReportCount };
+    }
+    if (item.href === "/admin/flags") {
+      return { ...item, count: openFlagCount };
+    }
+    return item;
+  });
 
   return (
     <header className="border-b border-charcoal-800 bg-charcoal-950 overflow-x-hidden">
@@ -72,7 +96,7 @@ export function AdminNav(): React.ReactElement {
           className="flex flex-wrap items-center gap-2 min-w-0"
           aria-label="Admin"
         >
-          {navItems.map((item) => {
+          {items.map((item) => {
             const active = isActivePath(pathname, item);
             return (
               <Link
@@ -86,6 +110,9 @@ export function AdminNav(): React.ReactElement {
                 }`}
               >
                 {item.label}
+                {item.count != null && item.count > 0
+                  ? ` (${item.count})`
+                  : ""}
               </Link>
             );
           })}

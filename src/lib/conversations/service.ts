@@ -29,6 +29,10 @@ import { filterOutgoingText } from "@/lib/messaging/content-filter";
 import { getMessagingSettings } from "@/lib/messaging/settings";
 import { SAFETY_NOTICE_CATEGORIES } from "@/lib/messaging/risk-keywords";
 import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
+import {
+  BLOCKED_CONTACT_MESSAGE,
+  isBlockedEitherWay,
+} from "@/lib/safety/blocks";
 import { conversationError, type ConversationServiceError } from "./errors";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -60,6 +64,7 @@ export interface MessageDto {
 export interface ConversationDetail {
   id: string;
   status: string;
+  contactRequestId: string;
   counterpart: ConversationListItem["counterpart"];
   messages: MessageDto[];
   safetyNotice: boolean;
@@ -435,6 +440,7 @@ export async function getConversation(
     conversation: {
       id: row.conversation.id,
       status: row.conversation.status,
+      contactRequestId: row.contactRequestId,
       counterpart,
       safetyNotice,
       shareChannels,
@@ -500,6 +506,18 @@ export async function sendMessage(
       "conversation_closed",
       409,
       "This conversation is not open"
+    );
+  }
+
+  const counterpartId =
+    convo.workerUserId === userId
+      ? convo.recruiterUserId
+      : convo.workerUserId;
+  if (await isBlockedEitherWay(userId, counterpartId)) {
+    return conversationError(
+      "users_blocked",
+      403,
+      BLOCKED_CONTACT_MESSAGE
     );
   }
 
@@ -617,6 +635,18 @@ export async function shareContact(
       "conversation_closed",
       409,
       "This conversation is not open"
+    );
+  }
+
+  const counterpartId =
+    convo.workerUserId === userId
+      ? convo.recruiterUserId
+      : convo.workerUserId;
+  if (await isBlockedEitherWay(userId, counterpartId)) {
+    return conversationError(
+      "users_blocked",
+      403,
+      BLOCKED_CONTACT_MESSAGE
     );
   }
 

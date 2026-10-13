@@ -79,6 +79,18 @@ export default async function AdminDashboardPage(): Promise<React.ReactElement> 
           hint="Quarantined photos awaiting review"
           href="/admin/photos"
         />
+        <MetricCard
+          title="Open reports"
+          value={metrics.openReports}
+          hint="User safety reports awaiting triage"
+          href="/admin/reports"
+        />
+        <MetricCard
+          title="Open flags"
+          value={metrics.openFlags}
+          hint="Automated message flags awaiting review"
+          href="/admin/flags"
+        />
         <MetricCard title="Paid premium accounts" value={metrics.paidPremiumAccounts} hint="Active or trialing Stripe Top Talent plans" />
         <MetricCard title="Admin-granted premium" value={metrics.adminGrantedPremiumAccounts} hint="Accounts with a current admin entitlement" />
         <MetricCard title="Lifetime grants" value={metrics.lifetimeGrants} hint="Unrevoked no-expiry admin grants" />

@@ -41,6 +41,7 @@ import {
 import { getMessagingSettings } from "@/lib/messaging/settings";
 import { isProfileTopTalent } from "@/lib/ranking";
 import { getRecruiterAccess } from "@/lib/recruiter-access";
+import { isBlockedEitherWay } from "@/lib/safety/blocks";
 import { isSearchableWorker } from "@/lib/verification";
 import {
   capDenyError,
@@ -125,11 +126,6 @@ async function workerAdvisoryLock(
   await tx.execute(
     sql`SELECT pg_advisory_xact_lock(hashtextextended(${workerProfileId}::text, 1))`
   );
-}
-
-/** TODO: wire block checks when the blocks PR lands. */
-function isBlockedEitherWay(): boolean {
-  return false;
 }
 
 export async function getRecruiterCapCounts(
@@ -388,6 +384,12 @@ export async function createContactRequest(
         .orderBy(desc(contactRequests.respondedAt))
         .limit(1);
 
+      const blocked = await isBlockedEitherWay(
+        input.recruiterUserId,
+        workerRow.profile.userId,
+        tx
+      );
+
       const evaluation = evaluateNewRequest({
         tier: access.tier,
         isPaused: access.isPaused,
@@ -399,7 +401,7 @@ export async function createContactRequest(
         target: { isTopTalent },
         hasOpenRequestToTarget: Boolean(openRequest),
         lastDeclinedByTargetAt: lastDeclined?.respondedAt ?? null,
-        isBlockedEitherWay: isBlockedEitherWay(),
+        isBlockedEitherWay: blocked,
         openerLength: openerText.length,
         hasOpeningAttached: resolvedOpeningId != null,
       });

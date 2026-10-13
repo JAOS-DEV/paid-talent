@@ -61,6 +61,7 @@ import {
   parseProfileRoles,
 } from "@/lib/profile/worker-profile-input";
 import { AccountVisibilityStrip } from "@/components/profile/AccountVisibilityStrip";
+import { BlockedAccountsSection } from "@/components/safety";
 import { AvailabilityPicker } from "@/components/profile/AvailabilityPicker";
 import { CharacterCount } from "@/components/profile/CharacterCount";
 import { JobRolesPicker } from "@/components/profile/JobRolesPicker";
@@ -539,6 +540,10 @@ export default function WorkerProfilePage(): React.ReactElement {
               className="mb-6"
             />
           ) : null}
+
+          <div className="mb-6">
+            <BlockedAccountsSection />
+          </div>
 
           <div className="space-y-6">
             <Card padding="lg">

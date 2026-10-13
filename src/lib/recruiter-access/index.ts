@@ -30,8 +30,9 @@ export interface RecruiterAccess {
   isVerified: boolean;
   tier: RecruiterAccessTier;
   verifiedAt: Date | null;
-  /** Reserved for a later safety PR (`messaging_paused_at`). Always false for now. */
+  /** True when recruiter_profiles.messaging_paused_at is set. */
   isPaused: boolean;
+  messagingPausedReason: string | null;
   canBrowseFull: boolean;
   canViewTopTalentFull: boolean;
   billingAccessMode: BillingAccessMode;
@@ -49,6 +50,7 @@ export interface RecruiterAccessDto {
   tier: RecruiterAccessTier;
   verifiedAt: string | null;
   isPaused: boolean;
+  messagingPausedReason: string | null;
   canBrowseFull: boolean;
   canViewTopTalentFull: boolean;
   billingAccessMode: BillingAccessMode;
@@ -60,6 +62,8 @@ export interface ResolveRecruiterAccessInput {
   recruiterProfileId: string | null;
   identityStatus: VerificationStatus;
   verifiedAt: Date | null;
+  messagingPausedAt: Date | null;
+  messagingPausedReason: string | null;
   venues: Array<{
     id: string;
     reviewStatus: "pending" | "approved" | "rejected";
@@ -112,7 +116,8 @@ export function resolveRecruiterAccess(
     isVerified,
     tier,
     verifiedAt: isVerified ? input.verifiedAt : null,
-    isPaused: false,
+    isPaused: input.messagingPausedAt != null,
+    messagingPausedReason: input.messagingPausedReason,
     canBrowseFull,
     canViewTopTalentFull,
     billingAccessMode: input.entitlement.billingAccessMode,
@@ -131,6 +136,7 @@ export function toRecruiterAccessDto(access: RecruiterAccess): RecruiterAccessDt
     tier: access.tier,
     verifiedAt: access.verifiedAt ? access.verifiedAt.toISOString() : null,
     isPaused: access.isPaused,
+    messagingPausedReason: access.messagingPausedReason,
     canBrowseFull: access.canBrowseFull,
     canViewTopTalentFull: access.canViewTopTalentFull,
     billingAccessMode: access.billingAccessMode,
@@ -147,6 +153,8 @@ export async function getRecruiterAccess(
         recruiterProfileId: recruiterProfiles.id,
         identityStatus: recruiterProfiles.verificationStatus,
         verifiedAt: recruiterProfiles.verifiedAt,
+        messagingPausedAt: recruiterProfiles.messagingPausedAt,
+        messagingPausedReason: recruiterProfiles.messagingPausedReason,
         venueId: venues.id,
         venueReviewStatus: venues.reviewStatus,
         venueArchivedAt: venues.archivedAt,
@@ -173,6 +181,8 @@ export async function getRecruiterAccess(
       recruiterProfileId: null,
       identityStatus: "unverified",
       verifiedAt: null,
+      messagingPausedAt: null,
+      messagingPausedReason: null,
       venues: [],
       entitlement,
     });
@@ -205,6 +215,8 @@ export async function getRecruiterAccess(
     recruiterProfileId: first.recruiterProfileId,
     identityStatus: first.identityStatus ?? "unverified",
     verifiedAt: first.verifiedAt,
+    messagingPausedAt: first.messagingPausedAt,
+    messagingPausedReason: first.messagingPausedReason,
     venues: Array.from(venueMap.values()),
     entitlement,
   });

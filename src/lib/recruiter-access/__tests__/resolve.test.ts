@@ -28,6 +28,8 @@ const base = {
   identityStatus: "verified" as const,
   verifiedAt: new Date("2026-01-01T00:00:00.000Z"),
   accountStatus: "active" as const,
+  messagingPausedAt: null as Date | null,
+  messagingPausedReason: null as string | null,
 };
 
 describe("resolveRecruiterAccess", () => {
@@ -200,7 +202,7 @@ describe("resolveRecruiterAccess", () => {
     expect(access.canViewTopTalentFull).toBe(false);
   });
 
-  it("isPaused is always false for now", () => {
+  it("isPaused is false when messagingPausedAt is null", () => {
     const access = resolveRecruiterAccess({
       ...base,
       venues: [
@@ -214,5 +216,24 @@ describe("resolveRecruiterAccess", () => {
       entitlement: entitlement(),
     });
     expect(access.isPaused).toBe(false);
+  });
+
+  it("isPaused is true when messagingPausedAt is set", () => {
+    const access = resolveRecruiterAccess({
+      ...base,
+      messagingPausedAt: new Date("2026-03-01T00:00:00.000Z"),
+      messagingPausedReason: "system:auto_reports",
+      venues: [
+        {
+          id: "v1",
+          reviewStatus: "approved",
+          archivedAt: null,
+          isPrimary: true,
+        },
+      ],
+      entitlement: entitlement(),
+    });
+    expect(access.isPaused).toBe(true);
+    expect(access.messagingPausedReason).toBe("system:auto_reports");
   });
 });

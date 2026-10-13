@@ -27,6 +27,7 @@ import { VenueLogo } from "@/components/media/VenueLogo";
 import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
 import { RecruiterVerificationBanner } from "@/components/verification/RecruiterVerificationBanner";
 import { RecruiterAccessBanner } from "@/components/recruiter";
+import { RecruiterMessagingPausedBanner } from "@/components/safety";
 
 interface OutcomeStats {
   total: number;
@@ -435,6 +436,9 @@ export default function RecruiterDashboardPage(): React.ReactElement {
 
           <RecruiterVerificationBanner />
           <RecruiterAccessBanner />
+          <div className="mb-4">
+            <RecruiterMessagingPausedBanner />
+          </div>
 
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-charcoal-100">

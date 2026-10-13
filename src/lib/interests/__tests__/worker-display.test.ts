@@ -49,6 +49,7 @@ function interest(
 function venue(overrides: Partial<RecruiterVenueInfo> = {}): RecruiterVenueInfo {
   return {
     recruiterUserId: RECRUITER_ID,
+    venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     displayName: "Recruiter",
     venueName: "Sky Bar",
     logoUrl: null,

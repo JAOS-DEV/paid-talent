@@ -5,6 +5,7 @@ import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
 import { venueLinkKindLabel } from "./link";
 
 export interface ResolvedVenueDisplay {
+  venueId: string | null;
   venueName: string | null;
   logoUrl: string | null;
   area: string | null;
@@ -61,6 +62,7 @@ export async function resolveVenueDisplayForRecruiter(input: {
   }
 
   let venueRow: {
+    id: string;
     name: string;
     logoUrl: string | null;
     area: string | null;
@@ -81,6 +83,7 @@ export async function resolveVenueDisplayForRecruiter(input: {
     if (opening?.venueId) {
       const [openingVenue] = await db
         .select({
+          id: venues.id,
           name: venues.name,
           logoUrl: venues.logoUrl,
           area: venues.area,
@@ -102,6 +105,7 @@ export async function resolveVenueDisplayForRecruiter(input: {
   if (!venueRow) {
     const [primary] = await db
       .select({
+        id: venues.id,
         name: venues.name,
         logoUrl: venues.logoUrl,
         area: venues.area,
@@ -130,6 +134,7 @@ export async function resolveVenueDisplayForRecruiter(input: {
       venueRow.venueLinkKind
     );
     return {
+      venueId: venueRow.id,
       venueName: venueRow.name,
       logoUrl: toPublicVenueLogoUrl(venueRow.logoUrl ?? profile.logoUrl),
       area: venueRow.area ?? profile.area,
@@ -143,6 +148,7 @@ export async function resolveVenueDisplayForRecruiter(input: {
   }
 
   return {
+    venueId: null,
     venueName: profile.organizationName,
     logoUrl: toPublicVenueLogoUrl(profile.logoUrl),
     area: profile.area,

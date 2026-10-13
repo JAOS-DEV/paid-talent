@@ -3,6 +3,10 @@ import { auth } from "@/lib/auth";
 import { isAdminEmail } from "@/lib/admin";
 import { notFound } from "next/navigation";
 import { AdminNav } from "@/components/admin/AdminNav";
+import {
+  countOpenFlagsForAdmin,
+  countOpenReportsForAdmin,
+} from "@/lib/admin/reports";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -25,9 +29,17 @@ export default async function AdminLayout({
       notFound();
     }
 
+    const [openReportCount, openFlagCount] = await Promise.all([
+      countOpenReportsForAdmin(),
+      countOpenFlagsForAdmin(),
+    ]);
+
     return (
       <div className="min-h-screen bg-charcoal-950 text-charcoal-100 overflow-x-hidden">
-        <AdminNav />
+        <AdminNav
+          openReportCount={openReportCount}
+          openFlagCount={openFlagCount}
+        />
         <main className="max-w-6xl mx-auto px-4 py-8 min-w-0">{children}</main>
       </div>
     );
