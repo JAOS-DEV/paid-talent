@@ -46,7 +46,7 @@ const CAP_STATUS: Record<
 const CAP_MESSAGE: Record<CapDenyReason, string> = {
   not_verified: "Recruiter not verified",
   paused: "Messaging is paused for this account",
-  blocked: "Contact is blocked",
+  blocked: "You can't contact this person",
   daily_limit: "Daily contact request limit reached",
   weekly_limit: "Weekly contact request limit reached",
   pending_limit: "Pending contact request limit reached",

@@ -1089,11 +1089,63 @@
     "thread": {
       "back": "All messages",
       "hide": "Hide chat",
+      "report": "Report",
+      "block": "Block",
       "hideNote": "Hidden from your inbox. We keep messages for up to 180 days for safety, then delete them.",
       "copyContact": "Copy"
     },
     "errors": {
       "loadFailed": "Could not load this conversation."
+    }
+  },
+  "safety": {
+    "messagingPaused": "Your messaging is paused while our team reviews a report.",
+    "report": {
+      "title": "Report this person",
+      "description": "Tell us what happened. Our team will review it.",
+      "reasonLegend": "Reason",
+      "reasonRequired": "Please choose a reason.",
+      "detailsLabel": "More details (optional)",
+      "submit": "Submit report",
+      "cancel": "Cancel",
+      "close": "Close",
+      "submitFailed": "Could not submit the report. Please try again.",
+      "thanksTitle": "Report sent",
+      "thanks": "Thanks. Our team will review this. If you're in danger call 191 (police) or 1300 (24-hour hotline).",
+      "reasons": {
+        "scam_or_fake_job": "Scam or fake job",
+        "asked_for_money": "Asked for money",
+        "asked_for_documents": "Asked for documents",
+        "harassment": "Harassment",
+        "sexual_content": "Sexual content",
+        "underage_concern": "Underage concern",
+        "trafficking_concern": "Trafficking concern",
+        "spam": "Spam",
+        "other": "Other"
+      },
+      "reasonHelp": {
+        "scam_or_fake_job": "The job or venue seems fake or misleading.",
+        "asked_for_money": "They asked for a deposit, fee, or transfer.",
+        "asked_for_documents": "They asked for your passport, ID, or other papers.",
+        "harassment": "Threatening, bullying, or abusive messages.",
+        "sexual_content": "Sexual requests or inappropriate content.",
+        "underage_concern": "You think someone may be under 18.",
+        "trafficking_concern": "You worry about trafficking or forced work.",
+        "spam": "Repeated unwanted or irrelevant messages.",
+        "other": "Something else that feels unsafe."
+      }
+    },
+    "blocks": {
+      "title": "Blocked accounts",
+      "description": "People you have blocked cannot contact you.",
+      "loading": "Loading…",
+      "empty": "You have not blocked anyone.",
+      "unknownName": "Blocked user",
+      "unblock": "Unblock",
+      "block": "Block",
+      "confirm": "Block this person? They will not be able to contact you, and you will not be able to message them.",
+      "loadFailed": "Could not load blocked accounts.",
+      "unblockFailed": "Could not unblock this account."
     }
   }
 }

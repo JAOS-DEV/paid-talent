@@ -11,6 +11,13 @@ vi.mock("@/lib/messaging/content-filter", () => ({
   filterOutgoingText: (...args: unknown[]) => filterOutgoingText(...args),
 }));
 
+const isBlockedEitherWay = vi.fn(async () => false);
+
+vi.mock("@/lib/safety/blocks", () => ({
+  BLOCKED_CONTACT_MESSAGE: "You can't contact this person",
+  isBlockedEitherWay: (...args: unknown[]) => isBlockedEitherWay(...args),
+}));
+
 const limitResults: unknown[][] = [];
 const insertValues = vi.fn();
 const insertReturning = vi.fn();
@@ -86,10 +93,21 @@ describe("conversations service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     limitResults.length = 0;
+    isBlockedEitherWay.mockResolvedValue(false);
     getMessagingSettings.mockResolvedValue({
       messageMaxChars: 2000,
       retentionDays: 180,
     });
+  });
+
+  it("sendMessage returns generic 403 when users are blocked", async () => {
+    limitResults.push([openConversation]);
+    isBlockedEitherWay.mockResolvedValue(true);
+    const result = await sendMessage("worker-1", "conv-1", "hello");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe(403);
+    expect(result.message).toBe("You can't contact this person");
   });
 
   it("sends chat contact details, records contact_shared_in_text, returns nudge", async () => {

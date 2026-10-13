@@ -18,6 +18,7 @@ import {
   HireOutcomeActions,
 } from "@/components/hire-outcomes";
 import { SendContactRequestDialog } from "@/components/contact-requests";
+import { ReportDialog } from "@/components/safety";
 import { WorkerPublicProfileView } from "@/components/worker-profile";
 import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import {
@@ -169,8 +170,10 @@ export default function ProfileDetailPage({
     string | null
   >(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [interestOutcome, setInterestOutcome] =
     useState<InterestOutcomeData | null>(null);
+  const tSafety = useTranslations("safety.report");
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -419,6 +422,14 @@ export default function ProfileDetailPage({
                           </Button>
                         </Link>
                       </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        fullWidth
+                        onClick={() => setReportOpen(true)}
+                      >
+                        {tSafety("title")}
+                      </Button>
                     </div>
                   </>
                 )}
@@ -467,6 +478,14 @@ export default function ProfileDetailPage({
             setContactRequestStatus("pending");
             setDialogOpen(false);
           }}
+        />
+      ) : null}
+
+      {profile ? (
+        <ReportDialog
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          reportedWorkerProfileId={profile.id}
         />
       ) : null}
     </div>

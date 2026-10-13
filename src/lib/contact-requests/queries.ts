@@ -26,6 +26,7 @@ export interface InboxContactRequestDto {
   deliveredAt: string | null;
   expiresAt: string | null;
   createdAt: string;
+  recruiterUserId: string;
   recruiterFirstName: string | null;
   venue: {
     id: string | null;
@@ -83,6 +84,7 @@ export async function listWorkerInbox(
       deliveredAt: contactRequests.deliveredAt,
       expiresAt: contactRequests.expiresAt,
       createdAt: contactRequests.createdAt,
+      recruiterUserId: contactRequests.recruiterUserId,
       recruiterName: users.name,
       venueId: venues.id,
       venueName: venues.name,
@@ -149,6 +151,7 @@ export async function listWorkerInbox(
       deliveredAt: row.deliveredAt?.toISOString() ?? null,
       expiresAt: row.expiresAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
+      recruiterUserId: row.recruiterUserId,
       recruiterFirstName: firstName(row.recruiterName),
       venue: {
         id: row.venueId,

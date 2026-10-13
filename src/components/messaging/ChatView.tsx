@@ -12,6 +12,7 @@ import {
   SafetyTip,
   ShareContactMenu,
 } from "@/components/messaging";
+import { ReportDialog } from "@/components/safety";
 import type { ConversationDetail } from "@/lib/conversations/service";
 import type { ContactShareChannel } from "@/lib/db/schema";
 
@@ -29,12 +30,14 @@ export function ChatView({
   profileSettingsHref,
 }: ChatViewProps): React.ReactElement {
   const t = useTranslations("messaging");
+  const tSafety = useTranslations("safety");
   const router = useRouter();
   const [conversation, setConversation] = useState<ConversationDetail | null>(
     null
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -115,6 +118,22 @@ export function ChatView({
     router.push(listHref);
   };
 
+  const blockUser = async (): Promise<void> => {
+    if (!conversation?.counterpart.userId) return;
+    if (!window.confirm(tSafety("blocks.confirm"))) return;
+    const res = await fetch("/api/blocks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: conversation.counterpart.userId,
+        conversationId,
+      }),
+    });
+    if (res.ok) {
+      router.push(listHref);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
@@ -124,9 +143,25 @@ export function ChatView({
             <Link href={listHref} className="text-sm text-primary-400">
               {t("thread.back")}
             </Link>
-            <Button type="button" variant="ghost" onClick={() => void hideChat()}>
-              {t("thread.hide")}
-            </Button>
+            <div className="flex flex-wrap items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setReportOpen(true)}
+              >
+                {t("thread.report")}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => void blockUser()}
+              >
+                {t("thread.block")}
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => void hideChat()}>
+                {t("thread.hide")}
+              </Button>
+            </div>
           </div>
           {role === "worker" ? (
             <div className="mb-3">
@@ -165,6 +200,13 @@ export function ChatView({
                 />
               </div>
               <p className="mt-2 text-xs text-charcoal-500">{t("thread.hideNote")}</p>
+              <ReportDialog
+                open={reportOpen}
+                onClose={() => setReportOpen(false)}
+                conversationId={conversationId}
+                contactRequestId={conversation.contactRequestId}
+                reportedUserId={conversation.counterpart.userId}
+              />
             </>
           ) : null}
         </div>

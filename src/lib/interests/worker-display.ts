@@ -16,6 +16,7 @@ export type WorkerVenueView =
   | {
       status: "ready";
       interestId: string;
+      recruiterUserId: string;
       venueName: string;
       areaLabel: string | null;
       blurb: string | null;
@@ -76,6 +77,7 @@ export async function loadWorkerVenueView(
   return {
     status: "ready",
     interestId: interest.interestId,
+    recruiterUserId: interest.recruiter.recruiterUserId,
     venueName: resolveVenueName(venue.venueName, venue.displayName),
     areaLabel: formatVenueAreaLabel(venue.area, venue.subArea),
     blurb: venue.blurb?.trim() ? venue.blurb.trim() : null,

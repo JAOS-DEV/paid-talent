@@ -2,9 +2,11 @@ import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   adminEntitlements,
+  messageFlags,
   profilePhotos,
   recruiterOpenings,
   recruiterProfiles,
+  reports,
   subscriptions,
   users,
   venues,
@@ -24,6 +26,8 @@ export interface AdminOverviewMetrics {
   pendingVerifications: number;
   pendingVenues: number;
   pendingPhotos: number;
+  openReports: number;
+  openFlags: number;
   paidPremiumAccounts: number;
   adminGrantedPremiumAccounts: number;
   lifetimeGrants: number;
@@ -52,6 +56,8 @@ export async function getAdminOverviewMetrics(
     pendingVenues,
     publishedOpenings,
     pendingPhotos,
+    openReports,
+    openFlags,
     paidPremiumAccounts,
     entitlementCounts,
     billing,
@@ -96,6 +102,16 @@ export async function getAdminOverviewMetrics(
       .then((rows) => rows[0]?.value ?? 0),
     db
       .select({ value: count() })
+      .from(reports)
+      .where(inArray(reports.status, ["open", "reviewing"]))
+      .then((rows) => rows[0]?.value ?? 0),
+    db
+      .select({ value: count() })
+      .from(messageFlags)
+      .where(eq(messageFlags.status, "open"))
+      .then((rows) => rows[0]?.value ?? 0),
+    db
+      .select({ value: count() })
       .from(subscriptions)
       .where(
         and(
@@ -128,6 +144,8 @@ export async function getAdminOverviewMetrics(
       toCount(pendingRecruiterVerifications),
     pendingVenues: toCount(pendingVenues),
     pendingPhotos,
+    openReports: toCount(openReports),
+    openFlags: toCount(openFlags),
     paidPremiumAccounts,
     adminGrantedPremiumAccounts: toCount(
       entitlementCounts?.adminGrantedPremiumAccounts

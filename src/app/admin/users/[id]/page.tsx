@@ -3,10 +3,14 @@ import { notFound } from "next/navigation";
 import { requireAdminPage } from "@/lib/admin/guard";
 import { getAdminUserDetail } from "@/lib/admin/users";
 import { listAdminAuditEventsForUser } from "@/lib/admin/activity";
+import { listReportsForUser } from "@/lib/admin/reports";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { UserModerationPanel } from "@/components/admin/UserModerationPanel";
 import { UserEntitlementPanel } from "@/components/admin/UserEntitlementPanel";
+import { UserSafetyPanel } from "@/components/admin/UserSafetyPanel";
 import { auth } from "@/lib/auth";
+import { getRecruiterAccess } from "@/lib/recruiter-access";
+import { countBlocksInvolvingUser } from "@/lib/safety/blocks";
 
 interface AdminUserDetailPageProps {
   params: Promise<{ id: string }>;
@@ -26,6 +30,13 @@ export default async function AdminUserDetailPage({
 
   const activity = await listAdminAuditEventsForUser(detail.user.id);
   const isSelf = session?.user?.id === detail.user.id;
+  const [reportLists, blocksCount, recruiterAccess] = await Promise.all([
+    listReportsForUser(detail.user.id),
+    countBlocksInvolvingUser(detail.user.id),
+    detail.user.role === "recruiter"
+      ? getRecruiterAccess(detail.user.id)
+      : Promise.resolve(null),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -122,6 +133,16 @@ export default async function AdminUserDetailPage({
         userId={detail.user.id}
         accountStatus={detail.user.accountStatus}
         isSelf={isSelf}
+      />
+
+      <UserSafetyPanel
+        userId={detail.user.id}
+        isRecruiter={detail.user.role === "recruiter"}
+        messagingPaused={recruiterAccess?.isPaused === true}
+        messagingPausedReason={recruiterAccess?.messagingPausedReason ?? null}
+        blocksCount={blocksCount}
+        reportsAgainst={reportLists.against}
+        reportsBy={reportLists.by}
       />
 
       <Card padding="lg">

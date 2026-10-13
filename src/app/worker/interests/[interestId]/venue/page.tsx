@@ -36,6 +36,7 @@ export default async function WorkerVenuePage({
       ) : (
         <VenuePublicView
           interestId={view.interestId}
+          recruiterUserId={view.recruiterUserId}
           venueName={view.venueName}
           areaLabel={view.areaLabel}
           blurb={view.blurb}

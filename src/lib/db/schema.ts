@@ -173,6 +173,30 @@ export const adminAuditActionEnum = pgEnum("admin_audit_action", [
   "venue_rejected",
   "photo_approved",
   "photo_rejected",
+  "report_resolved",
+  "message_flag_reviewed",
+  "recruiter_messaging_paused",
+  "recruiter_messaging_unpaused",
+  "conversation_viewed",
+]);
+
+export const reportReasonEnum = pgEnum("report_reason", [
+  "scam_or_fake_job",
+  "asked_for_money",
+  "asked_for_documents",
+  "harassment",
+  "sexual_content",
+  "underage_concern",
+  "trafficking_concern",
+  "spam",
+  "other",
+]);
+
+export const reportStatusEnum = pgEnum("report_status", [
+  "open",
+  "reviewing",
+  "actioned",
+  "dismissed",
 ]);
 
 export const users = pgTable(
@@ -388,6 +412,9 @@ export const recruiterProfiles = pgTable(
     }),
     verificationReviewedBy: text("verification_reviewed_by"),
     verifiedAt: timestamp("verified_at", { mode: "date" }),
+    messagingPausedAt: timestamp("messaging_paused_at", { mode: "date" }),
+    messagingPausedReason: text("messaging_paused_reason"),
+    messagingPausedBy: text("messaging_paused_by"),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -695,6 +722,62 @@ export const contactShares = pgTable(
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [index("contact_shares_conversation_idx").on(table.conversationId)]
+);
+
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reporterUserId: uuid("reporter_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reportedUserId: uuid("reported_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    contactRequestId: uuid("contact_request_id").references(
+      () => contactRequests.id,
+      { onDelete: "set null" }
+    ),
+    conversationId: uuid("conversation_id").references(() => conversations.id, {
+      onDelete: "set null",
+    }),
+    reason: reportReasonEnum("reason").notNull(),
+    details: text("details"),
+    evidenceSnapshot: jsonb("evidence_snapshot").$type<Record<string, unknown>>(),
+    status: reportStatusEnum("status").notNull().default("open"),
+    resolutionNote: text("resolution_note"),
+    resolvedBy: text("resolved_by"),
+    resolvedAt: timestamp("resolved_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("reports_status_created_idx").on(table.status, table.createdAt),
+    index("reports_reported_user_created_idx").on(
+      table.reportedUserId,
+      table.createdAt
+    ),
+  ]
+);
+
+export const userBlocks = pgTable(
+  "user_blocks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    blockerUserId: uuid("blocker_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockedUserId: uuid("blocked_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("user_blocks_blocker_blocked_uidx").on(
+      table.blockerUserId,
+      table.blockedUserId
+    ),
+    index("user_blocks_blocked_user_id_idx").on(table.blockedUserId),
+  ]
 );
 
 export const userNotificationPrefs = pgTable("user_notification_prefs", {
@@ -1442,3 +1525,9 @@ export type NewAdminEntitlement = typeof adminEntitlements.$inferInsert;
 export type PlatformSetting = typeof platformSettings.$inferSelect;
 export type AdminAuditEvent = typeof adminAuditEvents.$inferSelect;
 export type NewAdminAuditEvent = typeof adminAuditEvents.$inferInsert;
+export type Report = typeof reports.$inferSelect;
+export type NewReport = typeof reports.$inferInsert;
+export type ReportReason = (typeof reportReasonEnum.enumValues)[number];
+export type ReportStatus = (typeof reportStatusEnum.enumValues)[number];
+export type UserBlock = typeof userBlocks.$inferSelect;
+export type NewUserBlock = typeof userBlocks.$inferInsert;

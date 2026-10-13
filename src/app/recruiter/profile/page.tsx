@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
 import { RecruiterBackLink, RecruiterProfileForm } from "@/components/recruiter";
+import { BlockedAccountsSection } from "@/components/safety";
 import { getRecruiterProfile } from "@/lib/recruiter-profile/actions";
 
 export default async function RecruiterOwnProfilePage(): Promise<React.ReactElement> {
@@ -30,6 +31,9 @@ export default async function RecruiterOwnProfilePage(): Promise<React.ReactElem
             initialProfile={profile}
             accountEmail={session.user.email}
           />
+          <div className="mt-8">
+            <BlockedAccountsSection />
+          </div>
         </div>
       </main>
       <Footer />

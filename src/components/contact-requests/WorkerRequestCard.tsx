@@ -5,10 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button, Badge } from "@/components/ui";
+import { ReportDialog } from "@/components/safety";
 import type { InboxContactRequestDto } from "@/lib/contact-requests/queries";
-
-/** Report UI lands in the reports PR. */
-const SHOW_REPORT = false;
 
 interface WorkerRequestCardProps {
   request: InboxContactRequestDto;
@@ -20,8 +18,10 @@ export function WorkerRequestCard({
   onChanged,
 }: WorkerRequestCardProps): React.ReactElement {
   const t = useTranslations("contactRequests");
-  const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
+  const tSafety = useTranslations("safety");
+  const [busy, setBusy] = useState<"accept" | "decline" | "block" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const act = async (action: "accept" | "decline"): Promise<void> => {
     setBusy(action);
@@ -31,6 +31,34 @@ export function WorkerRequestCard({
         `/api/contact-requests/${request.id}/${action}`,
         { method: "POST" }
       );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error ?? t("errors.generic"));
+        return;
+      }
+      onChanged?.();
+    } catch {
+      setError(t("errors.generic"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const block = async (): Promise<void> => {
+    if (!window.confirm(tSafety("blocks.confirm"))) {
+      return;
+    }
+    setBusy("block");
+    setError(null);
+    try {
+      const response = await fetch("/api/blocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: request.recruiterUserId,
+          conversationId: request.conversationId,
+        }),
+      });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         setError(data.error ?? t("errors.generic"));
@@ -94,7 +122,7 @@ export function WorkerRequestCard({
       <p className="mt-3 text-xs text-amber-400/90">{t("inbox.safetyLine")}</p>
 
       {request.status === "pending" ? (
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Button
             type="button"
             variant="primary"
@@ -113,23 +141,56 @@ export function WorkerRequestCard({
           >
             {busy === "decline" ? t("inbox.declining") : t("inbox.decline")}
           </Button>
-          {SHOW_REPORT ? (
-            <Button type="button" variant="ghost" fullWidth disabled>
-              {t("inbox.report")}
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            fullWidth
+            disabled={busy != null}
+            onClick={() => setReportOpen(true)}
+          >
+            {t("inbox.report")}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            fullWidth
+            disabled={busy != null}
+            onClick={() => void block()}
+          >
+            {tSafety("blocks.block")}
+          </Button>
         </div>
       ) : request.status === "accepted" && request.conversationId ? (
-        <Link
-          href={`/worker/messages/${request.conversationId}`}
-          className="mt-3 inline-flex text-sm font-medium text-primary-400 hover:text-primary-300"
-        >
-          {t("sent.openChat")}
-        </Link>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Link
+            href={`/worker/messages/${request.conversationId}`}
+            className="inline-flex text-sm font-medium text-primary-400 hover:text-primary-300"
+          >
+            {t("sent.openChat")}
+          </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setReportOpen(true)}
+          >
+            {t("inbox.report")}
+          </Button>
+        </div>
       ) : (
-        <p className="mt-3 text-sm text-charcoal-500">
-          {t(`status.${request.status}`)}
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <p className="text-sm text-charcoal-500">
+            {t(`status.${request.status}`)}
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setReportOpen(true)}
+          >
+            {t("inbox.report")}
+          </Button>
+        </div>
       )}
 
       {error ? (
@@ -137,6 +198,15 @@ export function WorkerRequestCard({
           {error}
         </p>
       ) : null}
+
+      <ReportDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        onSubmitted={() => onChanged?.()}
+        contactRequestId={request.id}
+        conversationId={request.conversationId}
+        reportedUserId={request.recruiterUserId}
+      />
     </article>
   );
 }

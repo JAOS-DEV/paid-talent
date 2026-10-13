@@ -1825,6 +1825,88 @@ async function seed(): Promise<void> {
       }
     }
 
+    console.log("\n📦 Seeding safety fixtures (report, block, messaging pause)...");
+    const seedWorker2 = createdWorkers.find(
+      (w) => w.email === "worker2@example.com"
+    );
+    const seedWorker1 = createdWorkers.find(
+      (w) => w.email === "worker1@example.com"
+    );
+    const seedRecruiterPro = createdRecruiters.find(
+      (r) => r.email === "recruiter-pro@example.com"
+    );
+    const seedRecruiterFree = createdRecruiters.find(
+      (r) => r.email === "recruiter-free@example.com"
+    );
+
+    if (seedWorker2 && seedRecruiterPro && demoRequest) {
+      const [existingReport] = await db
+        .select({ id: schema.reports.id })
+        .from(schema.reports)
+        .where(eq(schema.reports.reporterUserId, seedWorker2.userId))
+        .limit(1);
+
+      if (!existingReport) {
+        const [demoConvoForReport] = await db
+          .select({ id: schema.conversations.id })
+          .from(schema.conversations)
+          .where(
+            eq(
+              schema.conversations.contactRequestId,
+              demoRequest.contactRequestId
+            )
+          )
+          .limit(1);
+
+        await db.insert(schema.reports).values({
+          reporterUserId: seedWorker2.userId,
+          reportedUserId: seedRecruiterPro.userId,
+          contactRequestId: demoRequest.contactRequestId,
+          conversationId: demoConvoForReport?.id ?? null,
+          reason: "asked_for_money",
+          details: "Seeded open report for admin queue triage.",
+          evidenceSnapshot: {
+            request: null,
+            messages: [],
+          },
+          status: "open",
+        });
+        console.log("   ✅ Open report (worker2 → recruiter-pro)");
+      }
+    }
+
+    if (seedWorker1 && seedRecruiterFree) {
+      const [existingBlock] = await db
+        .select({ id: schema.userBlocks.id })
+        .from(schema.userBlocks)
+        .where(
+          and(
+            eq(schema.userBlocks.blockerUserId, seedWorker1.userId),
+            eq(schema.userBlocks.blockedUserId, seedRecruiterFree.userId)
+          )
+        )
+        .limit(1);
+
+      if (!existingBlock) {
+        await db.insert(schema.userBlocks).values({
+          blockerUserId: seedWorker1.userId,
+          blockedUserId: seedRecruiterFree.userId,
+        });
+        console.log("   ✅ Block (worker1 blocks recruiter-free)");
+      }
+
+      await db
+        .update(schema.recruiterProfiles)
+        .set({
+          messagingPausedAt: new Date(),
+          messagingPausedReason: "system:auto_reports",
+          messagingPausedBy: "system:auto_reports",
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.recruiterProfiles.id, seedRecruiterFree.recruiterProfileId));
+      console.log("   ✅ Auto-paused recruiter (recruiter-free)");
+    }
+
     console.log("\n📦 Seeding hire outcomes...");
 
     const hireOutcomesSeed: Array<{
