@@ -398,7 +398,36 @@ describe("deliver + retryPending", () => {
     await result;
   });
 
-  it("falls back to email when LINE returns non-retryable 429", async () => {
+  it("LINE retryable failure then email success → line skipped; retry does not call LINE", async () => {
+    includeLineChannel = true;
+    claimResults.push([baseRow()]);
+    selectResults.push(
+      [{ role: "worker", accountStatus: "active" }],
+      [{ emailEnabled: true, lineEnabled: true, locale: "en" }]
+    );
+    lineSend.mockResolvedValue({
+      ok: false,
+      error: "line_http_503",
+      retryable: true,
+    });
+    send.mockResolvedValue({ ok: true });
+
+    await deliver("n1");
+
+    expect(lineSend).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(updateSets.some((p) => p.lineStatus === "skipped")).toBe(true);
+    expect(updateSets.some((p) => p.emailStatus === "sent")).toBe(true);
+
+    // retryPending: row already has email sent → claim returns empty
+    selectResults.push([]);
+    claimResults.push([]);
+    const count = await retryPending(new Date());
+    expect(count).toBe(0);
+    expect(lineSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("LINE 429 (retryable:false) → line skipped, email sent, no retry", async () => {
     includeLineChannel = true;
     claimResults.push([baseRow()]);
     selectResults.push(
@@ -416,7 +445,13 @@ describe("deliver + retryPending", () => {
 
     expect(lineSend).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledTimes(1);
-    expect(updateSets.some((p) => p.lineStatus === "failed")).toBe(true);
+    expect(updateSets.some((p) => p.lineStatus === "skipped")).toBe(true);
     expect(updateSets.some((p) => p.emailStatus === "sent")).toBe(true);
+
+    selectResults.push([]);
+    claimResults.push([]);
+    const count = await retryPending(new Date());
+    expect(count).toBe(0);
+    expect(lineSend).toHaveBeenCalledTimes(1);
   });
 });

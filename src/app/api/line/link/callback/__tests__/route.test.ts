@@ -98,7 +98,7 @@ describe("GET /api/line/link/callback", () => {
   });
 
   it("rejects mismatched state", async () => {
-    const payload = createLineLinkOAuthPayload();
+    const payload = createLineLinkOAuthPayload("user-a");
     const cookie = signLineLinkStateCookie(payload);
     const res = await GET(
       makeRequest(
@@ -111,8 +111,22 @@ describe("GET /api/line/link/callback", () => {
     expect(insertValues).not.toHaveBeenCalled();
   });
 
+  it("rejects a state cookie for a different user", async () => {
+    const payload = createLineLinkOAuthPayload("other-user");
+    const cookie = signLineLinkStateCookie(payload);
+    const res = await GET(
+      makeRequest(
+        `http://localhost:3000/api/line/link/callback?code=abc&state=${payload.state}`,
+        cookie
+      )
+    );
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("line=error");
+    expect(insertValues).not.toHaveBeenCalled();
+  });
+
   it("redirects already_linked when LINE id belongs to another user", async () => {
-    const payload = createLineLinkOAuthPayload();
+    const payload = createLineLinkOAuthPayload("user-a");
     const cookie = signLineLinkStateCookie(payload);
     selectResults.push([{ userId: "other-user" }]);
 
@@ -128,7 +142,7 @@ describe("GET /api/line/link/callback", () => {
   });
 
   it("upserts link on success", async () => {
-    const payload = createLineLinkOAuthPayload();
+    const payload = createLineLinkOAuthPayload("user-a");
     const cookie = signLineLinkStateCookie(payload);
     selectResults.push([]);
 

@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { lineLinks, userNotificationPrefs } from "@/lib/db/schema";
@@ -6,13 +5,16 @@ import {
   getLineMessagingChannelAccessToken,
   isLineMessagingConfigured,
 } from "@/lib/line/config";
+import { lineRetryKeyForNotification } from "@/lib/line/retry-key";
 import {
   getLinePushesSentThisMonth,
-  incrementLinePushUsage,
+  releaseLinePushBudget,
+  reserveLinePushBudget,
 } from "@/lib/line/usage";
 import { getMessagingSettings } from "@/lib/messaging/settings";
 import type {
   NotificationChannel,
+  NotificationSendOptions,
   RenderedNotification,
 } from "@/lib/notifications/types";
 
@@ -82,7 +84,8 @@ export class LineChannel implements NotificationChannel {
 
   async send(
     userId: string,
-    rendered: RenderedNotification
+    rendered: RenderedNotification,
+    options?: NotificationSendOptions
   ): Promise<{ ok: true } | { ok: false; error: string; retryable: boolean }> {
     const token = getLineMessagingChannelAccessToken();
     if (!token) {
@@ -99,8 +102,14 @@ export class LineChannel implements NotificationChannel {
       return { ok: false, error: "not_linked", retryable: false };
     }
 
+    const settings = await getMessagingSettings();
+    const reserved = await reserveLinePushBudget(settings.lineMonthlyPushBudget);
+    if (!reserved.ok) {
+      return { ok: false, error: "budget_exhausted", retryable: false };
+    }
+
     const text = `${rendered.text}\n${rendered.url}`.slice(0, 5000);
-    const retryKey = randomUUID();
+    const retryKey = lineRetryKeyForNotification(options?.notificationId);
 
     try {
       const response = await this.fetchImpl(
@@ -119,12 +128,12 @@ export class LineChannel implements NotificationChannel {
         }
       );
 
-      if (response.ok) {
-        await db.transaction(async (tx) => {
-          await incrementLinePushUsage(new Date(), tx);
-        });
+      // 2xx or 409 (retry key already accepted) → keep reserved slot
+      if (response.ok || response.status === 409) {
         return { ok: true };
       }
+
+      await releaseLinePushBudget();
 
       const bodyText = await response.text().catch(() => "");
       if (
@@ -152,6 +161,7 @@ export class LineChannel implements NotificationChannel {
         retryable: false,
       };
     } catch (error) {
+      await releaseLinePushBudget();
       const message =
         error instanceof Error ? error.message : "line_send_failed";
       return { ok: false, error: message, retryable: true };

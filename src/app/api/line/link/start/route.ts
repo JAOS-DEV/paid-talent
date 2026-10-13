@@ -33,7 +33,7 @@ export async function GET(): Promise<NextResponse> {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const payload = createLineLinkOAuthPayload();
+    const payload = createLineLinkOAuthPayload(actor.user.userId);
     const cookieValue = signLineLinkStateCookie(payload);
     const redirectUri = encodeURIComponent(getLineLinkCallbackUrl());
     const authorizeUrl =

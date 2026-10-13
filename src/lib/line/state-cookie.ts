@@ -7,6 +7,7 @@ export interface LineLinkOAuthPayload {
   state: string;
   nonce: string;
   exp: number;
+  userId: string;
 }
 
 function getAuthSecret(): string {
@@ -30,11 +31,15 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
-export function createLineLinkOAuthPayload(nowMs: number = Date.now()): LineLinkOAuthPayload {
+export function createLineLinkOAuthPayload(
+  userId: string,
+  nowMs: number = Date.now()
+): LineLinkOAuthPayload {
   return {
     state: randomBytes(32).toString("base64url"),
     nonce: randomBytes(16).toString("base64url"),
     exp: nowMs + LINE_LINK_STATE_MAX_AGE_SEC * 1000,
+    userId,
   };
 }
 
@@ -80,7 +85,9 @@ export function verifyLineLinkStateCookie(
     if (
       typeof parsed.state !== "string" ||
       typeof parsed.nonce !== "string" ||
-      typeof parsed.exp !== "number"
+      typeof parsed.exp !== "number" ||
+      typeof parsed.userId !== "string" ||
+      !parsed.userId
     ) {
       return null;
     }
@@ -91,6 +98,7 @@ export function verifyLineLinkStateCookie(
       state: parsed.state,
       nonce: parsed.nonce,
       exp: parsed.exp,
+      userId: parsed.userId,
     };
   } catch {
     return null;

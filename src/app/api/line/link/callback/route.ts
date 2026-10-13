@@ -65,7 +65,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (
       !code ||
       !cookiePayload ||
-      !statesMatch(state, cookiePayload.state)
+      !statesMatch(state, cookiePayload.state) ||
+      cookiePayload.userId !== actor.user.userId
     ) {
       return settingsRedirect("line=error");
     }

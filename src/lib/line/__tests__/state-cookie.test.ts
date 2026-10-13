@@ -9,8 +9,8 @@ import {
 const SECRET = "test-auth-secret-for-line-link";
 
 describe("LINE link state cookie", () => {
-  it("signs and verifies a payload", () => {
-    const payload = createLineLinkOAuthPayload(1_700_000_000_000);
+  it("signs and verifies a payload including userId", () => {
+    const payload = createLineLinkOAuthPayload("user-a", 1_700_000_000_000);
     const cookie = signLineLinkStateCookie(payload, SECRET);
     const verified = verifyLineLinkStateCookie(
       cookie,
@@ -18,10 +18,11 @@ describe("LINE link state cookie", () => {
       1_700_000_000_000
     );
     expect(verified).toEqual(payload);
+    expect(verified?.userId).toBe("user-a");
   });
 
   it("rejects tampered cookie", () => {
-    const payload = createLineLinkOAuthPayload(1_700_000_000_000);
+    const payload = createLineLinkOAuthPayload("user-a", 1_700_000_000_000);
     const cookie = signLineLinkStateCookie(payload, SECRET);
     const tampered = cookie.slice(0, -4) + "xxxx";
     expect(
@@ -30,7 +31,7 @@ describe("LINE link state cookie", () => {
   });
 
   it("rejects expired cookie", () => {
-    const payload = createLineLinkOAuthPayload(1_700_000_000_000);
+    const payload = createLineLinkOAuthPayload("user-a", 1_700_000_000_000);
     const cookie = signLineLinkStateCookie(payload, SECRET);
     expect(
       verifyLineLinkStateCookie(cookie, SECRET, payload.exp + 1)
