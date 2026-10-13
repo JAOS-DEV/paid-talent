@@ -2,15 +2,18 @@ import React from "react";
 import { requireAdminPage } from "@/lib/admin/guard";
 import { getPlatformBillingSettings } from "@/lib/platform-settings";
 import { getMessagingSettings } from "@/lib/messaging/settings";
+import { bangkokMonthKey } from "@/lib/line/bangkok-month";
+import { getLinePushesSentThisMonth } from "@/lib/line/usage";
 import { BillingSettingsPanel } from "@/components/admin/BillingSettingsPanel";
 import { BillingPricesPanel } from "@/components/admin/BillingPricesPanel";
 import { MessagingSettingsPanel } from "@/components/admin/MessagingSettingsPanel";
 
 export default async function AdminSettingsPage(): Promise<React.ReactElement> {
   await requireAdminPage("/admin/settings");
-  const [settings, messaging] = await Promise.all([
+  const [settings, messaging, linePushesSent] = await Promise.all([
     getPlatformBillingSettings(),
     getMessagingSettings(),
+    getLinePushesSentThisMonth(),
   ]);
 
   return (
@@ -56,6 +59,11 @@ export default async function AdminSettingsPage(): Promise<React.ReactElement> {
           retentionDays: messaging.retentionDays,
           updatedAt: messaging.updatedAt.toISOString(),
           updatedBy: messaging.updatedBy,
+        }}
+        linePushUsage={{
+          month: bangkokMonthKey(),
+          pushesSent: linePushesSent,
+          budget: messaging.lineMonthlyPushBudget,
         }}
       />
     </div>

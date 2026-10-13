@@ -62,6 +62,18 @@
       "emailEnabled": "Email notifications",
       "lineEnabled": "LINE notifications",
       "lineComingSoon": "Coming soon",
+      "lineSectionTitle": "LINE",
+      "lineConnect": "Connect LINE",
+      "lineConnectExplain": "Get alerts on LINE from \"Paid Talent Job Platform\". We only send alerts. Chats stay in the app.",
+      "lineAddFriend": "Add our LINE account",
+      "lineAddFriendExplain": "Add \"Paid Talent Job Platform\" as a friend to receive alerts.",
+      "lineConnectedAs": "Connected as {displayName}",
+      "lineConnected": "LINE connected",
+      "lineDisconnect": "Disconnect",
+      "lineBudgetWarning": "LINE alerts paused this month; we'll email you instead.",
+      "lineLinked": "LINE connected. Add our account as a friend if you have not already.",
+      "lineAlreadyLinked": "That LINE account is already linked to another user.",
+      "lineLinkError": "Could not link LINE. Please try again.",
       "locale": "Language for notifications",
       "localeEn": "English",
       "localeTh": "Thai",
@@ -115,6 +127,52 @@
     "safety_notice": {
       "subject": "Safety notice",
       "text": "There is a safety update on your account. Please open Paid Talent for details."
+    },
+    "line": {
+      "contact_request_received": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: You have a new contact request. Open the app: {url}"
+      },
+      "contact_request_accepted": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: Your contact request was accepted. Open the app: {url}"
+      },
+      "contact_request_declined": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: Your contact request was declined. Open the app: {url}"
+      },
+      "new_message": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: You have a new message. Open the app: {url}"
+      },
+      "contact_shared": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: Contact details were shared with you. Open the app: {url}"
+      },
+      "verification_approved": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: Your verification was approved. Open the app: {url}"
+      },
+      "verification_rejected": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: Your verification needs attention. Open the app: {url}"
+      },
+      "venue_approved": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: Your venue was approved. Open the app: {url}"
+      },
+      "venue_rejected": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: Your venue needs attention. Open the app: {url}"
+      },
+      "messaging_paused": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: Messaging is paused on your account. Open the app: {url}"
+      },
+      "safety_notice": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: There is a safety update on your account. Open the app: {url}"
+      }
     }
   },
   "language": {

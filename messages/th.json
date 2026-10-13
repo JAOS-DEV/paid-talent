@@ -62,6 +62,18 @@
       "emailEnabled": "แจ้งเตือนทางอีเมล",
       "lineEnabled": "แจ้งเตือนทาง LINE",
       "lineComingSoon": "เร็วๆ นี้",
+      "lineSectionTitle": "LINE",
+      "lineConnect": "เชื่อมต่อ LINE",
+      "lineConnectExplain": "รับการแจ้งเตือนทาง LINE จาก \"Paid Talent Job Platform\" เราจะส่งเฉพาะการแจ้งเตือน การแชทยังอยู่ในแอป",
+      "lineAddFriend": "เพิ่มบัญชี LINE ของเรา",
+      "lineAddFriendExplain": "เพิ่ม \"Paid Talent Job Platform\" เป็นเพื่อนเพื่อรับการแจ้งเตือน",
+      "lineConnectedAs": "เชื่อมต่อแล้วในชื่อ {displayName}",
+      "lineConnected": "เชื่อมต่อ LINE แล้ว",
+      "lineDisconnect": "ยกเลิกการเชื่อมต่อ",
+      "lineBudgetWarning": "การแจ้งเตือน LINE หยุดชั่วคราวในเดือนนี้ เราจะส่งอีเมลแทน",
+      "lineLinked": "เชื่อมต่อ LINE แล้ว หากยังไม่ได้เพิ่มเพื่อน กรุณาเพิ่มบัญชีของเรา",
+      "lineAlreadyLinked": "บัญชี LINE นี้ถูกเชื่อมกับผู้ใช้อื่นแล้ว",
+      "lineLinkError": "เชื่อมต่อ LINE ไม่สำเร็จ กรุณาลองอีกครั้ง",
       "locale": "ภาษาสำหรับการแจ้งเตือน",
       "localeEn": "อังกฤษ",
       "localeTh": "ไทย",
@@ -115,6 +127,52 @@
     "safety_notice": {
       "subject": "แจ้งเตือนด้านความปลอดภัย",
       "text": "มีอัปเดตด้านความปลอดภัยเกี่ยวกับบัญชีของคุณ กรุณาเปิด Paid Talent เพื่อดูรายละเอียด"
+    },
+    "line": {
+      "contact_request_received": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: คุณมีคำขอติดต่อใหม่ เปิดแอป: {url}"
+      },
+      "contact_request_accepted": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: คำขอติดต่อของคุณได้รับการยอมรับแล้ว เปิดแอป: {url}"
+      },
+      "contact_request_declined": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: คำขอติดต่อของคุณถูกปฏิเสธ เปิดแอป: {url}"
+      },
+      "new_message": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: คุณมีข้อความใหม่ เปิดแอป: {url}"
+      },
+      "contact_shared": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: มีการแชร์ข้อมูลติดต่อให้คุณ เปิดแอป: {url}"
+      },
+      "verification_approved": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: การยืนยันตัวตนของคุณได้รับการอนุมัติแล้ว เปิดแอป: {url}"
+      },
+      "verification_rejected": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: การยืนยันตัวตนของคุณต้องตรวจสอบ เปิดแอป: {url}"
+      },
+      "venue_approved": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: สถานที่ของคุณได้รับการอนุมัติแล้ว เปิดแอป: {url}"
+      },
+      "venue_rejected": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: สถานที่ของคุณต้องตรวจสอบ เปิดแอป: {url}"
+      },
+      "messaging_paused": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: การส่งข้อความถูกระงับชั่วคราว เปิดแอป: {url}"
+      },
+      "safety_notice": {
+        "subject": "Paid Talent",
+        "text": "Paid Talent: มีอัปเดตด้านความปลอดภัยเกี่ยวกับบัญชีของคุณ เปิดแอป: {url}"
+      }
     }
   },
   "language": {

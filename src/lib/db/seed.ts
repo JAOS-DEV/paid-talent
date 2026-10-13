@@ -2207,6 +2207,45 @@ async function seed(): Promise<void> {
     }
     console.log(`   ✅ Notification prefs for ${allSeedUserIds.length} users`);
 
+    console.log("\n📱 Seeding LINE links...");
+    const linkedWorker = createdWorkers.find(
+      (w) => w.email === "worker1@example.com"
+    );
+    const unlinkedWorker = createdWorkers.find(
+      (w) => w.email === "worker2@example.com"
+    );
+    if (linkedWorker) {
+      await db
+        .insert(schema.lineLinks)
+        .values({
+          userId: linkedWorker.userId,
+          lineUserId: "U_seed_line_worker1_fake",
+          displayName: "Seed Worker1 LINE",
+          isFriend: true,
+          friendStatusUpdatedAt: new Date(),
+          linkedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.lineLinks.userId,
+          set: {
+            lineUserId: "U_seed_line_worker1_fake",
+            displayName: "Seed Worker1 LINE",
+            isFriend: true,
+            friendStatusUpdatedAt: new Date(),
+            linkedAt: new Date(),
+          },
+        });
+      console.log(
+        `   ✅ LINE linked (friend): ${linkedWorker.email} → U_seed_line_worker1_fake`
+      );
+    }
+    if (unlinkedWorker) {
+      await db
+        .delete(schema.lineLinks)
+        .where(eq(schema.lineLinks.userId, unlinkedWorker.userId));
+      console.log(`   ✅ LINE unlinked: ${unlinkedWorker.email}`);
+    }
+
     console.log("\n" + "=".repeat(60));
     console.log("🎉 SEED COMPLETED SUCCESSFULLY!");
     console.log("=".repeat(60));

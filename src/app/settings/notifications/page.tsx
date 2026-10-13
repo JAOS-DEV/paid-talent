@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { redirect, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Header, Footer } from "@/components/layout";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
@@ -16,16 +16,25 @@ interface NotificationPrefsState {
   lineEnabled: boolean;
   locale: "en" | "th";
   lineConfigured: boolean;
+  lineMessagingConfigured: boolean;
   emailConfigured: boolean;
+  lineLink: null | {
+    displayName: string | null;
+    isFriend: boolean;
+  };
+  lineBudgetExhausted: boolean;
+  lineOaAddFriendUrl: string | null;
 }
 
 export default function NotificationSettingsPage(): React.ReactElement {
   const t = useTranslations("notifications");
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
   const [prefs, setPrefs] = useState<NotificationPrefsState | null>(null);
   const [inbound, setInbound] = useState<InboundPrefs | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     const [prefsRes, inboundRes] = await Promise.all([
@@ -48,6 +57,17 @@ export default function NotificationSettingsPage(): React.ReactElement {
     }
   }, [status, load]);
 
+  useEffect(() => {
+    const line = searchParams.get("line");
+    if (line === "linked") {
+      setMessage(t("settings.lineLinked"));
+    } else if (line === "already_linked") {
+      setMessage(t("settings.lineAlreadyLinked"));
+    } else if (line === "error") {
+      setMessage(t("settings.lineLinkError"));
+    }
+  }, [searchParams, t]);
+
   if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-charcoal-950">
@@ -61,7 +81,9 @@ export default function NotificationSettingsPage(): React.ReactElement {
   }
 
   const save = async (
-    patch: Partial<Pick<NotificationPrefsState, "emailEnabled" | "lineEnabled" | "locale">>
+    patch: Partial<
+      Pick<NotificationPrefsState, "emailEnabled" | "lineEnabled" | "locale">
+    >
   ): Promise<void> => {
     if (!prefs) return;
     setSaving(true);
@@ -88,6 +110,29 @@ export default function NotificationSettingsPage(): React.ReactElement {
       setSaving(false);
     }
   };
+
+  const unlinkLine = async (): Promise<void> => {
+    setUnlinking(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/line/unlink", { method: "POST" });
+      if (res.ok) {
+        await load();
+        setMessage(t("settings.saved"));
+      } else {
+        setMessage(t("settings.saveFailed"));
+      }
+    } catch {
+      setMessage(t("settings.saveFailed"));
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
+  const lineToggleEnabled =
+    Boolean(prefs?.lineConfigured) &&
+    Boolean(prefs?.lineLink?.isFriend) &&
+    !saving;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -120,20 +165,107 @@ export default function NotificationSettingsPage(): React.ReactElement {
                   {t("settings.emailEnabled")}
                 </label>
 
-                <label className="flex items-start gap-3 text-sm text-charcoal-200">
-                  <input
-                    type="checkbox"
-                    checked={prefs.lineEnabled}
-                    disabled
-                    className="mt-0.5 h-4 w-4"
-                  />
-                  <span>
-                    {t("settings.lineEnabled")}
-                    <span className="mt-0.5 block text-xs text-charcoal-400">
-                      {t("settings.lineComingSoon")}
+                {!prefs.lineConfigured ? (
+                  <label className="flex items-start gap-3 text-sm text-charcoal-200">
+                    <input
+                      type="checkbox"
+                      checked={prefs.lineEnabled}
+                      disabled
+                      className="mt-0.5 h-4 w-4"
+                    />
+                    <span>
+                      {t("settings.lineEnabled")}
+                      <span className="mt-0.5 block text-xs text-charcoal-400">
+                        {t("settings.lineComingSoon")}
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+                ) : (
+                  <div className="space-y-3 rounded-lg border border-charcoal-700 px-4 py-3">
+                    <p className="text-sm font-medium text-charcoal-100">
+                      {t("settings.lineSectionTitle")}
+                    </p>
+
+                    {!prefs.lineLink ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-charcoal-300">
+                          {t("settings.lineConnectExplain")}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="gold"
+                          onClick={() => {
+                            window.location.href = "/api/line/link/start";
+                          }}
+                        >
+                          {t("settings.lineConnect")}
+                        </Button>
+                      </div>
+                    ) : !prefs.lineLink.isFriend ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-charcoal-300">
+                          {t("settings.lineAddFriendExplain")}
+                        </p>
+                        {prefs.lineOaAddFriendUrl ? (
+                          <a
+                            href={prefs.lineOaAddFriendUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex text-sm font-medium text-primary-400 underline"
+                          >
+                            {t("settings.lineAddFriend")}
+                          </a>
+                        ) : null}
+                        <div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={unlinking}
+                            onClick={() => void unlinkLine()}
+                          >
+                            {t("settings.lineDisconnect")}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-sm text-charcoal-200">
+                          {prefs.lineLink.displayName
+                            ? t("settings.lineConnectedAs", {
+                                displayName: prefs.lineLink.displayName,
+                              })
+                            : t("settings.lineConnected")}
+                        </p>
+                        <label className="flex items-center gap-3 text-sm text-charcoal-200">
+                          <input
+                            type="checkbox"
+                            checked={prefs.lineEnabled}
+                            disabled={!lineToggleEnabled}
+                            onChange={(e) =>
+                              void save({ lineEnabled: e.target.checked })
+                            }
+                            className="h-4 w-4"
+                          />
+                          {t("settings.lineEnabled")}
+                        </label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={unlinking}
+                          onClick={() => void unlinkLine()}
+                        >
+                          {t("settings.lineDisconnect")}
+                        </Button>
+                      </div>
+                    )}
+
+                    {prefs.lineBudgetExhausted ? (
+                      <p className="text-sm text-amber-400">
+                        {t("settings.lineBudgetWarning")}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
 
                 <div>
                   <label

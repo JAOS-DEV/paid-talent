@@ -140,9 +140,6 @@ export async function deliver(notificationId: string): Promise<void> {
       user?.role === "recruiter" || user?.role === "worker"
         ? user.role
         : undefined;
-    const rendered = renderNotification(row.type, row.payload, locale, {
-      role,
-    });
 
     // Throttle external delivery for new_message when a recent unread
     // notification with the same dedupe key was already sent externally.
@@ -229,6 +226,10 @@ export async function deliver(notificationId: string): Promise<void> {
       }
 
       attempted = true;
+      const rendered = renderNotification(row.type, row.payload, locale, {
+        role,
+        channel: channel.name,
+      });
       const result = await channel.send(row.userId, rendered);
       if (result.ok) {
         delivered = true;

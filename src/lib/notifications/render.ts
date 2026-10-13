@@ -1,7 +1,10 @@
 import type { NotificationType } from "@/lib/db/schema";
 import type { Locale } from "@/lib/i18n/config";
 import { isValidLocale } from "@/lib/i18n/config";
-import type { RenderedNotification } from "@/lib/notifications/types";
+import type {
+  NotificationChannelName,
+  RenderedNotification,
+} from "@/lib/notifications/types";
 import en from "../../../messages/en.json";
 import th from "../../../messages/th.json";
 
@@ -11,7 +14,10 @@ type NotificationMessages = {
 };
 
 type NotificationsRoot = {
-  notifications: Record<string, NotificationMessages | string | Record<string, string>>;
+  notifications: Record<
+    string,
+    NotificationMessages | string | Record<string, string | NotificationMessages>
+  >;
 };
 
 const catalogs: Record<Locale, NotificationsRoot> = {
@@ -70,25 +76,64 @@ function pathForType(
   }
 }
 
-export function renderNotification(
-  type: NotificationType,
-  payload: Record<string, string>,
-  locale: string,
-  options?: { role?: "worker" | "recruiter" }
-): RenderedNotification {
-  const resolvedLocale: Locale = isValidLocale(locale) ? locale : "en";
-  const entry = catalogs[resolvedLocale].notifications[type];
-  const fallback = catalogs.en.notifications[type];
-  const raw = entry ?? fallback;
-  const messages =
+function asMessages(raw: unknown): NotificationMessages | null {
+  if (
     raw &&
     typeof raw === "object" &&
     "subject" in raw &&
     "text" in raw &&
-    typeof raw.subject === "string" &&
-    typeof raw.text === "string"
-      ? (raw as NotificationMessages)
-      : null;
+    typeof (raw as NotificationMessages).subject === "string" &&
+    typeof (raw as NotificationMessages).text === "string"
+  ) {
+    return raw as NotificationMessages;
+  }
+  return null;
+}
+
+function resolveMessages(
+  type: NotificationType,
+  locale: Locale,
+  channel: NotificationChannelName
+): NotificationMessages | null {
+  const root = catalogs[locale].notifications;
+  const enRoot = catalogs.en.notifications;
+
+  if (channel === "line") {
+    const lineBucket = root.line;
+    const enLineBucket = enRoot.line;
+    if (lineBucket && typeof lineBucket === "object") {
+      const fromLocale = asMessages(
+        (lineBucket as Record<string, unknown>)[type]
+      );
+      if (fromLocale) return fromLocale;
+    }
+    if (enLineBucket && typeof enLineBucket === "object") {
+      const fromEn = asMessages(
+        (enLineBucket as Record<string, unknown>)[type]
+      );
+      if (fromEn) return fromEn;
+    }
+  }
+
+  return (
+    asMessages(root[type]) ?? asMessages(enRoot[type])
+  );
+}
+
+export function renderNotification(
+  type: NotificationType,
+  payload: Record<string, string>,
+  locale: string,
+  options?: {
+    role?: "worker" | "recruiter";
+    channel?: NotificationChannelName;
+  }
+): RenderedNotification {
+  const resolvedLocale: Locale = isValidLocale(locale) ? locale : "en";
+  const channel = options?.channel ?? "email";
+  const messages = resolveMessages(type, resolvedLocale, channel);
+
+  const url = `${getAppBaseUrl()}${pathForType(type, payload, options?.role)}`;
 
   if (!messages) {
     return {
@@ -98,9 +143,12 @@ export function renderNotification(
     };
   }
 
-  const subject = interpolate(messages.subject, payload).trim();
-  const text = interpolate(messages.text, payload).trim();
-  const url = `${getAppBaseUrl()}${pathForType(type, payload, options?.role)}`;
+  // LINE copy is generic: do not interpolate venue/personal names into text.
+  const interpolatePayload =
+    channel === "line" ? { url } : { ...payload, url };
+
+  const subject = interpolate(messages.subject, interpolatePayload).trim();
+  const text = interpolate(messages.text, interpolatePayload).trim();
 
   return { subject, text, url };
 }

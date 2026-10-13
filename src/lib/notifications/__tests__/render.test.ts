@@ -101,4 +101,21 @@ describe("renderNotification", () => {
       /\b(go-go|gogo|massage|karaoke|hostess club)\b/
     );
   });
+
+  it("LINE channel copy contains no venue name", () => {
+    const rendered = renderNotification(
+      "contact_request_received",
+      {
+        recruiterName: "Ann",
+        venueName: "Neon Bar Secret Venue",
+      },
+      "en",
+      { channel: "line" }
+    );
+    expect(rendered.text).not.toContain("Neon Bar");
+    expect(rendered.text).not.toContain("Secret Venue");
+    expect(rendered.text).toContain("Paid Talent:");
+    expect(rendered.text).toContain("contact request");
+  });
 });
+

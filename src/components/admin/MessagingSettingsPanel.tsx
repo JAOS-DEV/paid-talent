@@ -18,6 +18,11 @@ interface MessagingSettingsPanelProps {
     updatedAt: string | null;
     updatedBy: string | null;
   };
+  linePushUsage?: {
+    month: string;
+    pushesSent: number;
+    budget: number;
+  } | null;
 }
 
 type FieldKey = keyof MessagingSettings;
@@ -210,6 +215,7 @@ function settingsToForm(
 
 export function MessagingSettingsPanel({
   settings,
+  linePushUsage = null,
 }: MessagingSettingsPanelProps): React.ReactElement {
   const router = useRouter();
   const [form, setForm] = useState<MessagingSettings>(() =>
@@ -297,6 +303,12 @@ export function MessagingSettingsPanel({
             {meta.updatedBy ? ` by ${meta.updatedBy}` : ""}
           </p>
         )}
+        {linePushUsage ? (
+          <p className="text-sm text-charcoal-300">
+            LINE pushes this month ({linePushUsage.month}):{" "}
+            {linePushUsage.pushesSent} / {linePushUsage.budget}
+          </p>
+        ) : null}
 
         {GROUPS.map((group) => (
           <section key={group.title} className="space-y-3">

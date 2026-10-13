@@ -851,6 +851,33 @@ export const notifications = pgTable(
   ]
 );
 
+/** Optional LINE Official Account link per user (Login + Messaging API). */
+export const lineLinks = pgTable(
+  "line_links",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    lineUserId: text("line_user_id").notNull(),
+    displayName: text("display_name"),
+    isFriend: boolean("is_friend").notNull().default(false),
+    friendStatusUpdatedAt: timestamp("friend_status_updated_at", {
+      mode: "date",
+    }),
+    linkedAt: timestamp("linked_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("line_links_line_user_id_uidx").on(table.lineUserId),
+  ]
+);
+
+/** Platform-wide LINE push count for the Bangkok calendar month (YYYY-MM). */
+export const linePushUsage = pgTable("line_push_usage", {
+  month: text("month").primaryKey(),
+  pushesSent: integer("pushes_sent").notNull().default(0),
+  updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
+});
+
 export const hireOutcomes = pgTable(
   "hire_outcomes",
   {
@@ -1201,7 +1228,18 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [userNotificationPrefs.userId],
   }),
   notifications: many(notifications),
+  lineLink: one(lineLinks, {
+    fields: [users.id],
+    references: [lineLinks.userId],
+  }),
   adminEntitlements: many(adminEntitlements),
+}));
+
+export const lineLinksRelations = relations(lineLinks, ({ one }) => ({
+  user: one(users, {
+    fields: [lineLinks.userId],
+    references: [users.id],
+  }),
 }));
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
@@ -1558,6 +1596,10 @@ export type NewNotification = typeof notifications.$inferInsert;
 export type NotificationType =
   (typeof notificationTypeEnum.enumValues)[number];
 export type DeliveryStatus = (typeof deliveryStatusEnum.enumValues)[number];
+export type LineLink = typeof lineLinks.$inferSelect;
+export type NewLineLink = typeof lineLinks.$inferInsert;
+export type LinePushUsage = typeof linePushUsage.$inferSelect;
+export type NewLinePushUsage = typeof linePushUsage.$inferInsert
 export type Subscription = typeof subscriptions.$inferSelect;
 export type BillingProduct = (typeof billingProductEnum.enumValues)[number];
 export type BillingPriceSetting = typeof billingPriceSettings.$inferSelect;
