@@ -4,10 +4,23 @@ const getMessagingSettings = vi.fn();
 const canDeliverTo = vi.fn();
 const send = vi.fn();
 const isConfigured = vi.fn(() => true);
+const afterMock = vi.fn();
 
-const rowsById = new Map<string, Record<string, unknown>>();
 const selectResults: unknown[][] = [];
 const updateSets: Array<Record<string, unknown>> = [];
+/** Claim returning() queue — first update in deliver() is the atomic claim. */
+const claimResults: unknown[][] = [];
+let rowState: Record<string, unknown> | null = null;
+
+vi.mock("next/server", () => ({
+  after: (...args: unknown[]) => afterMock(...args),
+  NextResponse: {
+    json: (data: unknown, init?: { status?: number }) => ({
+      json: async () => data,
+      status: init?.status ?? 200,
+    }),
+  },
+}));
 
 vi.mock("@/lib/messaging/settings", () => ({
   getMessagingSettings: (...args: unknown[]) => getMessagingSettings(...args),
@@ -68,7 +81,34 @@ vi.mock("@/lib/db", () => {
         set: vi.fn((patch: Record<string, unknown>) => {
           updateSets.push(patch);
           return {
-            where: vi.fn(async () => undefined),
+            where: vi.fn(() => ({
+              returning: vi.fn(async () => {
+                // Claim updates set only lastError: null.
+                const isClaim =
+                  Object.keys(patch).length === 1 &&
+                  Object.prototype.hasOwnProperty.call(patch, "lastError");
+                if (isClaim) {
+                  const claimed = claimResults.shift() ?? [];
+                  if (claimed[0] && typeof claimed[0] === "object") {
+                    rowState = { ...(claimed[0] as Record<string, unknown>) };
+                  }
+                  return claimed;
+                }
+                if (rowState) {
+                  rowState = { ...rowState, ...patch };
+                }
+                return [];
+              }),
+              then(
+                resolve: (value: unknown) => void,
+                reject?: (reason: unknown) => void
+              ): void {
+                if (rowState) {
+                  rowState = { ...rowState, ...patch };
+                }
+                void Promise.resolve(undefined).then(resolve, reject);
+              },
+            })),
           };
         }),
       })),
@@ -84,7 +124,7 @@ vi.mock("@/lib/db", () => {
   };
 });
 
-import { deliver, retryPending } from "../notify";
+import { deliver, retryPending, scheduleDeliver } from "../notify";
 
 function baseRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -110,7 +150,8 @@ describe("deliver + retryPending", () => {
     vi.clearAllMocks();
     selectResults.length = 0;
     updateSets.length = 0;
-    rowsById.clear();
+    claimResults.length = 0;
+    rowState = null;
     isConfigured.mockReturnValue(true);
     canDeliverTo.mockResolvedValue({ ok: true });
     send.mockResolvedValue({ ok: true });
@@ -118,8 +159,8 @@ describe("deliver + retryPending", () => {
   });
 
   it("skips email when disabled (in-app only)", async () => {
+    claimResults.push([baseRow()]);
     selectResults.push(
-      [baseRow()],
       [{ role: "worker", accountStatus: "active" }],
       [{ emailEnabled: false, locale: "en" }]
     );
@@ -133,14 +174,14 @@ describe("deliver + retryPending", () => {
   });
 
   it("throttles new_message when recent unread was sent externally", async () => {
+    claimResults.push([
+      baseRow({
+        type: "new_message",
+        dedupeKey: "new_message:c1:u1",
+        payload: { conversationId: "c1", senderName: "Ann" },
+      }),
+    ]);
     selectResults.push(
-      [
-        baseRow({
-          type: "new_message",
-          dedupeKey: "new_message:c1:u1",
-          payload: { conversationId: "c1", senderName: "Ann" },
-        }),
-      ],
       [{ role: "worker", accountStatus: "active" }],
       [{ emailEnabled: true, locale: "en" }],
       [{ id: "older" }]
@@ -149,18 +190,19 @@ describe("deliver + retryPending", () => {
     await deliver("n1");
 
     expect(send).not.toHaveBeenCalled();
-    expect(updateSets[0]).toEqual(
-      expect.objectContaining({
-        emailStatus: "skipped",
-        lineStatus: "skipped",
-        lastError: "throttled",
-      })
-    );
+    expect(
+      updateSets.some(
+        (p) =>
+          p.emailStatus === "skipped" &&
+          p.lineStatus === "skipped" &&
+          p.lastError === "throttled"
+      )
+    ).toBe(true);
   });
 
   it("increments attempts on failure", async () => {
+    claimResults.push([baseRow({ attempts: 1 })]);
     selectResults.push(
-      [baseRow({ attempts: 1 })],
       [{ role: "worker", accountStatus: "active" }],
       [{ emailEnabled: true, locale: "en" }]
     );
@@ -180,10 +222,38 @@ describe("deliver + retryPending", () => {
     const now = new Date("2026-04-01T12:00:00Z");
     selectResults.push([{ id: "eligible-1" }, { id: "eligible-2" }]);
 
-    // deliver will be called; feed empty so deliver no-ops quickly
-    selectResults.push([], []);
+    // Each deliver claims; empty claim → no-op
+    claimResults.push([], []);
 
     const count = await retryPending(now);
     expect(count).toBe(2);
+  });
+
+  it("calling deliver twice on the same id sends the email once", async () => {
+    claimResults.push([baseRow()]);
+    // Second claim finds nothing (row no longer pending/failed after first send)
+    claimResults.push([]);
+    selectResults.push(
+      [{ role: "worker", accountStatus: "active" }],
+      [{ emailEnabled: true, locale: "en" }]
+    );
+
+    await deliver("n1");
+    await deliver("n1");
+
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("scheduleDeliver passes after() a function that returns a Promise", async () => {
+    claimResults.push([]);
+
+    scheduleDeliver("n-schedule");
+
+    expect(afterMock).toHaveBeenCalledTimes(1);
+    const fn = afterMock.mock.calls[0]?.[0] as () => unknown;
+    expect(typeof fn).toBe("function");
+    const result = fn();
+    expect(result).toEqual(expect.any(Promise));
+    await result;
   });
 });

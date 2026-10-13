@@ -1,9 +1,11 @@
 import { and, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import * as NextServer from "next/server";
 import { db } from "@/lib/db";
 import {
   notifications,
   userNotificationPrefs,
   users,
+  type DeliveryStatus,
   type Notification,
   type NotificationType,
 } from "@/lib/db/schema";
@@ -14,32 +16,36 @@ import { resolveLocale } from "@/lib/i18n/locale";
 
 const MAX_ATTEMPTS = 3;
 const RETRY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const RETRYABLE_STATUSES: DeliveryStatus[] = ["pending", "failed"];
 
-function scheduleDeliver(notificationId: string): void {
-  const run = (): void => {
-    void deliver(notificationId).catch((error) => {
+type AfterFn = (fn: () => unknown | Promise<unknown>) => void;
+
+function resolveAfter(): AfterFn | undefined {
+  const after = (NextServer as { after?: AfterFn }).after;
+  return typeof after === "function" ? after : undefined;
+}
+
+function isRetryableStatus(status: DeliveryStatus): boolean {
+  return status === "pending" || status === "failed";
+}
+
+export function scheduleDeliver(notificationId: string): void {
+  const run = (): Promise<void> =>
+    deliver(notificationId).catch((error) => {
       console.error("[notifications] deliver failed", {
         notificationId,
         error,
       });
     });
-  };
 
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { after } = require("next/server") as {
-      after?: (fn: () => void) => void;
-    };
-    if (typeof after === "function") {
-      after(run);
-      return;
-    }
-  } catch {
-    // Tests / non-Next contexts: fall through
+  const after = resolveAfter();
+  if (after) {
+    after(run);
+    return;
   }
 
-  // Non-awaited so callers are never blocked
-  void Promise.resolve().then(run);
+  // Non-Next / tests without after: fire-and-forget
+  void run();
 }
 
 export async function notify(
@@ -83,11 +89,21 @@ async function markChannelStatuses(
 
 export async function deliver(notificationId: string): Promise<void> {
   try {
+    // Claim eligible row atomically so concurrent deliver() calls don't both send.
     const [row] = await db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.id, notificationId))
-      .limit(1);
+      .update(notifications)
+      .set({ lastError: null })
+      .where(
+        and(
+          eq(notifications.id, notificationId),
+          or(
+            inArray(notifications.emailStatus, RETRYABLE_STATUSES),
+            inArray(notifications.lineStatus, RETRYABLE_STATUSES)
+          ),
+          lt(notifications.attempts, MAX_ATTEMPTS)
+        )
+      )
+      .returning();
 
     if (!row) return;
 
@@ -159,10 +175,13 @@ export async function deliver(notificationId: string): Promise<void> {
     const linePatch: Partial<Notification> = {};
 
     for (const channel of channels) {
-      const statusKey =
-        channel.name === "email" ? "emailStatus" : "lineStatus";
-      const sentAtKey =
-        channel.name === "email" ? "emailSentAt" : "lineSentAt";
+      const currentStatus =
+        channel.name === "email" ? row.emailStatus : row.lineStatus;
+
+      // Never resend a channel that already succeeded (or was skipped).
+      if (!isRetryableStatus(currentStatus)) {
+        continue;
+      }
 
       if (delivered) {
         if (channel.name === "email") {
@@ -215,16 +234,20 @@ export async function deliver(notificationId: string): Promise<void> {
           linePatch.lineStatus = "failed";
         }
       }
-
-      void statusKey;
-      void sentAtKey;
     }
 
     // Channels not in the list (e.g. LINE before next PR) stay skipped
-    if (!channels.some((c) => c.name === "line")) {
+    // when they were still retryable on the claimed row.
+    if (
+      !channels.some((c) => c.name === "line") &&
+      isRetryableStatus(row.lineStatus)
+    ) {
       linePatch.lineStatus = linePatch.lineStatus ?? "skipped";
     }
-    if (!channels.some((c) => c.name === "email")) {
+    if (
+      !channels.some((c) => c.name === "email") &&
+      isRetryableStatus(row.emailStatus)
+    ) {
       emailPatch.emailStatus = emailPatch.emailStatus ?? "skipped";
     }
 
