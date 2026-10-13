@@ -326,9 +326,18 @@ export async function createContactRequest(
   );
   const openerFiltered = filterOutgoingText(openerText, {
     maxChars: openerLimits.openerMaxChars,
+    context: "opener",
   });
   if (!openerFiltered.ok) {
     if (openerFiltered.code === "contact_info_blocked") {
+      await db.insert(messageFlags).values({
+        targetType: "blocked_attempt",
+        authorUserId: input.recruiterUserId,
+        categories: ["contact_attempt"],
+        matchedTerms: openerFiltered.types ?? [],
+        excerpt: openerText.slice(0, 200),
+        createdAt: now,
+      });
       return serviceError(
         "contact_info_blocked",
         422,
@@ -825,9 +834,19 @@ export async function followUp(
 
   const followUpFiltered = filterOutgoingText(followUpText, {
     maxChars: limits.openerMaxChars,
+    context: "follow_up",
   });
   if (!followUpFiltered.ok) {
     if (followUpFiltered.code === "contact_info_blocked") {
+      await db.insert(messageFlags).values({
+        targetType: "blocked_attempt",
+        contactRequestId: requestId,
+        authorUserId: recruiterUserId,
+        categories: ["contact_attempt"],
+        matchedTerms: followUpFiltered.types ?? [],
+        excerpt: followUpText.slice(0, 200),
+        createdAt: now,
+      });
       return serviceError(
         "contact_info_blocked",
         422,

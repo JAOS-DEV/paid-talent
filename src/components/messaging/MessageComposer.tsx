@@ -17,7 +17,7 @@ export function MessageComposer({
 }: MessageComposerProps): React.ReactElement {
   const t = useTranslations("messaging");
   const [text, setText] = useState("");
-  const [blockedNudge, setBlockedNudge] = useState(false);
+  const [shareTip, setShareTip] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const remaining = maxChars - text.length;
@@ -26,14 +26,17 @@ export function MessageComposer({
     const body = text.trim();
     if (!body || busy || disabled) return;
     setBusy(true);
-    setBlockedNudge(false);
+    setShareTip(false);
     try {
       const result = await onSend(body);
       if (result?.code === "contact_info_blocked") {
-        setBlockedNudge(true);
+        setShareTip(true);
         return;
       }
       setText("");
+      if (result?.nudge === "use_share_button") {
+        setShareTip(true);
+      }
     } finally {
       setBusy(false);
     }
@@ -48,9 +51,9 @@ export function MessageComposer({
 
   return (
     <div className="space-y-2 border-t border-charcoal-700 bg-charcoal-900 p-3">
-      {blockedNudge ? (
-        <p className="text-sm text-amber-300" role="alert" data-testid="blocked-nudge">
-          {t("composer.blockedNudge")}
+      {shareTip ? (
+        <p className="text-sm text-amber-300" role="status" data-testid="share-tip">
+          {t("composer.shareTip")}
         </p>
       ) : null}
       <textarea

@@ -1068,7 +1068,8 @@
       "send": "Send",
       "sending": "Sending…",
       "counter": "{remaining} characters left",
-      "blockedNudge": "For your safety, phone numbers, LINE IDs and links can't be typed in chat. Use 'Share my LINE' when you're ready."
+      "blockedNudge": "For your safety, phone numbers, LINE IDs and links can't be typed in chat. Use 'Share my LINE' when you're ready.",
+      "shareTip": "Tip: use Share my LINE so it's saved safely."
     },
     "share": {
       "menu": "Share contact",

@@ -52,6 +52,18 @@ const T_ME = /\bt\.me\/[^\s]+/gi;
 const IG_FB_HANDLE =
   /\b(?:ig|insta|instagram|fb|facebook)\s*[:@]?\s*@?[a-zA-Z0-9_.]{3,30}\b/gi;
 
+/** Broad LINE hint restored for opener/follow_up over-blocking. */
+const LINE_ID_HINT =
+  /\b(?:line|ไลน์|ไอดี)\s*[:=@]?\s*[a-zA-Z0-9_.\-@]{3,30}\b/gi;
+
+/** Thai LINE / ID without word boundaries; optional separators. */
+const THAI_LINE_LOOSE =
+  /(?:ไลน์|ไอดี)\s*[:=@\-]?\s*([a-zA-Z0-9_.\-@]{3,30})/gu;
+
+/** English line|lineid + token; caller requires digit, underscore, or dot. */
+const ENGLISH_LINE_ID_TOKEN =
+  /\b(?:lineid|line)\s*[:=@\-]?\s*([a-zA-Z0-9_.\-@]{3,30})\b/gi;
+
 export function normalizeForDetection(text: string): string {
   let normalized = text.normalize("NFKC");
 
@@ -246,13 +258,50 @@ function findLineIdMatches(text: string): string[] {
     }
   }
 
-  const thaiPattern = /(?:^|[^\p{L}\p{N}_])(?:ไลน์|ไอดี)\s+([a-zA-Z0-9_.\-@]{3,30})\b/gu;
+  const thaiPattern =
+    /(?:^|[^\p{L}\p{N}_])(?:ไลน์|ไอดี)\s+([a-zA-Z0-9_.\-@]{3,30})\b/gu;
   let thaiHit;
   while ((thaiHit = thaiPattern.exec(text)) !== null) {
     matches.push(thaiHit[0]);
   }
 
   return matches;
+}
+
+/** Strict opener/follow_up LINE rules (over-blocking acceptable). */
+function findStrictLineIdMatches(text: string): string[] {
+  const matches = new Set<string>(findLineIdMatches(text));
+
+  const thaiLoose = new RegExp(THAI_LINE_LOOSE.source, THAI_LINE_LOOSE.flags);
+  let thaiHit;
+  while ((thaiHit = thaiLoose.exec(text)) !== null) {
+    matches.add(thaiHit[0]);
+  }
+
+  const enToken = new RegExp(
+    ENGLISH_LINE_ID_TOKEN.source,
+    ENGLISH_LINE_ID_TOKEN.flags
+  );
+  let enHit;
+  while ((enHit = enToken.exec(text)) !== null) {
+    const token = enHit[1] ?? "";
+    if (/[\d_.]/.test(token)) {
+      matches.add(enHit[0]);
+    }
+  }
+
+  const broad = new RegExp(LINE_ID_HINT.source, LINE_ID_HINT.flags);
+  let broadHit;
+  while ((broadHit = broad.exec(text)) !== null) {
+    const full = broadHit[0];
+    const tokenMatch = full.match(/[a-zA-Z0-9_.\-@]{3,30}$/);
+    const token = tokenMatch?.[0] ?? "";
+    if (lineIdTokenLooksLikeId(token)) {
+      matches.add(full);
+    }
+  }
+
+  return [...matches];
 }
 
 function withoutBroadLineHeuristic(result: TextFilterResult): TextFilterResult {
@@ -267,10 +316,15 @@ function withoutBroadLineHeuristic(result: TextFilterResult): TextFilterResult {
 
 function mergeContactDetection(
   raw: string,
-  normalized: string
+  normalized: string,
+  strictLine: boolean
 ): { blocked: boolean; types: BlockedContactType[]; matches: string[] } {
-  const rawResult = withoutBroadLineHeuristic(detectBlockedContacts(raw));
-  const normResult = withoutBroadLineHeuristic(detectBlockedContacts(normalized));
+  const rawDetected = detectBlockedContacts(raw);
+  const normDetected = detectBlockedContacts(normalized);
+
+  // Always strip broad LINE from text-filter; LINE rules are applied below.
+  const rawResult = withoutBroadLineHeuristic(rawDetected);
+  const normResult = withoutBroadLineHeuristic(normDetected);
 
   const types = new Set<BlockedContactType>([
     ...rawResult.reasons,
@@ -281,6 +335,21 @@ function mergeContactDetection(
     ...normResult.matches.map((m) => m.match),
   ]);
 
+  // For opener/follow_up, also keep line_id hits from the helper's broad patterns
+  // when the token looks like an ID (restore broad pattern without casual English).
+  if (strictLine) {
+    for (const result of [rawDetected, normDetected]) {
+      for (const m of result.matches) {
+        if (m.type !== "line_id") continue;
+        const token = m.match.replace(/^.*?(?:line|ไลน์|ไอดี)\s*[:=@\-]?\s*/i, "");
+        if (lineIdTokenLooksLikeId(token.trim()) || /[\d_.@]/.test(m.match)) {
+          types.add("line_id");
+          matches.add(m.match);
+        }
+      }
+    }
+  }
+
   const scanTexts = [raw, normalized];
 
   if (/\d{9,}/.test(normalized)) {
@@ -290,7 +359,10 @@ function mergeContactDetection(
   }
 
   for (const scan of scanTexts) {
-    for (const lineMatch of findLineIdMatches(scan)) {
+    const lineMatches = strictLine
+      ? findStrictLineIdMatches(scan)
+      : findLineIdMatches(scan);
+    for (const lineMatch of lineMatches) {
       types.add("line_id");
       matches.add(lineMatch);
     }
@@ -329,7 +401,12 @@ function mergeContactDetection(
   };
 }
 
-export function detectContactInfo(text: string): {
+export type ContactFilterContext = "opener" | "follow_up" | "chat";
+
+export function detectContactInfo(
+  text: string,
+  context: ContactFilterContext = "chat"
+): {
   blocked: boolean;
   types: BlockedContactType[];
   matches: string[];
@@ -338,7 +415,8 @@ export function detectContactInfo(text: string): {
     return { blocked: false, types: [], matches: [] };
   }
   const normalized = normalizeForDetection(text);
-  return mergeContactDetection(text, normalized);
+  const strictLine = context === "opener" || context === "follow_up";
+  return mergeContactDetection(text, normalized, strictLine);
 }
 
 function termMatches(haystack: string, term: string): boolean {
@@ -395,11 +473,13 @@ export type FilterOutgoingResult =
   | {
       ok: true;
       risk: { categories: RiskCategory[]; terms: string[] };
+      nudge?: "use_share_button";
+      contactTypes?: BlockedContactType[];
     };
 
 export function filterOutgoingText(
   text: string,
-  options: { maxChars: number }
+  options: { maxChars: number; context: ContactFilterContext }
 ): FilterOutgoingResult {
   const trimmed = text.trim();
   if (!trimmed) {
@@ -409,8 +489,18 @@ export function filterOutgoingText(
     return { ok: false, code: "too_long" };
   }
 
-  const contact = detectContactInfo(trimmed);
+  const contact = detectContactInfo(trimmed, options.context);
+  const risk = detectRiskKeywords(trimmed);
+
   if (contact.blocked) {
+    if (options.context === "chat") {
+      return {
+        ok: true,
+        risk,
+        nudge: "use_share_button",
+        contactTypes: contact.types,
+      };
+    }
     return {
       ok: false,
       code: "contact_info_blocked",
@@ -418,6 +508,5 @@ export function filterOutgoingText(
     };
   }
 
-  const risk = detectRiskKeywords(trimmed);
   return { ok: true, risk };
 }

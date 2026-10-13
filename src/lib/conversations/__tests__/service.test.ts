@@ -12,6 +12,7 @@ vi.mock("@/lib/messaging/content-filter", () => ({
 }));
 
 const limitResults: unknown[][] = [];
+const insertValues = vi.fn();
 const insertReturning = vi.fn();
 const updateReturning = vi.fn();
 
@@ -36,7 +37,7 @@ vi.mock("@/lib/db", () => {
         })),
       })),
       insert: vi.fn(() => ({
-        values: vi.fn(() => ({
+        values: insertValues.mockImplementation(() => ({
           returning: insertReturning,
         })),
       })),
@@ -91,21 +92,42 @@ describe("conversations service", () => {
     });
   });
 
-  it("blocks contact info and records a blocked_attempt flag", async () => {
+  it("sends chat contact details, records contact_shared_in_text, returns nudge", async () => {
     limitResults.push([openConversation], [{ value: 0 }]);
     filterOutgoingText.mockReturnValue({
-      ok: false,
-      code: "contact_info_blocked",
-      types: ["phone_number"],
+      ok: true,
+      risk: { categories: [], terms: [] },
+      nudge: "use_share_button",
+      contactTypes: ["phone_number"],
     });
-    insertReturning.mockResolvedValue([{ id: "flag-1" }]);
+    insertReturning.mockResolvedValue([
+      {
+        id: "msg-1",
+        conversationId: "conv-1",
+        senderUserId: "worker-1",
+        kind: "text",
+        body: "081 234 5678",
+        isFlagged: true,
+        createdAt: new Date(),
+      },
+    ]);
 
-    const result = await sendMessage("worker-1", "conv-1", "0812345678");
+    const result = await sendMessage("worker-1", "conv-1", "081 234 5678");
 
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.code).toBe("contact_info_blocked");
+    expect(filterOutgoingText).toHaveBeenCalledWith("081 234 5678", {
+      maxChars: 2000,
+      context: "chat",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
     expect(result.nudge).toBe("use_share_button");
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categories: ["contact_shared_in_text"],
+        matchedTerms: ["phone_number"],
+        targetType: "message",
+      })
+    );
   });
 
   it("returns 409 when conversation is closed", async () => {

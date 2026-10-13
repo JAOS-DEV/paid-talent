@@ -34,8 +34,6 @@ import { conversationError, type ConversationServiceError } from "./errors";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MS_PER_10_MIN = 10 * 60 * 1000;
 const RATE_LIMIT_MAX = 30;
-const BLOCKED_REPEAT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const BLOCKED_REPEAT_THRESHOLD = 3;
 
 export type ConversationParticipantRole = "worker" | "recruiter";
 
@@ -471,33 +469,13 @@ async function countRecentMessages(
   return Number(row?.value ?? 0);
 }
 
-async function countRecentBlockedAttempts(
-  conversationId: string,
-  authorUserId: string,
-  now: Date
-): Promise<number> {
-  const since = new Date(now.getTime() - BLOCKED_REPEAT_WINDOW_MS);
-  const [row] = await db
-    .select({ value: count() })
-    .from(messageFlags)
-    .where(
-      and(
-        eq(messageFlags.conversationId, conversationId),
-        eq(messageFlags.authorUserId, authorUserId),
-        eq(messageFlags.targetType, "blocked_attempt"),
-        gte(messageFlags.createdAt, since)
-      )
-    );
-  return Number(row?.value ?? 0);
-}
-
 export async function sendMessage(
   userId: string,
   conversationId: string,
   body: string,
   now: Date = new Date()
 ): Promise<
-  | { ok: true; message: Message }
+  | { ok: true; message: Message; nudge?: "use_share_button" }
   | ConversationServiceError
 > {
   const [convo] = await db
@@ -528,6 +506,7 @@ export async function sendMessage(
   const settings = await getMessagingSettings();
   const filtered = filterOutgoingText(body, {
     maxChars: settings.messageMaxChars,
+    context: "chat",
   });
 
   if (!filtered.ok) {
@@ -537,28 +516,6 @@ export async function sendMessage(
     if (filtered.code === "too_long") {
       return conversationError("message_too_long", 422, "Message is too long");
     }
-
-    const excerpt = body.trim().slice(0, 200);
-    const categories = ["contact_attempt"];
-    const priorBlocked = await countRecentBlockedAttempts(
-      conversationId,
-      userId,
-      now
-    );
-    if (priorBlocked + 1 >= BLOCKED_REPEAT_THRESHOLD) {
-      categories.push("repeat_contact_attempt");
-    }
-
-    await db.insert(messageFlags).values({
-      targetType: "blocked_attempt",
-      conversationId,
-      authorUserId: userId,
-      categories,
-      matchedTerms: filtered.types ?? [],
-      excerpt,
-      createdAt: now,
-    });
-
     return conversationError(
       "contact_info_blocked",
       422,
@@ -576,6 +533,13 @@ export async function sendMessage(
     );
   }
 
+  const flagCategories: string[] = [...filtered.risk.categories];
+  const flagTerms: string[] = [...filtered.risk.terms];
+  if (filtered.contactTypes?.length) {
+    flagCategories.push("contact_shared_in_text");
+    flagTerms.push(...filtered.contactTypes);
+  }
+
   const [inserted] = await db
     .insert(messages)
     .values({
@@ -583,19 +547,19 @@ export async function sendMessage(
       senderUserId: userId,
       kind: "text",
       body: body.trim(),
-      isFlagged: filtered.risk.categories.length > 0,
+      isFlagged: flagCategories.length > 0,
       createdAt: now,
     })
     .returning();
 
-  if (filtered.risk.categories.length > 0) {
+  if (flagCategories.length > 0) {
     await db.insert(messageFlags).values({
       targetType: "message",
       messageId: inserted.id,
       conversationId,
       authorUserId: userId,
-      categories: filtered.risk.categories,
-      matchedTerms: filtered.risk.terms,
+      categories: flagCategories,
+      matchedTerms: flagTerms,
       createdAt: now,
     });
   }
@@ -611,7 +575,11 @@ export async function sendMessage(
     })
     .where(eq(conversations.id, conversationId));
 
-  return { ok: true, message: inserted };
+  return {
+    ok: true,
+    message: inserted,
+    ...(filtered.nudge ? { nudge: filtered.nudge } : {}),
+  };
 }
 
 export async function shareContact(
@@ -777,7 +745,10 @@ export async function flagContactRequestText(input: {
   text: string;
   now?: Date;
 }): Promise<void> {
-  const filtered = filterOutgoingText(input.text, { maxChars: 5000 });
+  const filtered = filterOutgoingText(input.text, {
+    maxChars: 5000,
+    context: "opener",
+  });
   if (!filtered.ok || filtered.risk.categories.length === 0) {
     return;
   }

@@ -47,6 +47,7 @@ export async function POST(
         body: result.message.body,
         createdAt: result.message.createdAt.toISOString(),
       },
+      ...(result.nudge ? { nudge: result.nudge } : {}),
     });
   } catch (error) {
     console.error("[Conversations] send message failed:", error);

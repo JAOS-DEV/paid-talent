@@ -88,6 +88,9 @@ export function ChatView({
       return { code: data.code, nudge: data.nudge };
     }
     await load();
+    if (data.nudge) {
+      return { nudge: data.nudge };
+    }
   };
 
   const shareContact = async (

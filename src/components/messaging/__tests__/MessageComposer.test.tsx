@@ -14,8 +14,8 @@ function wrap(ui: React.ReactElement): React.ReactElement {
 }
 
 describe("MessageComposer", () => {
-  it("shows blocked nudge when send returns contact_info_blocked", async () => {
-    const onSend = vi.fn().mockResolvedValue({ code: "contact_info_blocked" });
+  it("shows share tip when send returns use_share_button nudge", async () => {
+    const onSend = vi.fn().mockResolvedValue({ nudge: "use_share_button" });
     render(wrap(<MessageComposer maxChars={200} onSend={onSend} />));
 
     fireEvent.change(screen.getByRole("textbox"), {
@@ -24,7 +24,10 @@ describe("MessageComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("blocked-nudge")).toBeInTheDocument();
+      expect(screen.getByTestId("share-tip")).toBeInTheDocument();
+      expect(screen.getByTestId("share-tip")).toHaveTextContent(
+        /Tip: use Share my LINE/i
+      );
     });
   });
 });
