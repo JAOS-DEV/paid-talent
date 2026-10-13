@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import { LanguageToggle } from "@/components/i18n";
+import { MessagesNavLink } from "@/components/messaging/MessagesNavLink";
 
 const MARK_SRC = "/brand/paid-talent-mark.svg";
 const LOCKUP_SRC = "/brand/paid-talent-logo.svg";
@@ -91,20 +92,26 @@ export function Header(): React.ReactElement {
                 </Link>
               )}
               {session?.user?.role === "worker" ? (
-                <Link
-                  href="/worker/requests"
-                  className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
-                >
-                  {t("requests")}
-                </Link>
+                <>
+                  <Link
+                    href="/worker/requests"
+                    className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
+                  >
+                    {t("requests")}
+                  </Link>
+                  <MessagesNavLink href="/worker/messages" />
+                </>
               ) : null}
               {session?.user?.role === "recruiter" ? (
-                <Link
-                  href="/recruiter/requests"
-                  className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
-                >
-                  {t("requests")}
-                </Link>
+                <>
+                  <Link
+                    href="/recruiter/requests"
+                    className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
+                  >
+                    {t("requests")}
+                  </Link>
+                  <MessagesNavLink href="/recruiter/messages" />
+                </>
               ) : null}
               <Button
                 variant="ghost"

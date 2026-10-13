@@ -19,6 +19,7 @@ vi.mock("@/lib/db", () => {
     status: "status",
   };
   const conversations = { id: "id" };
+  const messages = { id: "id" };
   const profileInterests = {
     id: "id",
     recruiterUserId: "recruiter_user_id",
@@ -56,6 +57,11 @@ vi.mock("@/lib/db", () => {
             }),
           };
         }
+        if (table === messages) {
+          return {
+            values: vi.fn().mockResolvedValue(undefined),
+          };
+        }
         return {
           values: vi.fn(() => ({
             returning: vi.fn(),
@@ -75,6 +81,7 @@ vi.mock("@/lib/db", () => {
     },
     contactRequests,
     conversations,
+    messages,
     profileInterests,
     recruiterOpenings: {},
     userNotificationPrefs: {},

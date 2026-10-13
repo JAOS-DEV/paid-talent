@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button, Badge } from "@/components/ui";
 import type { InboxContactRequestDto } from "@/lib/contact-requests/queries";
@@ -118,6 +119,13 @@ export function WorkerRequestCard({
             </Button>
           ) : null}
         </div>
+      ) : request.status === "accepted" && request.conversationId ? (
+        <Link
+          href={`/worker/messages/${request.conversationId}`}
+          className="mt-3 inline-flex text-sm font-medium text-primary-400 hover:text-primary-300"
+        >
+          {t("sent.openChat")}
+        </Link>
       ) : (
         <p className="mt-3 text-sm text-charcoal-500">
           {t(`status.${request.status}`)}

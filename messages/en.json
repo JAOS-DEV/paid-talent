@@ -41,6 +41,8 @@
     "openings": "Openings",
     "interests": "Interests",
     "requests": "Requests",
+    "messages": "Messages",
+    "messagesUnread": "Messages ({count})",
     "verification": "Verification",
     "searchWorkers": "Search Workers",
     "openMenu": "Open menu",
@@ -1051,6 +1053,46 @@
       "venueNotPrimary": "Free recruiters can only send from their primary venue.",
       "paused": "Messaging is paused for your account.",
       "notVerified": "Verify your identity and venue before sending requests."
+    }
+  },
+  "messaging": {
+    "loading": "Loading…",
+    "list": {
+      "title": "Messages",
+      "subtitle": "Text-only chat with venues and talent you have connected with.",
+      "empty": "No conversations yet. Accept a contact request to start chatting.",
+      "verifiedPro": "Verified Pro"
+    },
+    "composer": {
+      "placeholder": "Write a message…",
+      "send": "Send",
+      "sending": "Sending…",
+      "counter": "{remaining} characters left",
+      "blockedNudge": "For your safety, phone numbers, LINE IDs and links can't be typed in chat. Use 'Share my LINE' when you're ready."
+    },
+    "share": {
+      "menu": "Share contact",
+      "shareLine": "Share my LINE",
+      "sharePhone": "Share my phone number",
+      "shareWhatsapp": "Share my WhatsApp",
+      "confirm": "Share your {channel} with {name}? They'll be able to contact you outside Paid Talent.",
+      "confirmAction": "Share",
+      "cancel": "Cancel",
+      "noValue": "Add this in your profile first.",
+      "profileSettings": "Profile settings"
+    },
+    "safety": {
+      "permanentLine": "Never pay a deposit or hand over your passport. Call 1300 if something feels wrong.",
+      "banner": "Be careful: real employers never ask for a deposit, your passport, or for you to travel abroad for work. If you're worried, call the 1300 hotline (24 hours, free) or report this chat."
+    },
+    "thread": {
+      "back": "All messages",
+      "hide": "Hide chat",
+      "hideNote": "Hidden from your inbox. We keep messages for up to 180 days for safety, then delete them.",
+      "copyContact": "Copy"
+    },
+    "errors": {
+      "loadFailed": "Could not load this conversation."
     }
   }
 }
