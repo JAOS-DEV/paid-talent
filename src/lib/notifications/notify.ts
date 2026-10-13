@@ -16,6 +16,7 @@ import { resolveLocale } from "@/lib/i18n/locale";
 
 const MAX_ATTEMPTS = 3;
 const RETRY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const CLAIM_LEASE_INTERVAL = sql`now() - interval '5 minutes'`;
 const RETRYABLE_STATUSES: DeliveryStatus[] = ["pending", "failed"];
 
 type AfterFn = (fn: () => unknown | Promise<unknown>) => void;
@@ -27,6 +28,13 @@ function resolveAfter(): AfterFn | undefined {
 
 function isRetryableStatus(status: DeliveryStatus): boolean {
   return status === "pending" || status === "failed";
+}
+
+function claimAvailable(): ReturnType<typeof or> {
+  return or(
+    isNull(notifications.claimedAt),
+    lt(notifications.claimedAt, CLAIM_LEASE_INTERVAL)
+  );
 }
 
 export function scheduleDeliver(notificationId: string): void {
@@ -83,16 +91,20 @@ async function markChannelStatuses(
 ): Promise<void> {
   await db
     .update(notifications)
-    .set(patch)
+    .set({ ...patch, claimedAt: null })
     .where(eq(notifications.id, id));
 }
 
 export async function deliver(notificationId: string): Promise<void> {
   try {
-    // Claim eligible row atomically so concurrent deliver() calls don't both send.
+    // Lease-based claim: concurrent UPDATEs re-check WHERE after row lock;
+    // the loser sees claimedAt set and does not match.
     const [row] = await db
       .update(notifications)
-      .set({ lastError: null })
+      .set({
+        claimedAt: sql`now()`,
+        lastError: null,
+      })
       .where(
         and(
           eq(notifications.id, notificationId),
@@ -100,7 +112,8 @@ export async function deliver(notificationId: string): Promise<void> {
             inArray(notifications.emailStatus, RETRYABLE_STATUSES),
             inArray(notifications.lineStatus, RETRYABLE_STATUSES)
           ),
-          lt(notifications.attempts, MAX_ATTEMPTS)
+          lt(notifications.attempts, MAX_ATTEMPTS),
+          claimAvailable()
         )
       )
       .returning();
@@ -276,6 +289,7 @@ export async function deliver(notificationId: string): Promise<void> {
           lastError:
             error instanceof Error ? error.message : "deliver_failed",
           emailStatus: "failed",
+          claimedAt: null,
         })
         .where(eq(notifications.id, notificationId));
     } catch {
@@ -297,7 +311,8 @@ export async function retryPending(now: Date = new Date()): Promise<number> {
           inArray(notifications.lineStatus, ["pending", "failed"])
         ),
         lt(notifications.attempts, MAX_ATTEMPTS),
-        sql`${notifications.createdAt} >= ${since}`
+        sql`${notifications.createdAt} >= ${since}`,
+        claimAvailable()
       )
     );
 

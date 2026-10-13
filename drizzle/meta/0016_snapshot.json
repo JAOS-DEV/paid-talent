@@ -1,5 +1,5 @@
 {
-  "id": "d2420e5a-731c-47b1-a96e-bcfcad4e5d6c",
+  "id": "a458c718-e76d-4371-ae92-49e295c1cdf9",
   "prevId": "284ad26a-77db-40ac-a75b-b2553004c9e5",
   "version": "7",
   "dialect": "postgresql",
@@ -2244,6 +2244,12 @@
         "last_error": {
           "name": "last_error",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },

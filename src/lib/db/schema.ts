@@ -834,6 +834,7 @@ export const notifications = pgTable(
     lineSentAt: timestamp("line_sent_at", { mode: "date" }),
     attempts: integer("attempts").notNull().default(0),
     lastError: text("last_error"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [

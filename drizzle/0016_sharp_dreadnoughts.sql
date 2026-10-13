@@ -13,6 +13,7 @@ CREATE TABLE "notifications" (
 	"line_sent_at" timestamp,
 	"attempts" integer DEFAULT 0 NOT NULL,
 	"last_error" text,
+	"claimed_at" timestamp with time zone,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
