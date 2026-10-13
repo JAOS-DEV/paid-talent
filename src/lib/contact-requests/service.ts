@@ -15,6 +15,7 @@ import {
   contactRequests,
   conversations,
   db,
+  messageFlags,
   profileInterests,
   recruiterOpenings,
   userNotificationPrefs,
@@ -23,7 +24,11 @@ import {
   type ContactRequest,
   type Conversation,
 } from "@/lib/db";
-import { containsBlockedContact } from "@/lib/helpers/text-filter";
+import {
+  flagContactRequestText,
+  seedConversationMessagesFromRequest,
+} from "@/lib/conversations/service";
+import { filterOutgoingText } from "@/lib/messaging/content-filter";
 import { resolveOpeningAttachment } from "@/lib/interests/opening-attachment";
 import {
   bangkokDayRange,
@@ -220,14 +225,6 @@ export async function createContactRequest(
     return serviceError("opener_required", 422, "Opener text is required");
   }
 
-  if (containsBlockedContact(openerText)) {
-    return serviceError(
-      "contact_info_blocked",
-      422,
-      "Contact information is not allowed in the opener"
-    );
-  }
-
   const access = await getRecruiterAccess(input.recruiterUserId);
   if (!access.recruiterProfileId) {
     return serviceError("not_verified", 403, "Recruiter not verified");
@@ -321,6 +318,38 @@ export async function createContactRequest(
   }
 
   const settings = await getMessagingSettings();
+  const openerLimits = effectiveLimitsFor(
+    access.tier,
+    settings,
+    access.verifiedAt,
+    now
+  );
+  const openerFiltered = filterOutgoingText(openerText, {
+    maxChars: openerLimits.openerMaxChars,
+    context: "opener",
+  });
+  if (!openerFiltered.ok) {
+    if (openerFiltered.code === "contact_info_blocked") {
+      await db.insert(messageFlags).values({
+        targetType: "blocked_attempt",
+        authorUserId: input.recruiterUserId,
+        categories: ["contact_attempt"],
+        matchedTerms: openerFiltered.types ?? [],
+        excerpt: openerText.slice(0, 200),
+        createdAt: now,
+      });
+      return serviceError(
+        "contact_info_blocked",
+        422,
+        "Contact information is not allowed in the opener"
+      );
+    }
+    if (openerFiltered.code === "too_long") {
+      return serviceError("opener_too_long", 422, "Opener text is too long");
+    }
+    return serviceError("opener_required", 422, "Opener text is required");
+  }
+
   const isTopTalent = await isProfileTopTalent(input.workerProfileId);
   const openAccess = access.billingAccessMode === "open_access";
 
@@ -426,12 +455,24 @@ export async function createContactRequest(
           isPro: access.tier === "pro",
           isTopTalentTarget: isTopTalent,
           countsTowardCaps: true,
+          isFlagged: openerFiltered.risk.categories.length > 0,
           deliveredAt: inboundDecision === "deliver" ? now : null,
           expiresAt,
           createdAt: now,
           updatedAt: now,
         })
         .returning();
+
+      if (openerFiltered.risk.categories.length > 0) {
+        await tx.insert(messageFlags).values({
+          targetType: "contact_request",
+          contactRequestId: request.id,
+          authorUserId: input.recruiterUserId,
+          categories: openerFiltered.risk.categories,
+          matchedTerms: openerFiltered.risk.terms,
+          createdAt: now,
+        });
+      }
 
       const nextCounts = {
         last24h: counts.last24h + 1,
@@ -607,12 +648,25 @@ export async function acceptRequest(
         venueId: updated.venueId,
         status: "open",
         lastActivityAt: now,
+        lastMessageAt: updated.followUpSentAt ?? updated.createdAt,
         retentionExpiresAt: new Date(
           now.getTime() + settings.retentionDays * MS_PER_DAY
         ),
         createdAt: now,
       })
       .returning();
+
+    await seedConversationMessagesFromRequest(
+      {
+        conversationId: conversation.id,
+        recruiterUserId: updated.recruiterUserId,
+        openerText: updated.openerText,
+        openerCreatedAt: updated.createdAt,
+        followUpText: updated.followUpText,
+        followUpSentAt: updated.followUpSentAt,
+      },
+      tx
+    );
 
     // Keep hire-outcomes FK working until profile_interests is dropped.
     // No target: swallow conflicts on id OR (recruiter_user_id, worker_profile_id).
@@ -769,14 +823,6 @@ export async function followUp(
     return serviceError("opener_required", 422, "Follow-up text is required");
   }
 
-  if (containsBlockedContact(followUpText)) {
-    return serviceError(
-      "contact_info_blocked",
-      422,
-      "Contact information is not allowed in the follow-up"
-    );
-  }
-
   const settings = await getMessagingSettings();
   const access = await getRecruiterAccess(recruiterUserId);
   const limits = effectiveLimitsFor(
@@ -786,12 +832,35 @@ export async function followUp(
     now
   );
 
-  if (followUpText.length > limits.openerMaxChars) {
-    return serviceError(
-      "follow_up_too_long",
-      422,
-      "Follow-up text is too long"
-    );
+  const followUpFiltered = filterOutgoingText(followUpText, {
+    maxChars: limits.openerMaxChars,
+    context: "follow_up",
+  });
+  if (!followUpFiltered.ok) {
+    if (followUpFiltered.code === "contact_info_blocked") {
+      await db.insert(messageFlags).values({
+        targetType: "blocked_attempt",
+        contactRequestId: requestId,
+        authorUserId: recruiterUserId,
+        categories: ["contact_attempt"],
+        matchedTerms: followUpFiltered.types ?? [],
+        excerpt: followUpText.slice(0, 200),
+        createdAt: now,
+      });
+      return serviceError(
+        "contact_info_blocked",
+        422,
+        "Contact information is not allowed in the follow-up"
+      );
+    }
+    if (followUpFiltered.code === "too_long") {
+      return serviceError(
+        "follow_up_too_long",
+        422,
+        "Follow-up text is too long"
+      );
+    }
+    return serviceError("opener_required", 422, "Follow-up text is required");
   }
 
   const [request] = await db
@@ -846,6 +915,9 @@ export async function followUp(
       followUpText,
       followUpSentAt: now,
       updatedAt: now,
+      ...(followUpFiltered.risk.categories.length > 0
+        ? { isFlagged: true }
+        : {}),
     })
     .where(
       and(
@@ -862,6 +934,15 @@ export async function followUp(
       409,
       "A follow-up was already sent"
     );
+  }
+
+  if (followUpFiltered.risk.categories.length > 0) {
+    await flagContactRequestText({
+      contactRequestId: updated.id,
+      authorUserId: recruiterUserId,
+      text: followUpText,
+      now,
+    });
   }
 
   return { ok: true, request: updated };

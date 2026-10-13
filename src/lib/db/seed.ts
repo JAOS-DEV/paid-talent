@@ -1712,6 +1712,119 @@ async function seed(): Promise<void> {
         workerEmail: r.workerEmail,
       }));
 
+    console.log("\n📦 Seeding chat messages (demo thread)...");
+    const demoRequest = createdRequests.find(
+      (r) =>
+        r.status === "accepted" &&
+        r.recruiterEmail === "recruiter-pro@example.com" &&
+        r.workerEmail === "worker2@example.com"
+    );
+    if (demoRequest) {
+      const [demoConvo] = await db
+        .select()
+        .from(schema.conversations)
+        .where(
+          eq(schema.conversations.contactRequestId, demoRequest.contactRequestId)
+        )
+        .limit(1);
+
+      if (demoConvo) {
+        const [existingMsg] = await db
+          .select({ id: schema.messages.id })
+          .from(schema.messages)
+          .where(eq(schema.messages.conversationId, demoConvo.id))
+          .limit(1);
+
+        if (!existingMsg) {
+          const [reqRow] = await db
+            .select()
+            .from(schema.contactRequests)
+            .where(eq(schema.contactRequests.id, demoRequest.contactRequestId))
+            .limit(1);
+
+          const nowChat = new Date();
+          if (reqRow) {
+            await db.insert(schema.messages).values({
+              conversationId: demoConvo.id,
+              senderUserId: reqRow.recruiterUserId,
+              kind: "text",
+              body: reqRow.openerText,
+              createdAt: reqRow.createdAt,
+            });
+          }
+
+          await db.insert(schema.messages).values({
+            conversationId: demoConvo.id,
+            senderUserId: demoConvo.workerUserId,
+            kind: "text",
+            body: "Thanks for reaching out — when would you like me to start?",
+            createdAt: new Date(nowChat.getTime() - 3600_000),
+          });
+
+          const [workerProfile] = await db
+            .select({ lineId: schema.workerProfiles.lineId })
+            .from(schema.workerProfiles)
+            .where(eq(schema.workerProfiles.id, demoConvo.workerProfileId))
+            .limit(1);
+
+          const lineValue = workerProfile?.lineId?.trim() ?? "seed_worker_line";
+          const [shareMsg] = await db
+            .insert(schema.messages)
+            .values({
+              conversationId: demoConvo.id,
+              senderUserId: demoConvo.workerUserId,
+              kind: "contact_share",
+              body: `LINE: ${lineValue}`,
+              createdAt: new Date(nowChat.getTime() - 1800_000),
+            })
+            .returning();
+
+          await db.insert(schema.contactShares).values({
+            conversationId: demoConvo.id,
+            messageId: shareMsg.id,
+            sharerUserId: demoConvo.workerUserId,
+            recipientUserId: demoConvo.recruiterUserId,
+            channel: "line",
+            createdAt: shareMsg.createdAt,
+          });
+
+          const [flaggedMsg] = await db
+            .insert(schema.messages)
+            .values({
+              conversationId: demoConvo.id,
+              senderUserId: demoConvo.recruiterUserId,
+              kind: "text",
+              body: "Please pay a small deposit before we confirm the shift.",
+              isFlagged: true,
+              createdAt: nowChat,
+            })
+            .returning();
+
+          await db.insert(schema.messageFlags).values({
+            targetType: "message",
+            messageId: flaggedMsg.id,
+            conversationId: demoConvo.id,
+            authorUserId: demoConvo.recruiterUserId,
+            categories: ["money_request"],
+            matchedTerms: ["deposit"],
+            createdAt: nowChat,
+          });
+
+          await db
+            .update(schema.conversations)
+            .set({
+              lastMessageAt: nowChat,
+              lastActivityAt: nowChat,
+            })
+            .where(eq(schema.conversations.id, demoConvo.id));
+
+          console.log(
+            "   ✅ Demo chat: text messages, LINE share, flagged deposit message"
+          );
+        }
+      }
+    }
+
     console.log("\n📦 Seeding hire outcomes...");
 
     const hireOutcomesSeed: Array<{

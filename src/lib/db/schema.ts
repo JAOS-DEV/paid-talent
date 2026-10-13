@@ -79,6 +79,30 @@ export const conversationStatusEnum = pgEnum("conversation_status", [
   "blocked",
 ]);
 
+export const messageKindEnum = pgEnum("message_kind", [
+  "text",
+  "system",
+  "contact_share",
+]);
+
+export const flagTargetEnum = pgEnum("flag_target", [
+  "message",
+  "contact_request",
+  "blocked_attempt",
+]);
+
+export const flagStatusEnum = pgEnum("flag_status", [
+  "open",
+  "dismissed",
+  "actioned",
+]);
+
+export const contactShareChannelEnum = pgEnum("contact_share_channel", [
+  "line",
+  "phone",
+  "whatsapp",
+]);
+
 export const hireConfirmationRequestedStatusEnum = pgEnum(
   "hire_confirmation_requested_status",
   ["hired", "started"]
@@ -596,6 +620,83 @@ export const conversations = pgTable(
   ]
 );
 
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    senderUserId: uuid("sender_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    kind: messageKindEnum("kind").notNull().default("text"),
+    body: text("body").notNull(),
+    isFlagged: boolean("is_flagged").notNull().default(false),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("messages_conversation_created_idx").on(
+      table.conversationId,
+      table.createdAt
+    ),
+  ]
+);
+
+export const messageFlags = pgTable(
+  "message_flags",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    targetType: flagTargetEnum("target_type").notNull(),
+    messageId: uuid("message_id").references(() => messages.id, {
+      onDelete: "cascade",
+    }),
+    contactRequestId: uuid("contact_request_id").references(
+      () => contactRequests.id,
+      { onDelete: "cascade" }
+    ),
+    conversationId: uuid("conversation_id").references(() => conversations.id, {
+      onDelete: "cascade",
+    }),
+    authorUserId: uuid("author_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    categories: jsonb("categories").$type<string[]>().notNull(),
+    matchedTerms: jsonb("matched_terms").$type<string[]>().notNull(),
+    excerpt: text("excerpt"),
+    status: flagStatusEnum("status").notNull().default("open"),
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("message_flags_status_created_idx").on(table.status, table.createdAt),
+    index("message_flags_author_user_id_idx").on(table.authorUserId),
+  ]
+);
+
+export const contactShares = pgTable(
+  "contact_shares",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    messageId: uuid("message_id").references(() => messages.id, {
+      onDelete: "set null",
+    }),
+    sharerUserId: uuid("sharer_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recipientUserId: uuid("recipient_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    channel: contactShareChannelEnum("channel").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [index("contact_shares_conversation_idx").on(table.conversationId)]
+);
+
 export const userNotificationPrefs = pgTable("user_notification_prefs", {
   userId: uuid("user_id")
     .primaryKey()
@@ -1104,7 +1205,7 @@ export const contactRequestsRelations = relations(
   })
 );
 
-export const conversationsRelations = relations(conversations, ({ one }) => ({
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
   contactRequest: one(contactRequests, {
     fields: [conversations.contactRequestId],
     references: [contactRequests.id],
@@ -1126,6 +1227,58 @@ export const conversationsRelations = relations(conversations, ({ one }) => ({
   venue: one(venues, {
     fields: [conversations.venueId],
     references: [venues.id],
+  }),
+  messages: many(messages),
+  messageFlags: many(messageFlags),
+  contactShares: many(contactShares),
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+  sender: one(users, {
+    fields: [messages.senderUserId],
+    references: [users.id],
+  }),
+}));
+
+export const messageFlagsRelations = relations(messageFlags, ({ one }) => ({
+  message: one(messages, {
+    fields: [messageFlags.messageId],
+    references: [messages.id],
+  }),
+  contactRequest: one(contactRequests, {
+    fields: [messageFlags.contactRequestId],
+    references: [contactRequests.id],
+  }),
+  conversation: one(conversations, {
+    fields: [messageFlags.conversationId],
+    references: [conversations.id],
+  }),
+  author: one(users, {
+    fields: [messageFlags.authorUserId],
+    references: [users.id],
+  }),
+}));
+
+export const contactSharesRelations = relations(contactShares, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [contactShares.conversationId],
+    references: [conversations.id],
+  }),
+  message: one(messages, {
+    fields: [contactShares.messageId],
+    references: [messages.id],
+  }),
+  sharer: one(users, {
+    fields: [contactShares.sharerUserId],
+    references: [users.id],
+  }),
+  recipient: one(users, {
+    fields: [contactShares.recipientUserId],
+    references: [users.id],
   }),
 }));
 
@@ -1237,6 +1390,17 @@ export type Conversation = typeof conversations.$inferSelect;
 export type NewConversation = typeof conversations.$inferInsert;
 export type ConversationStatus =
   (typeof conversationStatusEnum.enumValues)[number];
+export type Message = typeof messages.$inferSelect;
+export type NewMessage = typeof messages.$inferInsert;
+export type MessageKind = (typeof messageKindEnum.enumValues)[number];
+export type MessageFlag = typeof messageFlags.$inferSelect;
+export type NewMessageFlag = typeof messageFlags.$inferInsert;
+export type FlagTarget = (typeof flagTargetEnum.enumValues)[number];
+export type FlagStatus = (typeof flagStatusEnum.enumValues)[number];
+export type ContactShare = typeof contactShares.$inferSelect;
+export type NewContactShare = typeof contactShares.$inferInsert;
+export type ContactShareChannel =
+  (typeof contactShareChannelEnum.enumValues)[number];
 export type UserNotificationPref = typeof userNotificationPrefs.$inferSelect;
 export type NewUserNotificationPref = typeof userNotificationPrefs.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;
