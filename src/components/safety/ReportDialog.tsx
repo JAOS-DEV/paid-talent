@@ -24,8 +24,8 @@ interface ReportDialogProps {
   onSubmitted?: () => void;
   contactRequestId?: string | null;
   conversationId?: string | null;
-  reportedUserId?: string | null;
   reportedWorkerProfileId?: string | null;
+  reportedVenueId?: string | null;
 }
 
 export function ReportDialog({
@@ -34,8 +34,8 @@ export function ReportDialog({
   onSubmitted,
   contactRequestId,
   conversationId,
-  reportedUserId,
   reportedWorkerProfileId,
+  reportedVenueId,
 }: ReportDialogProps): React.ReactElement | null {
   const t = useTranslations("safety.report");
   const [reason, setReason] = useState<ReportReasonKey | "">("");
@@ -72,8 +72,8 @@ export function ReportDialog({
           details: details.trim() || null,
           contactRequestId: contactRequestId ?? null,
           conversationId: conversationId ?? null,
-          reportedUserId: reportedUserId ?? null,
           reportedWorkerProfileId: reportedWorkerProfileId ?? null,
+          reportedVenueId: reportedVenueId ?? null,
         }),
       });
       const data = await res.json().catch(() => ({}));

@@ -53,6 +53,11 @@ vi.mock("@/lib/db", () => {
       recruiterUserId: "recruiter_user_id",
       status: "status",
     },
+    contactRequests: {
+      id: "id",
+      workerUserId: "worker_user_id",
+      recruiterUserId: "recruiter_user_id",
+    },
   };
 });
 
@@ -79,8 +84,14 @@ describe("blocks", () => {
     await expect(isBlockedEitherWay("a", "b")).resolves.toBe(false);
   });
 
-  it("blockUser creates a block and marks conversations blocked", async () => {
-    selectQueue.push([{ id: "user-b" }], []);
+  it("blockUser via conversationId derives the other participant", async () => {
+    selectQueue.push([
+      {
+        id: "conv-1",
+        workerUserId: "user-a",
+        recruiterUserId: "user-b",
+      },
+    ]);
     insertReturning.mockResolvedValue([
       {
         id: "block-1",
@@ -92,22 +103,43 @@ describe("blocks", () => {
 
     const result = await blockUser({
       blockerUserId: "user-a",
-      blockedUserId: "user-b",
+      conversationId: "conv-1",
     });
 
     expect(result.ok).toBe(true);
     expect(updateWhere).toHaveBeenCalled();
   });
 
+  it("blocking via conversationId by a non-participant returns 404", async () => {
+    selectQueue.push([
+      {
+        id: "conv-1",
+        workerUserId: "worker-1",
+        recruiterUserId: "rec-1",
+      },
+    ]);
+
+    const result = await blockUser({
+      blockerUserId: "stranger",
+      conversationId: "conv-1",
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      status: 404,
+      code: "not_found",
+    });
+  });
+
   it("exports a generic blocked contact message", () => {
     expect(BLOCKED_CONTACT_MESSAGE).toBe("You can't contact this person");
   });
 
-  it("unblockUser returns 404 when missing", async () => {
+  it("unblockUser by block id returns 404 when missing", async () => {
     deleteReturning.mockResolvedValue([]);
     const result = await unblockUser({
       blockerUserId: "user-a",
-      blockedUserId: "user-b",
+      blockId: "missing-block",
     });
     expect(result).toMatchObject({ ok: false, status: 404 });
   });

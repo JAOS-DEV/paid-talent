@@ -65,7 +65,7 @@ export interface ConversationDetail {
   id: string;
   status: string;
   contactRequestId: string;
-  counterpart: ConversationListItem["counterpart"] & { userId: string };
+  counterpart: ConversationListItem["counterpart"];
   messages: MessageDto[];
   safetyNotice: boolean;
   shareChannels: ContactShareChannel[];
@@ -419,21 +419,14 @@ export async function getConversation(
       ? await computeSafetyNotice(conversationId, row.contactRequestId)
       : false;
 
-  const counterpartUserId =
-    role === "worker"
-      ? row.conversation.recruiterUserId
-      : row.conversation.workerUserId;
-
   const counterpart =
     role === "worker"
       ? {
-          userId: counterpartUserId,
           displayName: row.venueName ?? "Venue",
           photoUrl: toPublicVenueLogoUrl(row.venueLogoUrl),
           verifiedPro: row.isPro,
         }
       : {
-          userId: counterpartUserId,
           displayName: firstName(row.workerUserName ?? row.workerDisplayName),
           photoUrl: row.approvedPhotoUrl ?? row.workerPhotoUrl,
           verifiedPro: true,

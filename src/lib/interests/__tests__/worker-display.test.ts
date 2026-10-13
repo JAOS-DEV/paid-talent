@@ -49,6 +49,7 @@ function interest(
 function venue(overrides: Partial<RecruiterVenueInfo> = {}): RecruiterVenueInfo {
   return {
     recruiterUserId: RECRUITER_ID,
+    venueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     displayName: "Recruiter",
     venueName: "Sky Bar",
     logoUrl: null,
@@ -145,7 +146,6 @@ describe("worker interest venue display", () => {
     const result = await loadWorkerVenueView(INTEREST_NEW, WORKER_ID);
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    expect(result.recruiterUserId).toBe(RECRUITER_ID);
     expect(result.venueName).toBe("Sky Bar");
     expect(result.areaLabel).toBe("Sukhumvit · Soi 11");
     expect(result.openings).toHaveLength(1);

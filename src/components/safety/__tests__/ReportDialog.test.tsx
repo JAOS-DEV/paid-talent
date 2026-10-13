@@ -16,7 +16,7 @@ describe("ReportDialog", () => {
       <ReportDialog
         open
         onClose={() => undefined}
-        reportedUserId="user-2"
+        conversationId="11111111-1111-4111-8111-111111111111"
       />
     );
 
@@ -38,7 +38,7 @@ describe("ReportDialog", () => {
       <ReportDialog
         open
         onClose={() => undefined}
-        reportedUserId="user-2"
+        conversationId="11111111-1111-4111-8111-111111111111"
       />
     );
 

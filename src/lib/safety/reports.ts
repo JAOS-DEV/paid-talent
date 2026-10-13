@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   contactRequests,
@@ -51,9 +51,10 @@ export interface CreateReportInput {
   details?: string | null;
   contactRequestId?: string | null;
   conversationId?: string | null;
-  reportedUserId?: string | null;
   /** Resolve worker user id from profile id (recruiter reporting a worker). */
   reportedWorkerProfileId?: string | null;
+  /** Worker reporting a venue; recruiter derived server-side. */
+  reportedVenueId?: string | null;
   now?: Date;
 }
 
@@ -174,7 +175,11 @@ async function buildEvidenceSnapshot(input: {
   return { request: requestSnapshot, messages: messageRows };
 }
 
-async function countDistinctReportersForRecruiter(
+/**
+ * Only interaction-backed reports where the reporter is the worker participant
+ * count toward auto-pause.
+ */
+export async function countDistinctReportersForRecruiter(
   reportedUserId: string,
   windowDays: number,
   now: Date
@@ -185,10 +190,25 @@ async function countDistinctReportersForRecruiter(
       value: sql<number>`count(distinct ${reports.reporterUserId})::int`,
     })
     .from(reports)
+    .leftJoin(
+      contactRequests,
+      eq(contactRequests.id, reports.contactRequestId)
+    )
+    .leftJoin(conversations, eq(conversations.id, reports.conversationId))
     .where(
       and(
         eq(reports.reportedUserId, reportedUserId),
-        gte(reports.createdAt, since)
+        gte(reports.createdAt, since),
+        or(
+          and(
+            isNotNull(reports.contactRequestId),
+            eq(contactRequests.workerUserId, reports.reporterUserId)
+          ),
+          and(
+            isNotNull(reports.conversationId),
+            eq(conversations.workerUserId, reports.reporterUserId)
+          )
+        )
       )
     );
   return Number(row?.value ?? 0);
@@ -249,13 +269,75 @@ async function maybeAutoPauseRecruiter(input: {
   return true;
 }
 
+async function resolveReportedVenue(input: {
+  reporterUserId: string;
+  venueId: string;
+}): Promise<
+  | { ok: true; reportedUserId: string }
+  | { ok: false; status: number; error: string; code: string }
+> {
+  const [venue] = await db
+    .select({
+      id: venues.id,
+      reviewStatus: venues.reviewStatus,
+      recruiterUserId: recruiterProfiles.userId,
+    })
+    .from(venues)
+    .innerJoin(
+      recruiterProfiles,
+      eq(recruiterProfiles.id, venues.recruiterProfileId)
+    )
+    .where(eq(venues.id, input.venueId))
+    .limit(1);
+
+  if (!venue) {
+    return {
+      ok: false,
+      status: 404,
+      error: "Venue not found",
+      code: "not_found",
+    };
+  }
+
+  if (venue.reviewStatus === "approved") {
+    return { ok: true, reportedUserId: venue.recruiterUserId };
+  }
+
+  const [request] = await db
+    .select({ id: contactRequests.id })
+    .from(contactRequests)
+    .where(
+      and(
+        eq(contactRequests.workerUserId, input.reporterUserId),
+        eq(contactRequests.recruiterUserId, venue.recruiterUserId)
+      )
+    )
+    .limit(1);
+
+  if (!request) {
+    return {
+      ok: false,
+      status: 403,
+      error: "Forbidden",
+      code: "venue_not_allowed",
+    };
+  }
+
+  return { ok: true, reportedUserId: venue.recruiterUserId };
+}
+
 export async function createReport(
   input: CreateReportInput
 ): Promise<CreateReportResult> {
   const now = input.now ?? new Date();
   const reason = input.reason;
   if (!REPORT_REASONS.includes(reason)) {
-    return { ok: false, status: 400, error: "Invalid report reason", code: "invalid_reason" };
+    return {
+      ok: false,
+      status: 400,
+      error: "Invalid report reason",
+      code: "invalid_reason",
+    };
   }
 
   const details = trimDetails(input.details);
@@ -271,26 +353,10 @@ export async function createReport(
 
   let contactRequestId = input.contactRequestId ?? null;
   let conversationId = input.conversationId ?? null;
-  let reportedUserId = input.reportedUserId ?? null;
+  let reportedUserId: string | null = null;
   let workerUserId: string | null = null;
   let recruiterUserId: string | null = null;
-
-  if (!reportedUserId && input.reportedWorkerProfileId) {
-    const [profile] = await db
-      .select({ userId: workerProfiles.userId })
-      .from(workerProfiles)
-      .where(eq(workerProfiles.id, input.reportedWorkerProfileId))
-      .limit(1);
-    if (!profile) {
-      return {
-        ok: false,
-        status: 404,
-        error: "Worker profile not found",
-        code: "not_found",
-      };
-    }
-    reportedUserId = profile.userId;
-  }
+  let countsTowardAutoPause = false;
 
   if (conversationId) {
     const [convo] = await db
@@ -324,10 +390,10 @@ export async function createReport(
     recruiterUserId = convo.recruiterUserId;
     contactRequestId = contactRequestId ?? convo.contactRequestId;
     reportedUserId =
-      reportedUserId ??
-      (convo.workerUserId === input.reporterUserId
+      convo.workerUserId === input.reporterUserId
         ? convo.recruiterUserId
-        : convo.workerUserId);
+        : convo.workerUserId;
+    countsTowardAutoPause = convo.workerUserId === input.reporterUserId;
   } else if (contactRequestId) {
     const [request] = await db
       .select()
@@ -359,26 +425,43 @@ export async function createReport(
     workerUserId = request.workerUserId;
     recruiterUserId = request.recruiterUserId;
     reportedUserId =
-      reportedUserId ??
-      (request.workerUserId === input.reporterUserId
+      request.workerUserId === input.reporterUserId
         ? request.recruiterUserId
-        : request.workerUserId);
+        : request.workerUserId;
+    countsTowardAutoPause = request.workerUserId === input.reporterUserId;
 
     const [linkedConvo] = await db
       .select({ id: conversations.id })
       .from(conversations)
       .where(eq(conversations.contactRequestId, contactRequestId))
       .limit(1);
-    conversationId = conversationId ?? linkedConvo?.id ?? null;
-  } else if (reportedUserId) {
-    if (reportedUserId === input.reporterUserId) {
+    conversationId = linkedConvo?.id ?? null;
+  } else if (input.reportedWorkerProfileId) {
+    const [profile] = await db
+      .select({ userId: workerProfiles.userId })
+      .from(workerProfiles)
+      .where(eq(workerProfiles.id, input.reportedWorkerProfileId))
+      .limit(1);
+    if (!profile) {
       return {
         ok: false,
-        status: 400,
-        error: "You cannot report yourself",
-        code: "invalid_target",
+        status: 404,
+        error: "Worker profile not found",
+        code: "not_found",
       };
     }
+    reportedUserId = profile.userId;
+    countsTowardAutoPause = false;
+  } else if (input.reportedVenueId) {
+    const venueResult = await resolveReportedVenue({
+      reporterUserId: input.reporterUserId,
+      venueId: input.reportedVenueId,
+    });
+    if (!venueResult.ok) {
+      return venueResult;
+    }
+    reportedUserId = venueResult.reportedUserId;
+    countsTowardAutoPause = false;
   } else {
     return {
       ok: false,
@@ -394,6 +477,15 @@ export async function createReport(
       status: 400,
       error: "Could not determine reported user",
       code: "missing_target",
+    };
+  }
+
+  if (reportedUserId === input.reporterUserId) {
+    return {
+      ok: false,
+      status: 400,
+      error: "You cannot report yourself",
+      code: "invalid_target",
     };
   }
 
@@ -440,7 +532,6 @@ export async function createReport(
     }
   }
 
-  // Worker reporting a pending request also declines it
   if (contactRequestId && workerUserId === input.reporterUserId) {
     await db
       .update(contactRequests)
@@ -458,10 +549,9 @@ export async function createReport(
       );
   }
 
-  const autoPaused = await maybeAutoPauseRecruiter({
-    reportedUserId,
-    now,
-  });
+  const autoPaused = countsTowardAutoPause
+    ? await maybeAutoPauseRecruiter({ reportedUserId, now })
+    : false;
 
   return { ok: true, report, autoPaused };
 }

@@ -54,10 +54,11 @@ export function WorkerRequestCard({
       const response = await fetch("/api/blocks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: request.recruiterUserId,
-          conversationId: request.conversationId,
-        }),
+        body: JSON.stringify(
+          request.conversationId
+            ? { conversationId: request.conversationId }
+            : { contactRequestId: request.id }
+        ),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -205,7 +206,6 @@ export function WorkerRequestCard({
         onSubmitted={() => onChanged?.()}
         contactRequestId={request.id}
         conversationId={request.conversationId}
-        reportedUserId={request.recruiterUserId}
       />
     </article>
   );

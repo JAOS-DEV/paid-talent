@@ -11,7 +11,7 @@ import { VenueAvatar } from "./VenueAvatar";
 
 interface VenuePublicViewProps {
   interestId: string;
-  recruiterUserId: string;
+  venueId: string | null;
   venueName: string;
   areaLabel: string | null;
   blurb: string | null;
@@ -22,7 +22,7 @@ interface VenuePublicViewProps {
 
 export function VenuePublicView({
   interestId,
-  recruiterUserId,
+  venueId,
   venueName,
   areaLabel,
   blurb,
@@ -74,19 +74,23 @@ export function VenuePublicView({
           >
             {t("viewOpenings")}
           </Link>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setReportOpen(true)}
-          >
-            {tSafety("title")}
-          </Button>
+          {venueId ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setReportOpen(true)}
+            >
+              {tSafety("title")}
+            </Button>
+          ) : null}
         </div>
-        <ReportDialog
-          open={reportOpen}
-          onClose={() => setReportOpen(false)}
-          reportedUserId={recruiterUserId}
-        />
+        {venueId ? (
+          <ReportDialog
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            reportedVenueId={venueId}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );

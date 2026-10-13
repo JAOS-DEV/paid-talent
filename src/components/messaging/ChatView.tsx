@@ -119,15 +119,11 @@ export function ChatView({
   };
 
   const blockUser = async (): Promise<void> => {
-    if (!conversation?.counterpart.userId) return;
     if (!window.confirm(tSafety("blocks.confirm"))) return;
     const res = await fetch("/api/blocks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: conversation.counterpart.userId,
-        conversationId,
-      }),
+      body: JSON.stringify({ conversationId }),
     });
     if (res.ok) {
       router.push(listHref);
@@ -205,7 +201,6 @@ export function ChatView({
                 onClose={() => setReportOpen(false)}
                 conversationId={conversationId}
                 contactRequestId={conversation.contactRequestId}
-                reportedUserId={conversation.counterpart.userId}
               />
             </>
           ) : null}

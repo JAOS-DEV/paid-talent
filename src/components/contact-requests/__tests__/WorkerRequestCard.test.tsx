@@ -28,7 +28,6 @@ describe("WorkerRequestCard", () => {
           deliveredAt: new Date().toISOString(),
           expiresAt: null,
           createdAt: new Date().toISOString(),
-          recruiterUserId: "rec-user-1",
           recruiterFirstName: "Ann",
           venue: {
             id: "v1",

@@ -350,6 +350,7 @@ export async function getPublishedOpeningsForRecruiter(
 
 export interface RecruiterVenueInfo {
   recruiterUserId: string;
+  venueId: string | null;
   displayName: string | null;
   venueName: string | null;
   logoUrl: string | null;
@@ -384,6 +385,7 @@ export async function getRecruiterVenueInfo(
 
   return {
     recruiterUserId,
+    venueId: venue?.venueId || null,
     displayName: user.name,
     venueName: venue?.venueName || null,
     logoUrl: venue?.logoUrl || null,

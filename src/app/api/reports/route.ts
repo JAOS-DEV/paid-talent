@@ -6,14 +6,16 @@ import {
 } from "@/lib/auth/require-active-user";
 import { createReport, REPORT_REASONS } from "@/lib/safety/reports";
 
-const bodySchema = z.object({
-  reason: z.enum(REPORT_REASONS as [string, ...string[]]),
-  details: z.string().max(2000).optional().nullable(),
-  contactRequestId: z.string().uuid().optional().nullable(),
-  conversationId: z.string().uuid().optional().nullable(),
-  reportedUserId: z.string().uuid().optional().nullable(),
-  reportedWorkerProfileId: z.string().uuid().optional().nullable(),
-});
+const bodySchema = z
+  .object({
+    reason: z.enum(REPORT_REASONS as [string, ...string[]]),
+    details: z.string().max(2000).optional().nullable(),
+    contactRequestId: z.string().uuid().optional().nullable(),
+    conversationId: z.string().uuid().optional().nullable(),
+    reportedWorkerProfileId: z.string().uuid().optional().nullable(),
+    reportedVenueId: z.string().uuid().optional().nullable(),
+  })
+  .strict();
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
@@ -34,8 +36,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       details: parsed.data.details,
       contactRequestId: parsed.data.contactRequestId,
       conversationId: parsed.data.conversationId,
-      reportedUserId: parsed.data.reportedUserId,
       reportedWorkerProfileId: parsed.data.reportedWorkerProfileId,
+      reportedVenueId: parsed.data.reportedVenueId,
     });
 
     if (!result.ok) {

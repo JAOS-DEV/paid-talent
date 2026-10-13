@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 
 interface BlockedAccount {
-  userId: string;
+  id: string;
   name: string | null;
   blockedAt: string;
 }
@@ -38,19 +38,19 @@ export function BlockedAccountsSection(): React.ReactElement {
     void load();
   }, [load]);
 
-  const unblock = async (userId: string): Promise<void> => {
-    setBusyId(userId);
+  const unblock = async (blockId: string): Promise<void> => {
+    setBusyId(blockId);
     try {
       const res = await fetch("/api/blocks", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ blockId }),
       });
       if (!res.ok) {
         setError(t("unblockFailed"));
         return;
       }
-      setBlocks((prev) => prev.filter((b) => b.userId !== userId));
+      setBlocks((prev) => prev.filter((b) => b.id !== blockId));
     } catch {
       setError(t("unblockFailed"));
     } finally {
@@ -72,7 +72,7 @@ export function BlockedAccountsSection(): React.ReactElement {
         <ul className="space-y-2">
           {blocks.map((block) => (
             <li
-              key={block.userId}
+              key={block.id}
               className="flex items-center justify-between gap-3 rounded-lg border border-charcoal-700 bg-charcoal-900 px-3 py-2"
             >
               <span className="text-sm text-charcoal-100">
@@ -82,8 +82,8 @@ export function BlockedAccountsSection(): React.ReactElement {
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={busyId === block.userId}
-                onClick={() => void unblock(block.userId)}
+                disabled={busyId === block.id}
+                onClick={() => void unblock(block.id)}
               >
                 {t("unblock")}
               </Button>

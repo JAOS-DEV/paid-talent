@@ -1,6 +1,7 @@
 import { and, eq, or } from "drizzle-orm";
 import { db, type DbClient } from "@/lib/db";
 import {
+  contactRequests,
   conversations,
   userBlocks,
   users,
@@ -38,12 +39,19 @@ export async function isBlockedEitherWay(
   return Boolean(row);
 }
 
-async function markConversationsBlocked(
-  blockerUserId: string,
-  blockedUserId: string,
-  conversationId: string | null | undefined
-): Promise<void> {
-  if (conversationId) {
+async function resolveBlockTarget(input: {
+  blockerUserId: string;
+  conversationId?: string | null;
+  contactRequestId?: string | null;
+}): Promise<
+  | {
+      ok: true;
+      blockedUserId: string;
+      conversationId: string | null;
+    }
+  | { ok: false; status: number; error: string; code?: string }
+> {
+  if (input.conversationId) {
     const [convo] = await db
       .select({
         id: conversations.id,
@@ -51,22 +59,90 @@ async function markConversationsBlocked(
         recruiterUserId: conversations.recruiterUserId,
       })
       .from(conversations)
-      .where(eq(conversations.id, conversationId))
+      .where(eq(conversations.id, input.conversationId))
       .limit(1);
 
-    const isParticipant =
-      convo &&
-      (convo.workerUserId === blockerUserId ||
-        convo.recruiterUserId === blockerUserId) &&
-      (convo.workerUserId === blockedUserId ||
-        convo.recruiterUserId === blockedUserId);
-
-    if (isParticipant) {
-      await db
-        .update(conversations)
-        .set({ status: "blocked" })
-        .where(eq(conversations.id, conversationId));
+    if (
+      !convo ||
+      (convo.workerUserId !== input.blockerUserId &&
+        convo.recruiterUserId !== input.blockerUserId)
+    ) {
+      return {
+        ok: false,
+        status: 404,
+        error: "Conversation not found",
+        code: "not_found",
+      };
     }
+
+    return {
+      ok: true,
+      blockedUserId:
+        convo.workerUserId === input.blockerUserId
+          ? convo.recruiterUserId
+          : convo.workerUserId,
+      conversationId: convo.id,
+    };
+  }
+
+  if (input.contactRequestId) {
+    const [request] = await db
+      .select({
+        id: contactRequests.id,
+        workerUserId: contactRequests.workerUserId,
+        recruiterUserId: contactRequests.recruiterUserId,
+      })
+      .from(contactRequests)
+      .where(eq(contactRequests.id, input.contactRequestId))
+      .limit(1);
+
+    if (
+      !request ||
+      (request.workerUserId !== input.blockerUserId &&
+        request.recruiterUserId !== input.blockerUserId)
+    ) {
+      return {
+        ok: false,
+        status: 404,
+        error: "Contact request not found",
+        code: "not_found",
+      };
+    }
+
+    const [linkedConvo] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.contactRequestId, request.id))
+      .limit(1);
+
+    return {
+      ok: true,
+      blockedUserId:
+        request.workerUserId === input.blockerUserId
+          ? request.recruiterUserId
+          : request.workerUserId,
+      conversationId: linkedConvo?.id ?? null,
+    };
+  }
+
+  return {
+    ok: false,
+    status: 400,
+    error: "conversationId or contactRequestId is required",
+    code: "missing_target",
+  };
+}
+
+async function markConversationsBlocked(
+  blockerUserId: string,
+  blockedUserId: string,
+  conversationId: string | null
+): Promise<void> {
+  if (conversationId) {
+    await db
+      .update(conversations)
+      .set({ status: "blocked" })
+      .where(eq(conversations.id, conversationId));
     return;
   }
 
@@ -92,34 +168,28 @@ async function markConversationsBlocked(
 
 export async function blockUser(input: {
   blockerUserId: string;
-  blockedUserId: string;
   conversationId?: string | null;
+  contactRequestId?: string | null;
   now?: Date;
 }): Promise<
   | { ok: true; block: UserBlock }
   | { ok: false; status: number; error: string; code?: string }
 > {
   const now = input.now ?? new Date();
-
-  if (input.blockerUserId === input.blockedUserId) {
-    return { ok: false, status: 400, error: "You cannot block yourself" };
+  const target = await resolveBlockTarget(input);
+  if (!target.ok) {
+    return target;
   }
 
-  const [target] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, input.blockedUserId))
-    .limit(1);
-
-  if (!target) {
-    return { ok: false, status: 404, error: "User not found" };
+  if (input.blockerUserId === target.blockedUserId) {
+    return { ok: false, status: 400, error: "You cannot block yourself" };
   }
 
   const [inserted] = await db
     .insert(userBlocks)
     .values({
       blockerUserId: input.blockerUserId,
-      blockedUserId: input.blockedUserId,
+      blockedUserId: target.blockedUserId,
       createdAt: now,
     })
     .onConflictDoNothing()
@@ -134,7 +204,7 @@ export async function blockUser(input: {
         .where(
           and(
             eq(userBlocks.blockerUserId, input.blockerUserId),
-            eq(userBlocks.blockedUserId, input.blockedUserId)
+            eq(userBlocks.blockedUserId, target.blockedUserId)
           )
         )
         .limit(1)
@@ -146,8 +216,8 @@ export async function blockUser(input: {
 
   await markConversationsBlocked(
     input.blockerUserId,
-    input.blockedUserId,
-    input.conversationId
+    target.blockedUserId,
+    target.conversationId
   );
 
   return { ok: true, block };
@@ -155,14 +225,14 @@ export async function blockUser(input: {
 
 export async function unblockUser(input: {
   blockerUserId: string;
-  blockedUserId: string;
+  blockId: string;
 }): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const deleted = await db
     .delete(userBlocks)
     .where(
       and(
-        eq(userBlocks.blockerUserId, input.blockerUserId),
-        eq(userBlocks.blockedUserId, input.blockedUserId)
+        eq(userBlocks.id, input.blockId),
+        eq(userBlocks.blockerUserId, input.blockerUserId)
       )
     )
     .returning({ id: userBlocks.id });
@@ -175,7 +245,7 @@ export async function unblockUser(input: {
 }
 
 export interface BlockedAccountDto {
-  userId: string;
+  id: string;
   name: string | null;
   blockedAt: string;
 }
@@ -185,7 +255,7 @@ export async function listBlockedAccounts(
 ): Promise<BlockedAccountDto[]> {
   const rows = await db
     .select({
-      userId: userBlocks.blockedUserId,
+      id: userBlocks.id,
       name: users.name,
       blockedAt: userBlocks.createdAt,
     })
@@ -194,7 +264,7 @@ export async function listBlockedAccounts(
     .where(eq(userBlocks.blockerUserId, blockerUserId));
 
   return rows.map((row) => ({
-    userId: row.userId,
+    id: row.id,
     name: row.name,
     blockedAt: row.blockedAt.toISOString(),
   }));

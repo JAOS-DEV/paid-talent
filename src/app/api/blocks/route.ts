@@ -10,10 +10,22 @@ import {
   unblockUser,
 } from "@/lib/safety/blocks";
 
-const bodySchema = z.object({
-  userId: z.string().uuid(),
-  conversationId: z.string().uuid().optional().nullable(),
-});
+const createBodySchema = z
+  .object({
+    conversationId: z.string().uuid().optional().nullable(),
+    contactRequestId: z.string().uuid().optional().nullable(),
+  })
+  .strict()
+  .refine(
+    (data) => Boolean(data.conversationId || data.contactRequestId),
+    { message: "conversationId or contactRequestId is required" }
+  );
+
+const deleteBodySchema = z
+  .object({
+    blockId: z.string().uuid(),
+  })
+  .strict();
 
 export async function GET(): Promise<NextResponse> {
   try {
@@ -38,15 +50,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const json = await request.json().catch(() => null);
-    const parsed = bodySchema.safeParse(json);
+    const parsed = createBodySchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid block payload" }, { status: 400 });
     }
 
     const result = await blockUser({
       blockerUserId: actor.user.userId,
-      blockedUserId: parsed.data.userId,
       conversationId: parsed.data.conversationId,
+      contactRequestId: parsed.data.contactRequestId,
     });
 
     if (!result.ok) {
@@ -71,14 +83,14 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     }
 
     const json = await request.json().catch(() => null);
-    const parsed = bodySchema.safeParse(json);
+    const parsed = deleteBodySchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid unblock payload" }, { status: 400 });
     }
 
     const result = await unblockUser({
       blockerUserId: actor.user.userId,
-      blockedUserId: parsed.data.userId,
+      blockId: parsed.data.blockId,
     });
 
     if (!result.ok) {
