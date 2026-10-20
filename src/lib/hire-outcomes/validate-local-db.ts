@@ -2,10 +2,10 @@ import "./load-env-guard";
 import { randomUUID } from "crypto";
 import { and, eq } from "drizzle-orm";
 import {
+  contactRequests,
   db,
   hireOutcomeConfirmationRequests,
   hireOutcomes,
-  profileInterests,
   recruiterProfiles,
   users,
   workerProfiles,
@@ -66,16 +66,41 @@ async function insertWorker(userId: string, displayName: string) {
   return profile;
 }
 
-async function insertInterest(recruiterUserId: string, workerProfileId: string) {
-  const [interest] = await db
-    .insert(profileInterests)
+async function insertAcceptedRequest(
+  recruiterUserId: string,
+  workerProfileId: string,
+  workerUserId: string
+) {
+  const [existingProfile] = await db
+    .select({ id: recruiterProfiles.id })
+    .from(recruiterProfiles)
+    .where(eq(recruiterProfiles.userId, recruiterUserId))
+    .limit(1);
+  const recruiterProfile =
+    existingProfile ??
+    (
+      await db
+        .insert(recruiterProfiles)
+        .values({
+          userId: recruiterUserId,
+          organizationName: "Local Venue",
+        })
+        .returning()
+    )[0];
+
+  const [request] = await db
+    .insert(contactRequests)
     .values({
       recruiterUserId,
+      recruiterProfileId: recruiterProfile.id,
       workerProfileId,
-      message: "local validation",
+      workerUserId,
+      openerText: "local validation",
+      status: "accepted",
+      respondedAt: new Date(),
     })
     .returning();
-  return interest;
+  return request;
 }
 
 async function countPending(interestId: string): Promise<number> {
@@ -84,7 +109,7 @@ async function countPending(interestId: string): Promise<number> {
     .from(hireOutcomeConfirmationRequests)
     .where(
       and(
-        eq(hireOutcomeConfirmationRequests.interestId, interestId),
+        eq(hireOutcomeConfirmationRequests.contactRequestId, interestId),
         eq(hireOutcomeConfirmationRequests.requestStatus, "pending")
       )
     );
@@ -95,7 +120,7 @@ async function getOutcome(interestId: string) {
   const [row] = await db
     .select()
     .from(hireOutcomes)
-    .where(eq(hireOutcomes.interestId, interestId))
+    .where(eq(hireOutcomes.contactRequestId, interestId))
     .limit(1);
   return row ?? null;
 }
@@ -131,23 +156,43 @@ async function main(): Promise<void> {
   const workerC = await insertWorker(workerCUser.id, "Worker C");
   const workerD = await insertWorker(workerDUser.id, "Worker D");
 
-  const interestA = await insertInterest(recruiterA.id, workerA.id);
-  const interestB = await insertInterest(recruiterB.id, workerB.id);
-  const interestC = await insertInterest(recruiterC.id, workerC.id);
-  const interestD = await insertInterest(recruiterA.id, workerD.id);
-  const interestCascade = await insertInterest(recruiterA.id, workerB.id);
+  const interestA = await insertAcceptedRequest(
+    recruiterA.id,
+    workerA.id,
+    workerAUser.id
+  );
+  const interestB = await insertAcceptedRequest(
+    recruiterB.id,
+    workerB.id,
+    workerBUser.id
+  );
+  const interestC = await insertAcceptedRequest(
+    recruiterC.id,
+    workerC.id,
+    workerCUser.id
+  );
+  const interestD = await insertAcceptedRequest(
+    recruiterA.id,
+    workerD.id,
+    workerDUser.id
+  );
+  const interestCascade = await insertAcceptedRequest(
+    recruiterA.id,
+    workerB.id,
+    workerBUser.id
+  );
 
   const legacyHiredAt = new Date("2025-06-01T00:00:00.000Z");
   const legacyStartedAt = new Date("2025-06-15T00:00:00.000Z");
   await db.insert(hireOutcomes).values({
-    interestId: interestD.id,
+    contactRequestId: interestD.id,
     status: "started",
     hiredAt: legacyHiredAt,
     startedAt: legacyStartedAt,
     notes: "legacy confirmed",
   });
   await db.insert(hireOutcomes).values({
-    interestId: interestC.id,
+    contactRequestId: interestC.id,
     status: "hired",
     hiredAt: new Date("2025-07-01T00:00:00.000Z"),
     startedAt: null,
@@ -185,7 +230,7 @@ async function main(): Promise<void> {
 
   try {
     await db.insert(hireOutcomeConfirmationRequests).values({
-      interestId: interestA.id,
+      contactRequestId: interestA.id,
       requestedStatus: "hired",
       requestStatus: "pending",
       requestedByRecruiterUserId: recruiterA.id,
@@ -270,7 +315,7 @@ async function main(): Promise<void> {
   const historyB = await db
     .select()
     .from(hireOutcomeConfirmationRequests)
-    .where(eq(hireOutcomeConfirmationRequests.interestId, interestB.id));
+    .where(eq(hireOutcomeConfirmationRequests.contactRequestId, interestB.id));
   assert(
     "historical rejected + new pending allowed",
     historyB.length === 2 &&
@@ -347,17 +392,20 @@ async function main(): Promise<void> {
 
   // --- FKs ---
   await db.insert(hireOutcomeConfirmationRequests).values({
-    interestId: interestCascade.id,
+    contactRequestId: interestCascade.id,
     requestedStatus: "hired",
     requestStatus: "pending",
     requestedByRecruiterUserId: recruiterA.id,
   });
-  await db.delete(profileInterests).where(eq(profileInterests.id, interestCascade.id));
+  await db.delete(contactRequests).where(eq(contactRequests.id, interestCascade.id));
   const cascaded = await db
     .select()
     .from(hireOutcomeConfirmationRequests)
-    .where(eq(hireOutcomeConfirmationRequests.interestId, interestCascade.id));
-  assert("deleting interest cascades confirmation requests", cascaded.length === 0);
+    .where(eq(hireOutcomeConfirmationRequests.contactRequestId, interestCascade.id));
+  assert(
+    "deleting contact request cascades confirmation requests",
+    cascaded.length === 0
+  );
 
   await db
     .update(hireOutcomeConfirmationRequests)

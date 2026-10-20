@@ -6,6 +6,7 @@ import { listAdminAuditEventsForUser } from "@/lib/admin/activity";
 import { listReportsForUser } from "@/lib/admin/reports";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { UserModerationPanel } from "@/components/admin/UserModerationPanel";
+import { DeletionRequestPanel } from "@/components/admin/DeletionRequestPanel";
 import { UserEntitlementPanel } from "@/components/admin/UserEntitlementPanel";
 import { UserSafetyPanel } from "@/components/admin/UserSafetyPanel";
 import { auth } from "@/lib/auth";
@@ -58,6 +59,12 @@ export default async function AdminUserDetailPage({
             <p>Age verification: {detail.user.ageVerified ? "Verified" : "Unverified"}</p>
             <p className="capitalize">Status: {detail.user.accountStatus}</p>
             <p>Created: {new Date(detail.user.createdAt).toLocaleString()}</p>
+            {detail.user.deletionRequestedAt ? (
+              <p>
+                Deletion requested on{" "}
+                {new Date(detail.user.deletionRequestedAt).toLocaleString()}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -128,6 +135,13 @@ export default async function AdminUserDetailPage({
             : null,
         }}
       />
+
+      {detail.user.deletionRequestedAt ? (
+        <DeletionRequestPanel
+          userId={detail.user.id}
+          deletionRequestedAt={detail.user.deletionRequestedAt}
+        />
+      ) : null}
 
       <UserModerationPanel
         userId={detail.user.id}

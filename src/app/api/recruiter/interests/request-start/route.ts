@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { requestStartConfirmation } from "@/app/recruiter/actions";
 import { z } from "zod";
 
-const requestSchema = z.object({
-  interestId: z.string().uuid(),
-});
+const requestSchema = z
+  .object({
+    contactRequestId: z.string().uuid().optional(),
+    interestId: z.string().uuid().optional(),
+  })
+  .refine(
+    (value) =>
+      value.contactRequestId !== undefined || value.interestId !== undefined,
+    { message: "contactRequestId is required" }
+  );
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -18,7 +25,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const result = await requestStartConfirmation(validation.data.interestId);
+    const contactRequestId =
+      validation.data.contactRequestId ?? validation.data.interestId;
+    if (!contactRequestId) {
+      return NextResponse.json(
+        { success: false, error: "contactRequestId is required" },
+        { status: 400 }
+      );
+    }
+
+    const result = await requestStartConfirmation(contactRequestId);
 
     if (!result.success) {
       const status =

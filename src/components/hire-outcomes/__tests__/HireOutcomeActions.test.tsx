@@ -30,7 +30,12 @@ describe("HireOutcomeActions", () => {
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
         "/api/recruiter/interests/request-hire",
-        expect.objectContaining({ method: "POST" })
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            contactRequestId: "33333333-3333-3333-3333-333333333333",
+          }),
+        })
       );
       expect(onRequestCreated).toHaveBeenCalledWith("hired");
     });

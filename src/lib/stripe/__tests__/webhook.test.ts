@@ -82,6 +82,7 @@ vi.mock("@/lib/db", () => {
   };
 });
 
+import { addUtcDays } from "@/lib/entitlements/resolve";
 import { handleWebhookEvent } from "../index";
 
 describe("handleWebhookEvent checkout.session.completed", () => {
@@ -128,7 +129,7 @@ describe("handleWebhookEvent checkout.session.completed", () => {
   });
 
   it("creates a 7-day pass idempotently and stacks from current expiry", async () => {
-    const currentExpiry = new Date("2026-10-20T00:00:00.000Z");
+    const currentExpiry = addUtcDays(new Date(), 2);
     selectLimit.mockResolvedValue([{ expiresAt: currentExpiry }]);
 
     const session = {
@@ -160,7 +161,7 @@ describe("handleWebhookEvent checkout.session.completed", () => {
         stripeCheckoutSessionId: "cs_pass_1",
         usedFirstPassCoupon: true,
         startsAt: currentExpiry,
-        expiresAt: new Date("2026-10-27T00:00:00.000Z"),
+        expiresAt: addUtcDays(currentExpiry, 7),
       })
     );
     expect(insertOnConflict).toHaveBeenCalled();

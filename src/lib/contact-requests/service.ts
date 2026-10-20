@@ -16,7 +16,6 @@ import {
   conversations,
   db,
   messageFlags,
-  profileInterests,
   recruiterOpenings,
   userNotificationPrefs,
   users,
@@ -708,20 +707,6 @@ export async function acceptRequest(
       },
       tx
     );
-
-    // Keep hire-outcomes FK working until profile_interests is dropped.
-    // No target: swallow conflicts on id OR (recruiter_user_id, worker_profile_id).
-    await tx
-      .insert(profileInterests)
-      .values({
-        id: updated.id,
-        recruiterUserId: updated.recruiterUserId,
-        workerProfileId: updated.workerProfileId,
-        openingId: updated.openingId,
-        message: updated.openerText,
-        createdAt: updated.createdAt,
-      })
-      .onConflictDoNothing();
 
     return { ok: true as const, request: updated, conversation };
   }).then(async (result) => {

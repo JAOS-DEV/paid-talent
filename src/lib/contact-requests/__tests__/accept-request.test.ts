@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getMessagingSettings = vi.fn();
 const onConflictDoNothing = vi.fn();
 const conversationInsertReturning = vi.fn();
-const interestInsertValues = vi.fn();
 const updateReturning = vi.fn();
 const selectLimit = vi.fn();
 
@@ -26,11 +25,6 @@ vi.mock("@/lib/db", () => {
   };
   const conversations = { id: "id" };
   const messages = { id: "id" };
-  const profileInterests = {
-    id: "id",
-    recruiterUserId: "recruiter_user_id",
-    workerProfileId: "worker_profile_id",
-  };
 
   function makeTx() {
     return {
@@ -54,13 +48,6 @@ vi.mock("@/lib/db", () => {
             values: vi.fn(() => ({
               returning: conversationInsertReturning,
             })),
-          };
-        }
-        if (table === profileInterests) {
-          return {
-            values: interestInsertValues.mockReturnValue({
-              onConflictDoNothing,
-            }),
           };
         }
         if (table === messages) {
@@ -88,7 +75,6 @@ vi.mock("@/lib/db", () => {
     contactRequests,
     conversations,
     messages,
-    profileInterests,
     recruiterOpenings: {},
     userNotificationPrefs: {},
     users: {},
@@ -113,7 +99,7 @@ const pendingRequest = {
   updatedAt: new Date("2026-01-01T00:00:00Z"),
 };
 
-describe("acceptRequest profile_interests conflict", () => {
+describe("acceptRequest conversation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getMessagingSettings.mockResolvedValue({
@@ -144,12 +130,10 @@ describe("acceptRequest profile_interests conflict", () => {
         status: "open",
       },
     ]);
-    // Simulate existing profile_interests row for the same pair (unique conflict):
-    // insert is attempted, onConflictDoNothing() swallows it.
     onConflictDoNothing.mockResolvedValue(undefined);
   });
 
-  it("succeeds and creates exactly one conversation when a legacy interest row exists for the same pair with a different id", async () => {
+  it("creates one conversation for an accepted request without a shadow interest row", async () => {
     const result = await acceptRequest("worker-user-1", "cr-1");
 
     expect(result.ok).toBe(true);
@@ -157,15 +141,6 @@ describe("acceptRequest profile_interests conflict", () => {
 
     expect(result.conversation.id).toBe("conv-1");
     expect(conversationInsertReturning).toHaveBeenCalledTimes(1);
-    expect(interestInsertValues).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "cr-1",
-        recruiterUserId: "rec-user-1",
-        workerProfileId: "worker-profile-1",
-      })
-    );
-    // Must not target only primary key — unique pair conflicts must also be ignored.
-    expect(onConflictDoNothing).toHaveBeenCalledTimes(1);
-    expect(onConflictDoNothing).toHaveBeenCalledWith();
+    expect(onConflictDoNothing).not.toHaveBeenCalled();
   });
 });

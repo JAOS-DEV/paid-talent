@@ -127,6 +127,20 @@
       "when": 1791896409537,
       "tag": "0017_uneven_rocket_raccoon",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792531816915,
+      "tag": "0018_bizarre_warlock",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792532055921,
+      "tag": "0019_premium_justin_hammer",
+      "breakpoints": true
     }
   ]
 }

@@ -29,7 +29,7 @@ interface HireOutcomeActionsProps {
 }
 
 async function requestConfirmation(
-  interestId: string,
+  contactRequestId: string,
   requestedStatus: "hired" | "started"
 ): Promise<{ success: boolean; error?: string }> {
   const endpoint =
@@ -40,7 +40,7 @@ async function requestConfirmation(
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ interestId }),
+    body: JSON.stringify({ contactRequestId }),
   });
 
   return response.json();

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { runMessagingMaintenance } from "@/lib/contact-requests";
 import { retryPending } from "@/lib/notifications";
+import { runMessagingRetention } from "@/lib/jobs/messaging-retention";
+import { runAccountPurge } from "@/lib/account/deletion";
+import { runVerificationMediaRetentionJob } from "@/lib/jobs/id-document-retention";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const secret = process.env.CRON_SECRET;
@@ -18,9 +21,38 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    const now = new Date();
     const counts = await runMessagingMaintenance();
     const notificationsRetried = await retryPending();
-    return NextResponse.json({ ok: true, ...counts, notificationsRetried });
+    const retention = await runMessagingRetention(now);
+    const verificationMedia = await runVerificationMediaRetentionJob();
+    const accountPurge = await runAccountPurge(now);
+    console.log("[Cron] messaging-maintenance", {
+      notificationsRetried,
+      retention,
+      accountPurge,
+      verificationMedia: {
+        processed: verificationMedia.processed,
+        idDocumentsDeleted: verificationMedia.idDocumentsDeleted,
+        livenessVideosDeleted: verificationMedia.livenessVideosDeleted,
+        errors: verificationMedia.errors,
+        skipped: verificationMedia.skipped,
+      },
+    });
+    return NextResponse.json({
+      ok: true,
+      ...counts,
+      notificationsRetried,
+      retention,
+      accountPurge,
+      verificationMedia: {
+        processed: verificationMedia.processed,
+        idDocumentsDeleted: verificationMedia.idDocumentsDeleted,
+        livenessVideosDeleted: verificationMedia.livenessVideosDeleted,
+        errors: verificationMedia.errors,
+        skipped: verificationMedia.skipped,
+      },
+    });
   } catch (error) {
     console.error("[Cron] messaging-maintenance failed:", error);
     return NextResponse.json(

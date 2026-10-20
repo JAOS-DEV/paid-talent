@@ -1,5 +1,5 @@
 import "./load-env";
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { eq, and } from "drizzle-orm";
 import * as schema from "./schema";
@@ -40,6 +40,49 @@ function allowProductionSeed(): boolean {
     process.argv.includes("--force-production") ||
     process.env.SEED_ALLOW_PRODUCTION === "1"
   );
+}
+
+const SEED_PASS_DAYS = 7;
+
+/** Insert or refresh a seed pass so re-seeds do not leave an expired row in place. */
+async function upsertActiveSeedPass(
+  db: PostgresJsDatabase<typeof schema>,
+  input: {
+    userId: string;
+    amountTotal: number;
+    usedFirstPassCoupon: boolean;
+    stripePaymentIntentId?: string;
+  }
+): Promise<void> {
+  const startsAt = new Date();
+  const expiresAt = new Date(startsAt.getTime());
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + SEED_PASS_DAYS);
+
+  const [existing] = await db
+    .select({ id: schema.topTalentPasses.id })
+    .from(schema.topTalentPasses)
+    .where(eq(schema.topTalentPasses.userId, input.userId))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(schema.topTalentPasses)
+      .set({ startsAt, expiresAt })
+      .where(eq(schema.topTalentPasses.id, existing.id));
+    return;
+  }
+
+  await db.insert(schema.topTalentPasses).values({
+    userId: input.userId,
+    stripeCheckoutSessionId: `cs_seed_pass_${input.userId.slice(0, 8)}`,
+    stripePaymentIntentId: input.stripePaymentIntentId,
+    amountTotal: input.amountTotal,
+    currency: "thb",
+    usedFirstPassCoupon: input.usedFirstPassCoupon,
+    startsAt,
+    expiresAt,
+    createdAt: startsAt,
+  });
 }
 
 function refuseProductionLikeSeed(databaseUrl: string | undefined): void {
@@ -1419,25 +1462,11 @@ async function seed(): Promise<void> {
       }
 
       if (recruiter.email === "recruiter-pass@example.com") {
-        const existingPass = await db
-          .select({ id: schema.topTalentPasses.id })
-          .from(schema.topTalentPasses)
-          .where(eq(schema.topTalentPasses.userId, userId))
-          .limit(1);
-        if (existingPass.length === 0) {
-          const startsAt = new Date();
-          const expiresAt = new Date(startsAt.getTime() + 5 * 24 * 60 * 60 * 1000);
-          await db.insert(schema.topTalentPasses).values({
-            userId,
-            stripeCheckoutSessionId: `cs_seed_pass_${userId.slice(0, 8)}`,
-            amountTotal: 49000,
-            currency: "thb",
-            usedFirstPassCoupon: false,
-            startsAt,
-            expiresAt,
-            createdAt: startsAt,
-          });
-        }
+        await upsertActiveSeedPass(db, {
+          userId,
+          amountTotal: 49000,
+          usedFirstPassCoupon: false,
+        });
         console.log(`   🎟️  Top Talent pass active for: ${recruiter.email}`);
       }
 
@@ -1662,18 +1691,6 @@ async function seed(): Promise<void> {
         }
 
         if (seedStatus === "accepted") {
-          await db
-            .insert(schema.profileInterests)
-            .values({
-              id: contactRequestId,
-              recruiterUserId: recruiter.userId,
-              workerProfileId: worker.profileId,
-              openingId: linkedOpening?.id ?? null,
-              message: openerText,
-              createdAt: now,
-            })
-            .onConflictDoNothing({ target: schema.profileInterests.id });
-
           const [existingConvo] = await db
             .select({ id: schema.conversations.id })
             .from(schema.conversations)
@@ -1873,6 +1890,53 @@ async function seed(): Promise<void> {
         });
         console.log("   ✅ Open report (worker2 → recruiter-pro)");
       }
+
+      if (demoRequest) {
+        const holdUntil = new Date(Date.now() + 730 * 24 * 60 * 60 * 1000);
+        const alreadyExpired = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+        await db
+          .update(schema.conversations)
+          .set({
+            retentionExpiresAt: alreadyExpired,
+            legalHoldUntil: holdUntil,
+            lastActivityAt: alreadyExpired,
+          })
+          .where(
+            eq(
+              schema.conversations.contactRequestId,
+              demoRequest.contactRequestId
+            )
+          );
+        console.log(
+          "   🗂️  Reported thread kept under legal hold (recruiter-pro → worker2)"
+        );
+      }
+    }
+
+    const expiredThread = createdRequests.find(
+      (request) =>
+        request.status === "accepted" &&
+        request.recruiterEmail === "recruiter-free@example.com" &&
+        request.workerEmail === "worker2@example.com"
+    );
+    if (expiredThread) {
+      const alreadyExpired = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+      await db
+        .update(schema.conversations)
+        .set({
+          retentionExpiresAt: alreadyExpired,
+          legalHoldUntil: null,
+          lastActivityAt: alreadyExpired,
+        })
+        .where(
+          eq(
+            schema.conversations.contactRequestId,
+            expiredThread.contactRequestId
+          )
+        );
+      console.log(
+        "   ⏳ Thread past retention window (recruiter-free → worker2)"
+      );
     }
 
     if (seedWorker1 && seedRecruiterFree) {
@@ -1967,18 +2031,6 @@ async function seed(): Promise<void> {
           .limit(1);
 
         if (req) {
-          await db
-            .insert(schema.profileInterests)
-            .values({
-              id: req.id,
-              recruiterUserId: req.recruiterUserId,
-              workerProfileId: req.workerProfileId,
-              openingId: req.openingId,
-              message: req.openerText,
-              createdAt: req.createdAt,
-            })
-            .onConflictDoNothing({ target: schema.profileInterests.id });
-
           const [existingConvo] = await db
             .select({ id: schema.conversations.id })
             .from(schema.conversations)
@@ -2015,7 +2067,7 @@ async function seed(): Promise<void> {
       const existingOutcome = await db
         .select()
         .from(schema.hireOutcomes)
-        .where(eq(schema.hireOutcomes.interestId, interest.interestId))
+        .where(eq(schema.hireOutcomes.contactRequestId, interest.interestId))
         .limit(1);
 
       const now = new Date();
@@ -2024,7 +2076,6 @@ async function seed(): Promise<void> {
 
       if (existingOutcome.length === 0) {
         await db.insert(schema.hireOutcomes).values({
-          interestId: interest.interestId,
           contactRequestId: interest.interestId,
           status: outcomeSeed.status,
           hiredAt,
@@ -2334,23 +2385,12 @@ async function seed(): Promise<void> {
       (r) => r.email === "recruiter-pro@example.com"
     );
     if (passRecruiter) {
-      const passStart = new Date();
-      const passEnd = new Date(passStart.getTime());
-      passEnd.setUTCDate(passEnd.getUTCDate() + 7);
-      await db
-        .insert(schema.topTalentPasses)
-        .values({
-          userId: passRecruiter.userId,
-          stripeCheckoutSessionId: `cs_seed_pass_${passRecruiter.userId.slice(0, 8)}`,
-          stripePaymentIntentId: `pi_seed_pass_${passRecruiter.userId.slice(0, 8)}`,
-          amountTotal: 39000,
-          currency: "thb",
-          usedFirstPassCoupon: true,
-          startsAt: passStart,
-          expiresAt: passEnd,
-          createdAt: passStart,
-        })
-        .onConflictDoNothing();
+      await upsertActiveSeedPass(db, {
+        userId: passRecruiter.userId,
+        amountTotal: 39000,
+        usedFirstPassCoupon: true,
+        stripePaymentIntentId: `pi_seed_pass_${passRecruiter.userId.slice(0, 8)}`,
+      });
       console.log(`   🎟️  7-day pass active for: ${passRecruiter.email}`);
     }
 

@@ -22,7 +22,7 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
   let createUserWithRole: typeof import("../../auth/create-account").createUserWithRole;
   let db: typeof import("../../db").db;
   let profileViews: typeof import("../../db").profileViews;
-  let profileInterests: typeof import("../../db").profileInterests;
+  let contactRequests: typeof import("../../db").contactRequests;
   let profilePhotos: typeof import("../../db").profilePhotos;
   let workerProfiles: typeof import("../../db").workerProfiles;
   let recruiterProfiles: typeof import("../../db").recruiterProfiles;
@@ -55,7 +55,7 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
     ({
       db,
       profileViews,
-      profileInterests,
+      contactRequests,
       profilePhotos,
       workerProfiles,
       recruiterProfiles,
@@ -142,7 +142,7 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
     if (!workerAProfileId) return;
     await db.delete(profileViews).where(eq(profileViews.workerProfileId, workerAProfileId));
     await db.delete(profileViews).where(eq(profileViews.workerProfileId, workerBProfileId));
-    await db.delete(profileInterests).where(eq(profileInterests.workerProfileId, workerAProfileId));
+    await db.delete(contactRequests).where(eq(contactRequests.workerProfileId, workerAProfileId));
     await db.delete(profilePhotos).where(eq(profilePhotos.workerProfileId, workerAProfileId));
     await db.delete(profilePhotos).where(eq(profilePhotos.workerProfileId, workerBProfileId));
   });
@@ -181,10 +181,18 @@ describe.skipIf(!shouldRun)("worker dashboard and gallery against paid_talent_te
       },
     ]);
 
-    await db.insert(profileInterests).values({
+    const [recruiterProfile] = await db
+      .select({ id: recruiterProfiles.id })
+      .from(recruiterProfiles)
+      .where(eq(recruiterProfiles.userId, recruiterId))
+      .limit(1);
+    await db.insert(contactRequests).values({
       recruiterUserId: recruiterId,
+      recruiterProfileId: recruiterProfile.id,
       workerProfileId: workerAProfileId,
-      message: "Loved your profile",
+      workerUserId: workerAId,
+      openerText: "Loved your profile",
+      status: "pending",
     });
 
     const first = await getWorkerDashboardData(workerAId);

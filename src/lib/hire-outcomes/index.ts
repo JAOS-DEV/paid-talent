@@ -1,4 +1,8 @@
-import type { HireOutcomeStatus, ProfileInterest, HireOutcome } from "@/lib/db/schema";
+import type { HireOutcomeStatus, HireOutcome } from "@/lib/db/schema";
+
+interface HirePartyRef {
+  recruiterUserId: string;
+}
 
 export interface HireOutcomeTransitionResult {
   allowed: boolean;
@@ -66,7 +70,7 @@ export interface RecruiterOwnsInterestCheck {
 
 export function recruiterOwnsInterest(
   userId: string | null | undefined,
-  interest: Pick<ProfileInterest, "recruiterUserId"> | null
+  interest: HirePartyRef | null
 ): RecruiterOwnsInterestCheck {
   if (!userId) {
     return {
@@ -108,7 +112,7 @@ export interface CanUpdateHireOutcomeResult {
 export function canUpdateHireOutcome(
   userId: string | null | undefined,
   userRole: string | null | undefined,
-  interest: Pick<ProfileInterest, "recruiterUserId"> | null,
+  interest: HirePartyRef | null,
   currentStatus: HireOutcomeStatus,
   newStatus: HireOutcomeStatus
 ): CanUpdateHireOutcomeResult {
@@ -183,7 +187,7 @@ export function computeTimestampsForStatusChange(
 export type HireOutcomeFilter = HireOutcomeStatus | "any" | "none";
 
 export interface InterestWithOutcome {
-  interest: ProfileInterest;
+  interest: { id: string; recruiterUserId: string };
   hireOutcome: HireOutcome | null;
 }
 

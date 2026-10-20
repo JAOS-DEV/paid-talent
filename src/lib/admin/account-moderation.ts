@@ -1,12 +1,17 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { db, type DbClient } from "@/lib/db";
 import {
+  contactRequests,
+  conversations,
   recruiterOpenings,
   recruiterProfiles,
   users,
   workerProfiles,
   type AccountStatus,
 } from "@/lib/db/schema";
+import {
+  SELF_DELETION_REASON,
+} from "@/lib/account/constants";
 import { recordAdminAuditEvent } from "@/lib/admin/audit";
 import { emailsMatch, normalizeVerifiedEmail } from "@/lib/auth/identity";
 import {
@@ -229,6 +234,157 @@ export async function moderateAccountWithClient(
   });
 
   return { ok: true, accountStatus: nextStatus };
+}
+
+export async function applySelfDeletionRequest(
+  client: DbClient,
+  input: { userId: string; email: string; now: Date }
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const [target] = await client
+    .select({
+      id: users.id,
+      email: users.email,
+      accountStatus: users.accountStatus,
+    })
+    .from(users)
+    .where(eq(users.id, input.userId))
+    .limit(1);
+
+  if (!target) {
+    return { ok: false, status: 404, error: "User not found." };
+  }
+
+  await unpublishRestrictedContent(client, target.id, input.now);
+
+  await client
+    .update(users)
+    .set({
+      accountStatus: "suspended",
+      accountStatusReason: SELF_DELETION_REASON,
+      accountStatusChangedAt: input.now,
+      accountStatusChangedBy: input.email,
+      deletionRequestedAt: input.now,
+      updatedAt: input.now,
+    })
+    .where(eq(users.id, target.id));
+
+  await client
+    .update(contactRequests)
+    .set({
+      status: "withdrawn",
+      respondedAt: input.now,
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        or(
+          eq(contactRequests.recruiterUserId, target.id),
+          eq(contactRequests.workerUserId, target.id)
+        ),
+        inArray(contactRequests.status, ["queued", "pending"])
+      )
+    );
+
+  await client
+    .update(conversations)
+    .set({ status: "closed" })
+    .where(
+      and(
+        or(
+          eq(conversations.recruiterUserId, target.id),
+          eq(conversations.workerUserId, target.id)
+        ),
+        eq(conversations.status, "open")
+      )
+    );
+
+  await recordAdminAuditEvent({
+    action: "account_deletion_requested",
+    actorAdminEmail: input.email,
+    actorUserId: target.id,
+    targetUserId: target.id,
+    targetIdentity: normalizeVerifiedEmail(target.email),
+    targetType: "user",
+    targetId: target.id,
+    reason: SELF_DELETION_REASON,
+    metadata: {
+      before: target.accountStatus,
+      after: "suspended",
+    },
+    createdAt: input.now,
+    db: client,
+  });
+
+  return { ok: true };
+}
+
+export async function cancelAccountDeletion(
+  client: DbClient,
+  input: {
+    targetUserId: string;
+    actorUserId: string;
+    actorEmail: string;
+    now: Date;
+  }
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const [target] = await client
+    .select({
+      id: users.id,
+      email: users.email,
+      accountStatus: users.accountStatus,
+      accountStatusReason: users.accountStatusReason,
+      deletionRequestedAt: users.deletionRequestedAt,
+    })
+    .from(users)
+    .where(eq(users.id, input.targetUserId))
+    .limit(1);
+
+  if (!target) {
+    return { ok: false, status: 404, error: "User not found." };
+  }
+
+  if (!target.deletionRequestedAt) {
+    return { ok: false, status: 409, error: "This account has no deletion request." };
+  }
+
+  const restoreActive =
+    target.accountStatus === "suspended" &&
+    target.accountStatusReason === SELF_DELETION_REASON;
+
+  await client
+    .update(users)
+    .set({
+      deletionRequestedAt: null,
+      updatedAt: input.now,
+      ...(restoreActive
+        ? {
+            accountStatus: "active" as const,
+            accountStatusReason: null,
+            accountStatusChangedAt: input.now,
+            accountStatusChangedBy: input.actorEmail,
+          }
+        : {}),
+    })
+    .where(eq(users.id, target.id));
+
+  await recordAdminAuditEvent({
+    action: "account_deletion_cancelled",
+    actorAdminEmail: input.actorEmail,
+    actorUserId: input.actorUserId,
+    targetUserId: target.id,
+    targetIdentity: normalizeVerifiedEmail(target.email),
+    targetType: "user",
+    targetId: target.id,
+    reason: "deletion_request_cancelled",
+    metadata: {
+      before: target.accountStatus,
+      after: restoreActive ? "active" : target.accountStatus,
+    },
+    createdAt: input.now,
+    db: client,
+  });
+
+  return { ok: true };
 }
 
 export async function moderateAccount(input: {
