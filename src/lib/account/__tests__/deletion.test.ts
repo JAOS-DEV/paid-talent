@@ -52,6 +52,7 @@ describe("runAccountPurge", () => {
       },
       listMediaKeys: async (userId) =>
         users.find((row) => row.id === userId)?.media ?? [],
+      listPrivateMediaKeys: async () => [],
       deleteUser: async (userId) => {
         const index = users.findIndex((row) => row.id === userId);
         if (index >= 0) {
@@ -91,6 +92,53 @@ describe("runAccountPurge", () => {
         NOW
       )
     ).toBe(false);
+  });
+
+  it("deletes private verification keys and skips the user when a media delete throws", async () => {
+    const users = [
+      {
+        id: "old-user",
+        deletionRequestedAt: new Date(
+          NOW.getTime() - (ACCOUNT_PURGE_DAYS + 1) * MS_PER_DAY
+        ),
+      },
+    ];
+    const deletedUsers: string[] = [];
+    const deletedPrivate: string[] = [];
+    const store: AccountPurgeStore = {
+      listUsers: async () =>
+        users.map((row) => ({
+          id: row.id,
+          deletionRequestedAt: row.deletionRequestedAt,
+        })),
+      listMediaKeys: async () => ["profiles/old-user/photo.jpg"],
+      listPrivateMediaKeys: async () => [
+        "verification-docs/old-user/id.jpg",
+        "verification-liveness/old-user/live.webm",
+      ],
+      deleteUser: async (userId) => {
+        deletedUsers.push(userId);
+      },
+    };
+
+    const counts = await runAccountPurge(NOW, {
+      store,
+      deletePublicObject: async () => {
+        throw new Error("public bucket down");
+      },
+      deletePrivateObject: async (key) => {
+        if (key.endsWith("live.webm")) {
+          throw new Error("private bucket down");
+        }
+        deletedPrivate.push(key);
+      },
+    });
+
+    expect(deletedPrivate).toEqual(["verification-docs/old-user/id.jpg"]);
+    expect(deletedUsers).toEqual([]);
+    expect(counts.usersPurged).toBe(0);
+    expect(counts.mediaErrors).toBe(2);
+    expect(counts.mediaObjectsDeleted).toBe(1);
   });
 
   it("cancel deletion clears the flag so the account is no longer due", async () => {

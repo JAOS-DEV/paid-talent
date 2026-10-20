@@ -13,7 +13,7 @@ import {
 } from "@/lib/auth/require-active-user";
 
 const requestConfirmationSchema = z.object({
-  interestId: z.string().uuid(),
+  contactRequestId: z.string().uuid(),
 });
 
 interface ActionResult {
@@ -35,7 +35,7 @@ async function getAuthenticatedRecruiter(): Promise<
 }
 
 async function requestOutcomeConfirmation(
-  interestId: string,
+  contactRequestId: string,
   requestedStatus: "hired" | "started"
 ): Promise<ActionResult> {
   const recruiter = await getAuthenticatedRecruiter();
@@ -43,7 +43,7 @@ async function requestOutcomeConfirmation(
     return { success: false, error: recruiter.error };
   }
 
-  const validation = requestConfirmationSchema.safeParse({ interestId });
+  const validation = requestConfirmationSchema.safeParse({ contactRequestId });
   if (!validation.success) {
     return { success: false, error: validation.error.issues[0].message };
   }
@@ -51,7 +51,7 @@ async function requestOutcomeConfirmation(
   const result = await requestConfirmation({
     recruiterUserId: recruiter.userId,
     recruiterRole: "recruiter",
-    interestId: validation.data.interestId,
+    interestId: validation.data.contactRequestId,
     requestedStatus,
   });
 
@@ -70,15 +70,15 @@ async function requestOutcomeConfirmation(
 }
 
 export async function requestHireConfirmation(
-  interestId: string
+  contactRequestId: string
 ): Promise<ActionResult> {
-  return requestOutcomeConfirmation(interestId, "hired");
+  return requestOutcomeConfirmation(contactRequestId, "hired");
 }
 
 export async function requestStartConfirmation(
-  interestId: string
+  contactRequestId: string
 ): Promise<ActionResult> {
-  return requestOutcomeConfirmation(interestId, "started");
+  return requestOutcomeConfirmation(contactRequestId, "started");
 }
 
 export async function getInterestWithOutcome(interestId: string) {

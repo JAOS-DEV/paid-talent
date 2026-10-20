@@ -251,7 +251,7 @@
   },
   "accountDeletion": {
     "title": "Delete my account",
-    "body": "Deleting your account suspends it immediately. We permanently remove the account after about 30 days, including your chats. Reported conversations are kept as evidence. Hiding a chat only hides it from your view and does not delete it.",
+    "body": "Deleting your account suspends it immediately. We permanently remove the account after about 30 days. Deleting your account removes your chats after about 30 days. If a conversation was reported, an evidence copy of the reported messages is kept with the report for up to 2 years. Hiding a chat only hides it from your view and does not delete it.",
     "confirmLabel": "Type {phrase} to confirm",
     "confirmButton": "Delete my account",
     "cancel": "Cancel",
@@ -271,7 +271,7 @@
     "safetyReviewsTitle": "Safety reviews and admin access",
     "safetyReviewsBody": "Authorised Paid Talent staff may read a conversation only when it has been reported or automatically flagged, and each access is logged.",
     "retentionTitle": "Retention",
-    "retentionBody": "Messages are kept for 180 days after a conversation's last activity. Reported conversations are kept for up to 2 years as evidence. Hiding a chat only hides it from your view. Deleting your account removes your chats within about 30 days unless they were reported. ID documents and liveness videos are deleted after review. The default retention period for that verification media is 30 days (RETENTION_DAYS).",
+    "retentionBody": "Messages are kept for 180 days after a conversation's last activity. Hiding a chat only hides it from your view. Deleting your account removes your chats after about 30 days. If a conversation was reported, an evidence copy of the reported messages is kept with the report for up to 2 years. ID documents and liveness videos are deleted after review. The default retention period for that verification media is 30 days (RETENTION_DAYS).",
     "notificationsTitle": "Notifications",
     "notificationsBody": "We send email alerts and, if you link LINE, optional LINE alerts about contact requests and messages. You can turn email or LINE alerts off in your notification settings. Unlinking LINE stops LINE alerts.",
     "sharingTitle": "Sharing",

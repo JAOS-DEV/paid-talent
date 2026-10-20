@@ -25,8 +25,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const counts = await runMessagingMaintenance();
     const notificationsRetried = await retryPending();
     const retention = await runMessagingRetention(now);
-    const accountPurge = await runAccountPurge(now);
     const verificationMedia = await runVerificationMediaRetentionJob();
+    const accountPurge = await runAccountPurge(now);
     console.log("[Cron] messaging-maintenance", {
       notificationsRetried,
       retention,

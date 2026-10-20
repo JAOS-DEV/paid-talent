@@ -6,7 +6,7 @@ import {
   users,
   workerProfiles,
 } from "@/lib/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { resolveVenueDisplayForRecruiter } from "@/lib/venues/display";
 import {
   canWorkerAccessInterestContext,
@@ -44,6 +44,13 @@ export interface InterestContextForWorker {
 }
 
 const BLURB_SNIPPET_LENGTH = 120;
+const WORKER_VISIBLE_CONTACT_REQUEST_STATUSES = ["pending", "accepted"] as const;
+
+function isWorkerVisibleContactRequest(status: string): boolean {
+  return (
+    WORKER_VISIBLE_CONTACT_REQUEST_STATUSES as readonly string[]
+  ).includes(status);
+}
 
 function truncateBlurb(blurb: string | null): string | null {
   if (!blurb) return null;
@@ -96,6 +103,7 @@ export async function getInterestContextForWorker(
       openingId: contactRequests.openingId,
       message: contactRequests.openerText,
       createdAt: contactRequests.createdAt,
+      status: contactRequests.status,
       workerUserId: workerProfiles.userId,
     })
     .from(contactRequests)
@@ -103,10 +111,17 @@ export async function getInterestContextForWorker(
       workerProfiles,
       eq(contactRequests.workerProfileId, workerProfiles.id)
     )
-    .where(eq(contactRequests.id, interestId))
+    .where(
+      and(
+        eq(contactRequests.id, interestId),
+        inArray(contactRequests.status, [
+          ...WORKER_VISIBLE_CONTACT_REQUEST_STATUSES,
+        ])
+      )
+    )
     .limit(1);
 
-  if (!interest) return null;
+  if (!interest || !isWorkerVisibleContactRequest(interest.status)) return null;
 
   if (
     !canWorkerAccessInterestContext({
@@ -208,15 +223,29 @@ export async function getInterestsForWorkerProfile(
       openingId: contactRequests.openingId,
       message: contactRequests.openerText,
       createdAt: contactRequests.createdAt,
+      status: contactRequests.status,
     })
     .from(contactRequests)
-    .where(eq(contactRequests.workerProfileId, workerProfileId))
+    .where(
+      and(
+        eq(contactRequests.workerProfileId, workerProfileId),
+        inArray(contactRequests.status, [
+          ...WORKER_VISIBLE_CONTACT_REQUEST_STATUSES,
+        ])
+      )
+    )
     .orderBy(contactRequests.createdAt);
 
-  if (interests.length === 0) return [];
+  const visibleInterests = interests.filter((interest) =>
+    isWorkerVisibleContactRequest(interest.status)
+  );
 
-  const recruiterUserIds = [...new Set(interests.map((i) => i.recruiterUserId))];
-  const openingIds = interests
+  if (visibleInterests.length === 0) return [];
+
+  const recruiterUserIds = [
+    ...new Set(visibleInterests.map((i) => i.recruiterUserId)),
+  ];
+  const openingIds = visibleInterests
     .map((i) => i.openingId)
     .filter((id): id is string => id !== null);
 
@@ -274,7 +303,7 @@ export async function getInterestsForWorkerProfile(
   }
 
   const venueDisplays = await Promise.all(
-    interests.map((interest) =>
+    visibleInterests.map((interest) =>
       resolveVenueDisplayForRecruiter({
         recruiterUserId: interest.recruiterUserId,
         openingId: interest.openingId,
@@ -282,7 +311,7 @@ export async function getInterestsForWorkerProfile(
     )
   );
 
-  return interests.map((interest, index) => {
+  return visibleInterests.map((interest, index) => {
     const user = usersMap.get(interest.recruiterUserId);
     const venue = venueDisplays[index];
     const openingData = interest.openingId

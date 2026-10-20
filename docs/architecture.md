@@ -1212,8 +1212,8 @@ In-app rows live in `notifications`. Delivery fans out to email and, when the us
 
 1. Existing contact-request maintenance and notification retries.
 2. `runMessagingRetention` — delete conversations past `retention_expires_at` unless `legal_hold_until` is still in the future (messages, flags, and shares cascade); delete declined, withdrawn, or expired contact requests older than `retention_days` when they have no conversation and no report still on legal hold; delete notifications older than 90 days; delete non-open `blocked_attempt` flags older than `retention_days`; null `reports.evidence_snapshot` when the report was resolved more than 730 days ago.
-3. `runAccountPurge` — users with `deletion_requested_at` older than 30 days have profile photos and venue logos removed, then the user row is deleted. Reports survive through `ON DELETE SET NULL` and keep their snapshot.
-4. `runVerificationMediaRetentionJob` — deletes ID document and liveness video objects after `RETENTION_DAYS` (default 30). Verification event rows stay.
+3. `runVerificationMediaRetentionJob` — deletes ID document and liveness video objects after `RETENTION_DAYS` (default 30). Verification event rows stay.
+4. `runAccountPurge` — users with `deletion_requested_at` older than 30 days have profile photos, venue logos, and remaining private ID and liveness objects removed, then the user row is deleted. If any object delete fails, that user is left in place for the next run. Reports survive through `ON DELETE SET NULL` and keep their snapshot.
 
 Account holders request deletion from profile settings with the confirm phrase `DELETE MY ACCOUNT`. The account is suspended immediately (`self_deletion_requested`), open contact requests are withdrawn, and open conversations are closed. An admin can cancel the request from the user detail page; that cancel is audited.
 

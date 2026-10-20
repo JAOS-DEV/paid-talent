@@ -5,13 +5,14 @@ import {
   recruiterProfiles,
   users,
   venues,
+  verificationEvents,
   workerProfiles,
 } from "@/lib/db/schema";
 import {
   applySelfDeletionRequest,
   cancelAccountDeletion,
 } from "@/lib/admin/account-moderation";
-import { deleteFile } from "@/lib/storage/s3";
+import { deleteFile, deletePrivateFile } from "@/lib/storage/s3";
 import {
   ACCOUNT_DELETION_CONFIRM_PHRASE,
   ACCOUNT_PURGE_DAYS,
@@ -99,6 +100,7 @@ export interface AccountPurgeStore {
     afterId: string | null
   ): Promise<AccountPurgeUser[]>;
   listMediaKeys(userId: string): Promise<string[]>;
+  listPrivateMediaKeys(userId: string): Promise<string[]>;
   deleteUser(userId: string): Promise<void>;
 }
 
@@ -114,11 +116,13 @@ export async function runAccountPurge(
     batchSize?: number;
     store?: AccountPurgeStore;
     deletePublicObject?: (key: string) => Promise<void>;
+    deletePrivateObject?: (key: string) => Promise<void>;
   } = {}
 ): Promise<AccountPurgeCounts> {
   const batchSize = options.batchSize ?? 500;
   const store = options.store ?? createDrizzleAccountPurgeStore();
   const deletePublicObject = options.deletePublicObject ?? deleteFile;
+  const deletePrivateObject = options.deletePrivateObject ?? deletePrivateFile;
   const counts: AccountPurgeCounts = {
     usersPurged: 0,
     mediaObjectsDeleted: 0,
@@ -136,18 +140,37 @@ export async function runAccountPurge(
       if (!isUserDueForAccountPurge(user.deletionRequestedAt, now)) {
         continue;
       }
-      const keys = await store.listMediaKeys(user.id);
-      for (const key of keys) {
+      const publicKeys = await store.listMediaKeys(user.id);
+      const privateKeys = await store.listPrivateMediaKeys(user.id);
+      let mediaFailed = false;
+      for (const key of publicKeys) {
         try {
           await deletePublicObject(key);
           counts.mediaObjectsDeleted += 1;
         } catch (error) {
+          mediaFailed = true;
           counts.mediaErrors += 1;
           console.error(
             "[Account purge] media delete failed:",
             error instanceof Error ? error.message : "unknown"
           );
         }
+      }
+      for (const key of privateKeys) {
+        try {
+          await deletePrivateObject(key);
+          counts.mediaObjectsDeleted += 1;
+        } catch (error) {
+          mediaFailed = true;
+          counts.mediaErrors += 1;
+          console.error(
+            "[Account purge] private media delete failed:",
+            error instanceof Error ? error.message : "unknown"
+          );
+        }
+      }
+      if (mediaFailed) {
+        continue;
       }
       await store.deleteUser(user.id);
       counts.usersPurged += 1;
@@ -217,6 +240,46 @@ export function createDrizzleAccountPurgeStore(
         worker[0]?.photoKey,
         recruiter[0]?.logoKey,
         ...venueRows.map((venue) => venue.logoKey),
+      ]);
+    },
+    async listPrivateMediaKeys(userId) {
+      const [events, worker, recruiter] = await Promise.all([
+        client
+          .select({
+            idDocumentKey: verificationEvents.idDocumentKey,
+            idDocumentDeletedAt: verificationEvents.idDocumentDeletedAt,
+            livenessVideoKey: verificationEvents.livenessVideoKey,
+            livenessVideoDeletedAt: verificationEvents.livenessVideoDeletedAt,
+          })
+          .from(verificationEvents)
+          .where(eq(verificationEvents.userId, userId)),
+        client
+          .select({
+            idDocumentKey: workerProfiles.idDocumentKey,
+            livenessVideoKey: workerProfiles.livenessVideoKey,
+          })
+          .from(workerProfiles)
+          .where(eq(workerProfiles.userId, userId))
+          .limit(1),
+        client
+          .select({
+            idDocumentKey: recruiterProfiles.idDocumentKey,
+            livenessVideoKey: recruiterProfiles.livenessVideoKey,
+          })
+          .from(recruiterProfiles)
+          .where(eq(recruiterProfiles.userId, userId))
+          .limit(1),
+      ]);
+
+      return uniqueKeys([
+        ...events.flatMap((event) => [
+          event.idDocumentDeletedAt ? null : event.idDocumentKey,
+          event.livenessVideoDeletedAt ? null : event.livenessVideoKey,
+        ]),
+        worker[0]?.idDocumentKey,
+        worker[0]?.livenessVideoKey,
+        recruiter[0]?.idDocumentKey,
+        recruiter[0]?.livenessVideoKey,
       ]);
     },
     async deleteUser(userId) {

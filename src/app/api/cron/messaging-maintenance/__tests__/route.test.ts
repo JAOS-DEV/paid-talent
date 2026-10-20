@@ -67,8 +67,11 @@ describe("GET /api/cron/messaging-maintenance", () => {
     expect(response.status).toBe(200);
     expect(runMessagingMaintenance).toHaveBeenCalledOnce();
     expect(runMessagingRetention).toHaveBeenCalledOnce();
-    expect(runAccountPurge).toHaveBeenCalledOnce();
     expect(runVerificationMediaRetentionJob).toHaveBeenCalledOnce();
+    expect(runAccountPurge).toHaveBeenCalledOnce();
+    expect(
+      runVerificationMediaRetentionJob.mock.invocationCallOrder[0]
+    ).toBeLessThan(runAccountPurge.mock.invocationCallOrder[0]!);
     const body = await response.json();
     expect(body.ok).toBe(true);
     expect(body.retention.conversationsDeleted).toBe(3);

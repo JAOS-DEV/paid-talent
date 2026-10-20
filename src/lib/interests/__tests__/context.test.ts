@@ -149,12 +149,34 @@ describe("worker interest-context authorization", () => {
           openingId: null,
           message: "secret",
           createdAt: new Date(),
+          status: "accepted",
           workerUserId: WORKER_A,
         },
       ]) as never
     );
 
     const result = await getInterestContextForWorker(INTEREST_A, WORKER_B);
+    expect(result).toBeNull();
+  });
+
+  it("getInterestContextForWorker returns null for a queued request", async () => {
+    const selectMock = vi.mocked(db.select);
+    selectMock.mockReturnValueOnce(
+      mockLimitResult([
+        {
+          id: INTEREST_A,
+          recruiterUserId: RECRUITER_USER,
+          workerProfileId: PROFILE_A,
+          openingId: null,
+          message: "queued opener",
+          createdAt: new Date(),
+          status: "queued",
+          workerUserId: WORKER_A,
+        },
+      ]) as never
+    );
+
+    const result = await getInterestContextForWorker(INTEREST_A, WORKER_A);
     expect(result).toBeNull();
   });
 
@@ -232,6 +254,7 @@ describe("unpublished openings never reach worker-facing queries", () => {
             openingId: OPENING_DRAFT,
             message: null,
             createdAt: new Date("2026-01-01"),
+            status: "accepted",
             workerUserId: WORKER_A,
           },
         ]) as never
@@ -287,6 +310,7 @@ describe("unpublished openings never reach worker-facing queries", () => {
             openingId: OPENING_PUBLISHED,
             message: "Hi",
             createdAt: new Date("2026-01-01"),
+            status: "pending",
             workerUserId: WORKER_A,
           },
         ]) as never
