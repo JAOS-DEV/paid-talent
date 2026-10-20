@@ -14,6 +14,11 @@ This document outlines the API and route boundaries, conventions, and system arc
 8. [Media Storage](#media-storage)
 9. [Stripe Integration](#stripe-integration)
 10. [Moderation System](#moderation-system)
+11. [Messaging](#messaging)
+12. [Safety](#safety)
+13. [Notifications](#notifications)
+14. [Retention](#retention)
+15. [Cron](#cron)
 
 ---
 
@@ -217,7 +222,7 @@ If repair doesn't work, reset the database completely and re-run setup. See [REA
 | `worker_profiles` | Worker profile data, contact info |
 | `recruiter_profiles` | Recruiter/org profile data |
 | `profile_views` | Track profile views for ranking |
-| `profile_interests` | Recruiter → Worker interest records |
+| `contact_requests` | Recruiter → talent contact requests (accepted rows drive hire tracking) |
 | `subscriptions` | Stripe subscription data |
 
 ### Key Relationships
@@ -232,7 +237,7 @@ users
 
 worker_profiles
  ├── profile_views (1:many)
- └── profile_interests (1:many)
+ └── contact_requests (1:many)
 ```
 
 ---
@@ -785,18 +790,9 @@ AWS_REKOGNITION_REGION="us-east-1"
 
 ---
 
-## Interest System
+## Contact requests and hire tracking
 
-### No Chat - Interest Only
-
-The MVP uses a simple interest expression system:
-- Recruiter expresses interest in worker profile
-- Worker sees list of interested recruiters
-- **No threaded messaging or inbox**
-
-### Notification Stub
-
-The `profile_interests.notifiedAt` field is prepared for future notification integration but currently unused.
+Recruiters send a contact request. Talent accept it to open a conversation. Hire tracking lists those accepted contact requests. Confirmation of hired and started is stored on `hire_outcomes.contact_request_id`. `contact_requests.legacy_interest_id` remains only so older rows can be mapped during the drop of the previous interest table.
 
 ---
 
@@ -837,7 +833,7 @@ Routes:
 
 There is no recruiter-accessible endpoint that writes confirmed `hired` or `started`.
 
-A unique partial index allows only one pending request per interest.
+A unique partial index allows only one pending request per accepted contact request.
 
 ### Worker confirmation
 
@@ -1189,4 +1185,38 @@ Interest expression on search and worker profile detail optionally attaches a **
 
 - Worker → Recruiter browse/search marketplace (no directory)
 - Admin UI for recruiter management
-- Chat/messaging between workers and recruiters
+
+## Messaging
+
+Recruiters send a contact request. Talent accept it to open one conversation per request. Messages, contact shares, and message flags hang off that conversation and cascade when the conversation is deleted.
+
+`conversations.retention_expires_at` is set from `messaging_settings.retention_days` (default 180) when the conversation is created, and refreshed from last activity by the product paths that touch the thread. `conversations.legal_hold_until` keeps a reported thread past that window. Hiding a chat (`worker_hidden_at` / `recruiter_hidden_at`) only hides it for that person.
+
+Hire tracking reads accepted contact requests. Confirmation of hired and started still goes through `/recruiter/interests` and `/api/recruiter/interests/*`.
+
+## Safety
+
+Messages are screened for contact details and risk keywords. Matches create `message_flags`. Users file `reports` against a contact request or conversation. Filing a report stores an `evidence_snapshot` and places a legal hold on the conversation (730 days).
+
+Authorised staff can open a conversation only when it was reported or automatically flagged. Each view is written to `admin_audit_events` as `conversation_viewed`.
+
+Enough reports in the configured window auto-pause recruiter messaging (`recruiter_profiles.messaging_paused_at`).
+
+## Notifications
+
+In-app rows live in `notifications`. Delivery fans out to email and, when the user has linked LINE and opted in, to the LINE Official Account. `user_notification_prefs` stores the email and LINE switches. Users opt out from notification settings; unlinking LINE stops LINE pushes. The messaging-maintenance cron retries pending deliveries.
+
+## Retention
+
+`GET /api/cron/messaging-maintenance` runs, in order:
+
+1. Existing contact-request maintenance and notification retries.
+2. `runMessagingRetention` — delete conversations past `retention_expires_at` unless `legal_hold_until` is still in the future (messages, flags, and shares cascade); delete declined, withdrawn, or expired contact requests older than `retention_days` when they have no conversation and no report still on legal hold; delete notifications older than 90 days; delete non-open `blocked_attempt` flags older than `retention_days`; null `reports.evidence_snapshot` when the report was resolved more than 730 days ago.
+3. `runAccountPurge` — users with `deletion_requested_at` older than 30 days have profile photos and venue logos removed, then the user row is deleted. Reports survive through `ON DELETE SET NULL` and keep their snapshot.
+4. `runVerificationMediaRetentionJob` — deletes ID document and liveness video objects after `RETENTION_DAYS` (default 30). Verification event rows stay.
+
+Account holders request deletion from profile settings with the confirm phrase `DELETE MY ACCOUNT`. The account is suspended immediately (`self_deletion_requested`), open contact requests are withdrawn, and open conversations are closed. An admin can cancel the request from the user detail page; that cancel is audited.
+
+## Cron
+
+`vercel.json` schedules `/api/cron/messaging-maintenance` daily. Middleware treats `/api/cron/*` as a public machine route, so every cron handler must require `Authorization: Bearer ${CRON_SECRET}` and return 401 otherwise. Logs from this cron are counts only.

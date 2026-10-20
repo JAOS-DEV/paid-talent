@@ -150,6 +150,7 @@ export async function getAdminUserDetail(userId: string): Promise<{
     accountStatusReason: string | null;
     accountStatusChangedAt: string | null;
     accountStatusChangedBy: string | null;
+    deletionRequestedAt: string | null;
   };
   worker: {
     publicationStatus: boolean;
@@ -187,6 +188,7 @@ export async function getAdminUserDetail(userId: string): Promise<{
       accountStatusReason: users.accountStatusReason,
       accountStatusChangedAt: users.accountStatusChangedAt,
       accountStatusChangedBy: users.accountStatusChangedBy,
+      deletionRequestedAt: users.deletionRequestedAt,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -270,6 +272,9 @@ export async function getAdminUserDetail(userId: string): Promise<{
       updatedAt: user.updatedAt.toISOString(),
       accountStatusChangedAt: user.accountStatusChangedAt
         ? user.accountStatusChangedAt.toISOString()
+        : null,
+      deletionRequestedAt: user.deletionRequestedAt
+        ? user.deletionRequestedAt.toISOString()
         : null,
     },
     worker,

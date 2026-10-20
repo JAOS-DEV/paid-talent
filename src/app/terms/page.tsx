@@ -10,8 +10,10 @@ export default async function TermsPage(): Promise<React.ReactElement> {
     { title: t("acceptanceTitle"), body: t("acceptanceBody") },
     { title: t("eligibilityTitle"), body: t("eligibilityBody") },
     { title: t("accountsTitle"), body: t("accountsBody") },
+    { title: t("recruiterObligationsTitle"), body: t("recruiterObligationsBody") },
     { title: t("marketplaceTitle"), body: t("marketplaceBody") },
     { title: t("subscriptionsTitle"), body: t("subscriptionsBody") },
+    { title: t("reportingTitle"), body: t("reportingBody") },
     { title: t("liabilityTitle"), body: t("liabilityBody") },
     { title: t("contactTitle"), body: t("contactBody") },
   ] as const;

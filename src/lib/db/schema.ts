@@ -178,6 +178,8 @@ export const adminAuditActionEnum = pgEnum("admin_audit_action", [
   "recruiter_messaging_paused",
   "recruiter_messaging_unpaused",
   "conversation_viewed",
+  "account_deletion_requested",
+  "account_deletion_cancelled",
 ]);
 
 export const reportReasonEnum = pgEnum("report_reason", [
@@ -240,6 +242,7 @@ export const users = pgTable(
       mode: "date",
     }),
     accountStatusChangedBy: text("account_status_changed_by"),
+    deletionRequestedAt: timestamp("deletion_requested_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
@@ -247,6 +250,7 @@ export const users = pgTable(
     index("users_email_idx").on(table.email),
     index("users_role_idx").on(table.role),
     index("users_account_status_idx").on(table.accountStatus),
+    index("users_deletion_requested_at_idx").on(table.deletionRequestedAt),
   ]
 );
 

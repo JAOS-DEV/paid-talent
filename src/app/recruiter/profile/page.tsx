@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { Header, Footer } from "@/components/layout";
 import { RecruiterBackLink, RecruiterProfileForm } from "@/components/recruiter";
 import { BlockedAccountsSection } from "@/components/safety";
+import { DeleteAccountSection } from "@/components/account/DeleteAccountSection";
 import { getRecruiterProfile } from "@/lib/recruiter-profile/actions";
 
 export default async function RecruiterOwnProfilePage(): Promise<React.ReactElement> {
@@ -31,8 +32,9 @@ export default async function RecruiterOwnProfilePage(): Promise<React.ReactElem
             initialProfile={profile}
             accountEmail={session.user.email}
           />
-          <div className="mt-8">
+          <div className="mt-8 space-y-6">
             <BlockedAccountsSection />
+            <DeleteAccountSection />
           </div>
         </div>
       </main>

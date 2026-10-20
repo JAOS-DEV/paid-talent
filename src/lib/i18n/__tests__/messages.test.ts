@@ -73,6 +73,41 @@ describe("i18n messages", () => {
     });
   });
 
+  describe("legal copy", () => {
+    const privacyKeys = [
+      "dataCollectedBody",
+      "howWeUseBody",
+      "safetyReviewsTitle",
+      "safetyReviewsBody",
+      "retentionBody",
+      "notificationsTitle",
+      "notificationsBody",
+      "sharingBody",
+    ] as const;
+    const termsKeys = [
+      "recruiterObligationsTitle",
+      "recruiterObligationsBody",
+      "subscriptionsBody",
+      "reportingTitle",
+      "reportingBody",
+    ] as const;
+
+    it("keeps new privacy and terms keys in en and th", () => {
+      for (const key of privacyKeys) {
+        expect(enMessages.privacyPage[key].length).toBeGreaterThan(0);
+        expect(thMessages.privacyPage[key].length).toBeGreaterThan(0);
+      }
+      for (const key of termsKeys) {
+        expect(enMessages.termsPage[key].length).toBeGreaterThan(0);
+        expect(thMessages.termsPage[key].length).toBeGreaterThan(0);
+      }
+      expect(enMessages.privacyPage.whoWeAreBody).toContain("TODO");
+      expect(thMessages.privacyPage.whoWeAreBody).toContain("TODO");
+      expect(enMessages.termsPage.contactBody).toContain("TODO");
+      expect(thMessages.termsPage.contactBody).toContain("TODO");
+    });
+  });
+
   describe("auth namespace", () => {
     const signInKeys = [
       "errorCredentials",
