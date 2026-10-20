@@ -1,6 +1,6 @@
 import {
   db,
-  profileInterests,
+  contactRequests,
   recruiterProfiles,
   recruiterOpenings,
   users,
@@ -90,20 +90,20 @@ export async function getInterestContextForWorker(
 
   const [interest] = await db
     .select({
-      id: profileInterests.id,
-      recruiterUserId: profileInterests.recruiterUserId,
-      workerProfileId: profileInterests.workerProfileId,
-      openingId: profileInterests.openingId,
-      message: profileInterests.message,
-      createdAt: profileInterests.createdAt,
+      id: contactRequests.id,
+      recruiterUserId: contactRequests.recruiterUserId,
+      workerProfileId: contactRequests.workerProfileId,
+      openingId: contactRequests.openingId,
+      message: contactRequests.openerText,
+      createdAt: contactRequests.createdAt,
       workerUserId: workerProfiles.userId,
     })
-    .from(profileInterests)
+    .from(contactRequests)
     .innerJoin(
       workerProfiles,
-      eq(profileInterests.workerProfileId, workerProfiles.id)
+      eq(contactRequests.workerProfileId, workerProfiles.id)
     )
-    .where(eq(profileInterests.id, interestId))
+    .where(eq(contactRequests.id, interestId))
     .limit(1);
 
   if (!interest) return null;
@@ -203,15 +203,15 @@ export async function getInterestsForWorkerProfile(
 
   const interests = await db
     .select({
-      id: profileInterests.id,
-      recruiterUserId: profileInterests.recruiterUserId,
-      openingId: profileInterests.openingId,
-      message: profileInterests.message,
-      createdAt: profileInterests.createdAt,
+      id: contactRequests.id,
+      recruiterUserId: contactRequests.recruiterUserId,
+      openingId: contactRequests.openingId,
+      message: contactRequests.openerText,
+      createdAt: contactRequests.createdAt,
     })
-    .from(profileInterests)
-    .where(eq(profileInterests.workerProfileId, workerProfileId))
-    .orderBy(profileInterests.createdAt);
+    .from(contactRequests)
+    .where(eq(contactRequests.workerProfileId, workerProfileId))
+    .orderBy(contactRequests.createdAt);
 
   if (interests.length === 0) return [];
 

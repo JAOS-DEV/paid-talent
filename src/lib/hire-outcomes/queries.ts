@@ -1,6 +1,6 @@
 import {
   db,
-  profileInterests,
+  contactRequests,
   hireOutcomes,
   hireOutcomeConfirmationRequests,
   workerProfiles,
@@ -58,24 +58,29 @@ async function attachLatestConfirmationRequests<
     return latestByInterest;
   }
 
-  const interestIds = interests.map((interest) => interest.id);
+  const contactRequestIds = interests.map((interest) => interest.id);
   const requests = await db
     .select({
       id: hireOutcomeConfirmationRequests.id,
-      interestId: hireOutcomeConfirmationRequests.interestId,
+      contactRequestId: hireOutcomeConfirmationRequests.contactRequestId,
       requestedStatus: hireOutcomeConfirmationRequests.requestedStatus,
       requestStatus: hireOutcomeConfirmationRequests.requestStatus,
       requestedAt: hireOutcomeConfirmationRequests.requestedAt,
     })
     .from(hireOutcomeConfirmationRequests)
-    .where(inArray(hireOutcomeConfirmationRequests.interestId, interestIds))
+    .where(
+      inArray(
+        hireOutcomeConfirmationRequests.contactRequestId,
+        contactRequestIds
+      )
+    )
     .orderBy(desc(hireOutcomeConfirmationRequests.requestedAt));
 
   const grouped = new Map<string, typeof requests>();
   for (const request of requests) {
-    const existing = grouped.get(request.interestId) ?? [];
+    const existing = grouped.get(request.contactRequestId) ?? [];
     existing.push(request);
-    grouped.set(request.interestId, existing);
+    grouped.set(request.contactRequestId, existing);
   }
 
   for (const [interestId, group] of grouped) {
@@ -99,26 +104,34 @@ export async function getRecruiterInterestsWithOutcomes(
 ): Promise<InterestWithOutcomeAndProfile[]> {
   const query = db
     .select({
-      id: profileInterests.id,
-      workerProfileId: profileInterests.workerProfileId,
+      id: contactRequests.id,
+      workerProfileId: contactRequests.workerProfileId,
       workerName: workerProfiles.displayName,
       workerPhoto: workerProfiles.photoUrl,
-      message: profileInterests.message,
-      createdAt: profileInterests.createdAt,
+      message: contactRequests.openerText,
+      createdAt: contactRequests.createdAt,
       outcomeId: hireOutcomes.id,
       outcomeStatus: hireOutcomes.status,
       hiredAt: hireOutcomes.hiredAt,
       startedAt: hireOutcomes.startedAt,
       notes: hireOutcomes.notes,
     })
-    .from(profileInterests)
+    .from(contactRequests)
     .innerJoin(
       workerProfiles,
-      eq(profileInterests.workerProfileId, workerProfiles.id)
+      eq(contactRequests.workerProfileId, workerProfiles.id)
     )
-    .leftJoin(hireOutcomes, eq(profileInterests.id, hireOutcomes.interestId))
-    .where(eq(profileInterests.recruiterUserId, recruiterUserId))
-    .orderBy(profileInterests.createdAt);
+    .leftJoin(
+      hireOutcomes,
+      eq(contactRequests.id, hireOutcomes.contactRequestId)
+    )
+    .where(
+      and(
+        eq(contactRequests.recruiterUserId, recruiterUserId),
+        eq(contactRequests.status, "accepted")
+      )
+    )
+    .orderBy(contactRequests.createdAt);
 
   const results = await query;
 
@@ -166,12 +179,20 @@ export async function getRecruiterOutcomeStats(
 ): Promise<OutcomeStats> {
   const interests = await db
     .select({
-      interestId: profileInterests.id,
+      contactRequestId: contactRequests.id,
       outcomeStatus: hireOutcomes.status,
     })
-    .from(profileInterests)
-    .leftJoin(hireOutcomes, eq(profileInterests.id, hireOutcomes.interestId))
-    .where(eq(profileInterests.recruiterUserId, recruiterUserId));
+    .from(contactRequests)
+    .leftJoin(
+      hireOutcomes,
+      eq(contactRequests.id, hireOutcomes.contactRequestId)
+    )
+    .where(
+      and(
+        eq(contactRequests.recruiterUserId, recruiterUserId),
+        eq(contactRequests.status, "accepted")
+      )
+    );
 
   const stats: OutcomeStats = {
     total: interests.length,
@@ -217,7 +238,7 @@ export async function getHireOutcomeByInterestId(
   const [outcome] = await db
     .select()
     .from(hireOutcomes)
-    .where(eq(hireOutcomes.interestId, interestId))
+    .where(eq(hireOutcomes.contactRequestId, interestId))
     .limit(1);
 
   return outcome ?? null;
@@ -234,7 +255,7 @@ export async function getLatestConfirmationRequestForInterest(
       requestedAt: hireOutcomeConfirmationRequests.requestedAt,
     })
     .from(hireOutcomeConfirmationRequests)
-    .where(eq(hireOutcomeConfirmationRequests.interestId, interestId))
+    .where(eq(hireOutcomeConfirmationRequests.contactRequestId, interestId))
     .orderBy(desc(hireOutcomeConfirmationRequests.requestedAt));
 
   return pickLatestConfirmationRequest(requests);
@@ -258,19 +279,27 @@ export async function getWorkerInterestsWithOutcomes(
 > {
   const results = await db
     .select({
-      id: profileInterests.id,
+      id: contactRequests.id,
       recruiterName: users.name,
-      message: profileInterests.message,
-      createdAt: profileInterests.createdAt,
+      message: contactRequests.openerText,
+      createdAt: contactRequests.createdAt,
       outcomeStatus: hireOutcomes.status,
       hiredAt: hireOutcomes.hiredAt,
       startedAt: hireOutcomes.startedAt,
     })
-    .from(profileInterests)
-    .innerJoin(users, eq(profileInterests.recruiterUserId, users.id))
-    .leftJoin(hireOutcomes, eq(profileInterests.id, hireOutcomes.interestId))
-    .where(eq(profileInterests.workerProfileId, workerProfileId))
-    .orderBy(profileInterests.createdAt);
+    .from(contactRequests)
+    .innerJoin(users, eq(contactRequests.recruiterUserId, users.id))
+    .leftJoin(
+      hireOutcomes,
+      eq(contactRequests.id, hireOutcomes.contactRequestId)
+    )
+    .where(
+      and(
+        eq(contactRequests.workerProfileId, workerProfileId),
+        eq(contactRequests.status, "accepted")
+      )
+    )
+    .orderBy(contactRequests.createdAt);
 
   const latestRequests = await attachLatestConfirmationRequests(results);
 
@@ -306,7 +335,7 @@ export async function getPendingConfirmationRequestsForWorker(
   const results = await db
     .select({
       id: hireOutcomeConfirmationRequests.id,
-      interestId: hireOutcomeConfirmationRequests.interestId,
+      contactRequestId: hireOutcomeConfirmationRequests.contactRequestId,
       requestedStatus: hireOutcomeConfirmationRequests.requestedStatus,
       requestedAt: hireOutcomeConfirmationRequests.requestedAt,
       organizationName: recruiterProfiles.organizationName,
@@ -321,21 +350,21 @@ export async function getPendingConfirmationRequestsForWorker(
     })
     .from(hireOutcomeConfirmationRequests)
     .innerJoin(
-      profileInterests,
-      eq(hireOutcomeConfirmationRequests.interestId, profileInterests.id)
+      contactRequests,
+      eq(hireOutcomeConfirmationRequests.contactRequestId, contactRequests.id)
     )
     .innerJoin(
       workerProfiles,
-      eq(profileInterests.workerProfileId, workerProfiles.id)
+      eq(contactRequests.workerProfileId, workerProfiles.id)
     )
-    .innerJoin(users, eq(profileInterests.recruiterUserId, users.id))
+    .innerJoin(users, eq(contactRequests.recruiterUserId, users.id))
     .leftJoin(
       recruiterProfiles,
-      eq(recruiterProfiles.userId, profileInterests.recruiterUserId)
+      eq(recruiterProfiles.userId, contactRequests.recruiterUserId)
     )
     .leftJoin(
       recruiterOpenings,
-      eq(profileInterests.openingId, recruiterOpenings.id)
+      eq(contactRequests.openingId, recruiterOpenings.id)
     )
     .where(
       and(
@@ -347,7 +376,7 @@ export async function getPendingConfirmationRequestsForWorker(
 
   return results.map((row) => ({
     id: row.id,
-    interestId: row.interestId,
+    interestId: row.contactRequestId,
     requestedStatus: row.requestedStatus,
     requestedAt: row.requestedAt,
     venueName: resolveVenueName(row.organizationName, row.recruiterName),

@@ -1,10 +1,9 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   contactRequests,
   db,
   hireOutcomeConfirmationRequests,
   hireOutcomes,
-  profileInterests,
   workerProfiles,
 } from "@/lib/db";
 import type { HireOutcomeStatus } from "@/lib/db/schema";
@@ -30,7 +29,7 @@ function isUniqueViolation(error: unknown): boolean {
   const message = "message" in error ? String(error.message) : "";
   return (
     maybeCode === "23505" ||
-    message.includes("hire_conf_req_one_pending_per_interest_uidx") ||
+    message.includes("hire_conf_req_one_pending_per_contact_request_uidx") ||
     message.toLowerCase().includes("unique")
   );
 }
@@ -41,10 +40,7 @@ async function getPendingRequestForContactRequest(contactRequestId: string) {
     .from(hireOutcomeConfirmationRequests)
     .where(
       and(
-        or(
-          eq(hireOutcomeConfirmationRequests.contactRequestId, contactRequestId),
-          eq(hireOutcomeConfirmationRequests.interestId, contactRequestId)
-        ),
+        eq(hireOutcomeConfirmationRequests.contactRequestId, contactRequestId),
         eq(hireOutcomeConfirmationRequests.requestStatus, "pending")
       )
     )
@@ -58,10 +54,7 @@ async function getConfirmedOutcome(contactRequestId: string) {
     .select()
     .from(hireOutcomes)
     .where(
-      or(
-        eq(hireOutcomes.contactRequestId, contactRequestId),
-        eq(hireOutcomes.interestId, contactRequestId)
-      )
+      eq(hireOutcomes.contactRequestId, contactRequestId)
     )
     .limit(1);
 
@@ -93,50 +86,10 @@ export async function requestConfirmation(input: {
     };
   }
 
-  // Ensure legacy interest row exists for NOT NULL interest_id FKs.
-  // No target: swallow conflicts on id OR (recruiter_user_id, worker_profile_id).
-  await db
-    .insert(profileInterests)
-    .values({
-      id: contactRequest.id,
-      recruiterUserId: contactRequest.recruiterUserId,
-      workerProfileId: contactRequest.workerProfileId,
-      openingId: contactRequest.openingId,
-      message: contactRequest.openerText,
-      createdAt: contactRequest.createdAt,
-    })
-    .onConflictDoNothing();
-
-  let [interest] = await db
-    .select({
-      id: profileInterests.id,
-      recruiterUserId: profileInterests.recruiterUserId,
-      workerProfileId: profileInterests.workerProfileId,
-    })
-    .from(profileInterests)
-    .where(eq(profileInterests.id, contactRequest.id))
-    .limit(1);
-
-  if (!interest) {
-    [interest] = await db
-      .select({
-        id: profileInterests.id,
-        recruiterUserId: profileInterests.recruiterUserId,
-        workerProfileId: profileInterests.workerProfileId,
-      })
-      .from(profileInterests)
-      .where(
-        and(
-          eq(profileInterests.recruiterUserId, contactRequest.recruiterUserId),
-          eq(profileInterests.workerProfileId, contactRequest.workerProfileId)
-        )
-      )
-      .limit(1);
-  }
-
-  if (!interest) {
-    return { success: false, error: "Legacy interest row not found" };
-  }
+  const interest = {
+    recruiterUserId: contactRequest.recruiterUserId,
+    workerProfileId: contactRequest.workerProfileId,
+  };
 
   const existingOutcome = await getConfirmedOutcome(contactRequestId);
   const confirmedStatus = getEffectiveStatus(existingOutcome);
@@ -176,7 +129,6 @@ export async function requestConfirmation(input: {
     const [created] = await db
       .insert(hireOutcomeConfirmationRequests)
       .values({
-        interestId: interest.id,
         contactRequestId: contactRequest.id,
         requestedStatus: input.requestedStatus,
         requestStatus: "pending",
@@ -219,17 +171,17 @@ export async function respondToConfirmation(input: {
   const [row] = await db
     .select({
       request: hireOutcomeConfirmationRequests,
-      interest: profileInterests,
+      contactRequest: contactRequests,
       workerProfile: workerProfiles,
     })
     .from(hireOutcomeConfirmationRequests)
     .innerJoin(
-      profileInterests,
-      eq(hireOutcomeConfirmationRequests.interestId, profileInterests.id)
+      contactRequests,
+      eq(hireOutcomeConfirmationRequests.contactRequestId, contactRequests.id)
     )
     .innerJoin(
       workerProfiles,
-      eq(profileInterests.workerProfileId, workerProfiles.id)
+      eq(contactRequests.workerProfileId, workerProfiles.id)
     )
     .where(eq(hireOutcomeConfirmationRequests.id, input.requestId))
     .limit(1);
@@ -238,7 +190,7 @@ export async function respondToConfirmation(input: {
     return { success: false, error: "Confirmation request not found" };
   }
 
-  const existingOutcome = await getConfirmedOutcome(row.interest.id);
+  const existingOutcome = await getConfirmedOutcome(row.contactRequest.id);
   const confirmedStatus = getEffectiveStatus(existingOutcome);
 
   const authz = canRespondToConfirmation(
@@ -248,7 +200,7 @@ export async function respondToConfirmation(input: {
       requestStatus: row.request.requestStatus,
       requestedStatus: row.request.requestedStatus,
     },
-    row.interest,
+    row.contactRequest,
     row.workerProfile,
     confirmedStatus
   );
@@ -303,8 +255,7 @@ export async function respondToConfirmation(input: {
     }
 
     if (input.action === "confirm" && plan.hireOutcome) {
-      const contactRequestId =
-        row.request.contactRequestId ?? row.interest.id;
+      const contactRequestId = row.contactRequest.id;
       if (existingOutcome) {
         await tx
           .update(hireOutcomes)
@@ -318,7 +269,6 @@ export async function respondToConfirmation(input: {
           .where(eq(hireOutcomes.id, existingOutcome.id));
       } else {
         await tx.insert(hireOutcomes).values({
-          interestId: row.interest.id,
           contactRequestId,
           status: plan.hireOutcome.status,
           hiredAt: plan.hireOutcome.hiredAt,

@@ -540,34 +540,6 @@ export const profileViews = pgTable(
   ]
 );
 
-export const profileInterests = pgTable(
-  "profile_interests",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    recruiterUserId: uuid("recruiter_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    workerProfileId: uuid("worker_profile_id")
-      .notNull()
-      .references(() => workerProfiles.id, { onDelete: "cascade" }),
-    openingId: uuid("opening_id").references(() => recruiterOpenings.id, {
-      onDelete: "set null",
-    }),
-    message: text("message"),
-    notifiedAt: timestamp("notified_at", { mode: "date" }),
-    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
-  },
-  (table) => [
-    index("profile_interests_recruiter_idx").on(table.recruiterUserId),
-    index("profile_interests_worker_idx").on(table.workerProfileId),
-    index("profile_interests_opening_idx").on(table.openingId),
-    uniqueIndex("profile_interests_unique_idx").on(
-      table.recruiterUserId,
-      table.workerProfileId
-    ),
-  ]
-);
-
 export const contactRequests = pgTable(
   "contact_requests",
   {
@@ -886,14 +858,10 @@ export const hireOutcomes = pgTable(
   "hire_outcomes",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    interestId: uuid("interest_id")
+    contactRequestId: uuid("contact_request_id")
       .notNull()
       .unique()
-      .references(() => profileInterests.id, { onDelete: "cascade" }),
-    contactRequestId: uuid("contact_request_id").references(
-      () => contactRequests.id,
-      { onDelete: "set null" }
-    ),
+      .references(() => contactRequests.id, { onDelete: "cascade" }),
     status: hireOutcomeStatusEnum("status").notNull().default("interested"),
     hiredAt: timestamp("hired_at", { mode: "date" }),
     startedAt: timestamp("started_at", { mode: "date" }),
@@ -902,7 +870,6 @@ export const hireOutcomes = pgTable(
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
-    index("hire_outcomes_interest_id_idx").on(table.interestId),
     index("hire_outcomes_contact_request_id_idx").on(table.contactRequestId),
     index("hire_outcomes_status_idx").on(table.status),
   ]
@@ -912,13 +879,9 @@ export const hireOutcomeConfirmationRequests = pgTable(
   "hire_outcome_confirmation_requests",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    interestId: uuid("interest_id")
+    contactRequestId: uuid("contact_request_id")
       .notNull()
-      .references(() => profileInterests.id, { onDelete: "cascade" }),
-    contactRequestId: uuid("contact_request_id").references(
-      () => contactRequests.id,
-      { onDelete: "cascade" }
-    ),
+      .references(() => contactRequests.id, { onDelete: "cascade" }),
     requestedStatus: hireConfirmationRequestedStatusEnum("requested_status").notNull(),
     requestStatus: hireConfirmationRequestStatusEnum("request_status")
       .notNull()
@@ -937,7 +900,6 @@ export const hireOutcomeConfirmationRequests = pgTable(
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull().defaultNow(),
   },
   (table) => [
-    index("hire_conf_req_interest_id_idx").on(table.interestId),
     index("hire_conf_req_contact_request_id_idx").on(table.contactRequestId),
     index("hire_conf_req_request_status_idx").on(table.requestStatus),
     index("hire_conf_req_requested_by_idx").on(table.requestedByRecruiterUserId),
@@ -945,8 +907,8 @@ export const hireOutcomeConfirmationRequests = pgTable(
       table.requestStatus,
       table.requestedAt
     ),
-    uniqueIndex("hire_conf_req_one_pending_per_interest_uidx")
-      .on(table.interestId)
+    uniqueIndex("hire_conf_req_one_pending_per_contact_request_uidx")
+      .on(table.contactRequestId)
       .where(sql`${table.requestStatus} = 'pending'`),
   ]
 );
@@ -1220,7 +1182,6 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   accounts: many(accounts),
   sessions: many(sessions),
-  sentInterests: many(profileInterests),
   sentContactRequests: many(contactRequests, {
     relationName: "contactRequestRecruiter",
   }),
@@ -1268,7 +1229,6 @@ export const workerProfilesRelations = relations(
       references: [users.id],
     }),
     views: many(profileViews),
-    interests: many(profileInterests),
     contactRequests: many(contactRequests),
     photos: many(profilePhotos),
   })
@@ -1307,7 +1267,7 @@ export const venuesRelations = relations(venues, ({ one, many }) => ({
 
 export const recruiterOpeningsRelations = relations(
   recruiterOpenings,
-  ({ one, many }) => ({
+  ({ one }) => ({
     recruiterProfile: one(recruiterProfiles, {
       fields: [recruiterOpenings.recruiterProfileId],
       references: [recruiterProfiles.id],
@@ -1316,7 +1276,6 @@ export const recruiterOpeningsRelations = relations(
       fields: [recruiterOpenings.venueId],
       references: [venues.id],
     }),
-    interests: many(profileInterests),
   })
 );
 
@@ -1330,29 +1289,6 @@ export const profileViewsRelations = relations(profileViews, ({ one }) => ({
     references: [users.id],
   }),
 }));
-
-export const profileInterestsRelations = relations(
-  profileInterests,
-  ({ one, many }) => ({
-    recruiter: one(users, {
-      fields: [profileInterests.recruiterUserId],
-      references: [users.id],
-    }),
-    workerProfile: one(workerProfiles, {
-      fields: [profileInterests.workerProfileId],
-      references: [workerProfiles.id],
-    }),
-    opening: one(recruiterOpenings, {
-      fields: [profileInterests.openingId],
-      references: [recruiterOpenings.id],
-    }),
-    hireOutcome: one(hireOutcomes, {
-      fields: [profileInterests.id],
-      references: [hireOutcomes.interestId],
-    }),
-    confirmationRequests: many(hireOutcomeConfirmationRequests),
-  })
-);
 
 export const contactRequestsRelations = relations(
   contactRequests,
@@ -1485,10 +1421,6 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 }));
 
 export const hireOutcomesRelations = relations(hireOutcomes, ({ one }) => ({
-  interest: one(profileInterests, {
-    fields: [hireOutcomes.interestId],
-    references: [profileInterests.id],
-  }),
   contactRequest: one(contactRequests, {
     fields: [hireOutcomes.contactRequestId],
     references: [contactRequests.id],
@@ -1498,10 +1430,6 @@ export const hireOutcomesRelations = relations(hireOutcomes, ({ one }) => ({
 export const hireOutcomeConfirmationRequestsRelations = relations(
   hireOutcomeConfirmationRequests,
   ({ one }) => ({
-    interest: one(profileInterests, {
-      fields: [hireOutcomeConfirmationRequests.interestId],
-      references: [profileInterests.id],
-    }),
     contactRequest: one(contactRequests, {
       fields: [hireOutcomeConfirmationRequests.contactRequestId],
       references: [contactRequests.id],
@@ -1572,8 +1500,6 @@ export type VenueReviewStatus =
 export type ProfilePhoto = typeof profilePhotos.$inferSelect;
 export type NewProfilePhoto = typeof profilePhotos.$inferInsert;
 export type ProfileView = typeof profileViews.$inferSelect;
-export type ProfileInterest = typeof profileInterests.$inferSelect;
-export type NewProfileInterest = typeof profileInterests.$inferInsert;
 export type ContactRequest = typeof contactRequests.$inferSelect;
 export type NewContactRequest = typeof contactRequests.$inferInsert;
 export type ContactRequestStatus =

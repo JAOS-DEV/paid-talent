@@ -24,7 +24,6 @@ const EXPECTED_TABLES = [
   "hire_outcome_confirmation_requests",
   "hire_outcomes",
   "platform_settings",
-  "profile_interests",
   "profile_photos",
   "profile_views",
   "recruiter_openings",

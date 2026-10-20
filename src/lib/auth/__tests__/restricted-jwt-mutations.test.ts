@@ -218,7 +218,6 @@ describe("active-account guard coverage", () => {
       "app/api/worker/verification/upload/route.ts",
       "app/api/worker/verification/challenge/route.ts",
       "app/api/media/upload/route.ts",
-      "app/api/interests/route.ts",
       "app/api/recruiter/openings/route.ts",
       "app/api/recruiter/interests/route.ts",
       "app/api/recruiter/interests/stats/route.ts",

@@ -1,6 +1,6 @@
 "use server";
 
-import { db, profileInterests, hireOutcomes } from "@/lib/db";
+import { db, contactRequests, hireOutcomes } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -89,18 +89,22 @@ export async function getInterestWithOutcome(interestId: string) {
 
   const [interest] = await db
     .select()
-    .from(profileInterests)
-    .where(eq(profileInterests.id, interestId))
+    .from(contactRequests)
+    .where(eq(contactRequests.id, interestId))
     .limit(1);
 
-  if (!interest || interest.recruiterUserId !== recruiter.userId) {
+  if (
+    !interest ||
+    interest.recruiterUserId !== recruiter.userId ||
+    interest.status !== "accepted"
+  ) {
     return null;
   }
 
   const [outcome] = await db
     .select()
     .from(hireOutcomes)
-    .where(eq(hireOutcomes.interestId, interestId))
+    .where(eq(hireOutcomes.contactRequestId, interestId))
     .limit(1);
 
   const confirmationRequest =

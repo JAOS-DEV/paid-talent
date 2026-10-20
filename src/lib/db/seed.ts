@@ -1691,18 +1691,6 @@ async function seed(): Promise<void> {
         }
 
         if (seedStatus === "accepted") {
-          await db
-            .insert(schema.profileInterests)
-            .values({
-              id: contactRequestId,
-              recruiterUserId: recruiter.userId,
-              workerProfileId: worker.profileId,
-              openingId: linkedOpening?.id ?? null,
-              message: openerText,
-              createdAt: now,
-            })
-            .onConflictDoNothing({ target: schema.profileInterests.id });
-
           const [existingConvo] = await db
             .select({ id: schema.conversations.id })
             .from(schema.conversations)
@@ -2043,18 +2031,6 @@ async function seed(): Promise<void> {
           .limit(1);
 
         if (req) {
-          await db
-            .insert(schema.profileInterests)
-            .values({
-              id: req.id,
-              recruiterUserId: req.recruiterUserId,
-              workerProfileId: req.workerProfileId,
-              openingId: req.openingId,
-              message: req.openerText,
-              createdAt: req.createdAt,
-            })
-            .onConflictDoNothing({ target: schema.profileInterests.id });
-
           const [existingConvo] = await db
             .select({ id: schema.conversations.id })
             .from(schema.conversations)
@@ -2091,7 +2067,7 @@ async function seed(): Promise<void> {
       const existingOutcome = await db
         .select()
         .from(schema.hireOutcomes)
-        .where(eq(schema.hireOutcomes.interestId, interest.interestId))
+        .where(eq(schema.hireOutcomes.contactRequestId, interest.interestId))
         .limit(1);
 
       const now = new Date();
@@ -2100,7 +2076,6 @@ async function seed(): Promise<void> {
 
       if (existingOutcome.length === 0) {
         await db.insert(schema.hireOutcomes).values({
-          interestId: interest.interestId,
           contactRequestId: interest.interestId,
           status: outcomeSeed.status,
           hiredAt,

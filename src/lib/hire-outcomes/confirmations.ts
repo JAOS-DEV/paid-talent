@@ -1,8 +1,9 @@
-import type {
-  HireOutcomeStatus,
-  ProfileInterest,
-  WorkerProfile,
-} from "@/lib/db/schema";
+import type { HireOutcomeStatus, WorkerProfile } from "@/lib/db/schema";
+
+interface HireParty {
+  recruiterUserId: string;
+  workerProfileId: string;
+}
 
 export type ConfirmationRequestedStatus = "hired" | "started";
 export type ConfirmationRequestStatus =
@@ -42,7 +43,7 @@ export function getRequestedStatusForConfirmedStatus(
 export function canRequestConfirmation(
   userId: string | null | undefined,
   userRole: string | null | undefined,
-  interest: Pick<ProfileInterest, "recruiterUserId"> | null,
+  interest: Pick<HireParty, "recruiterUserId"> | null,
   confirmedStatus: HireOutcomeStatus,
   requestedStatus: ConfirmationRequestedStatus,
   hasPendingRequest: boolean
@@ -89,7 +90,7 @@ export function canRespondToConfirmation(
     requestStatus: ConfirmationRequestStatus;
     requestedStatus: ConfirmationRequestedStatus;
   } | null,
-  interest: Pick<ProfileInterest, "workerProfileId"> | null,
+  interest: Pick<HireParty, "workerProfileId"> | null,
   workerProfile: Pick<WorkerProfile, "id" | "userId"> | null,
   confirmedStatus: HireOutcomeStatus
 ): CanRespondToConfirmationResult {

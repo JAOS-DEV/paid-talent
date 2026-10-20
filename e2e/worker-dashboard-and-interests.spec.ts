@@ -32,6 +32,7 @@ async function signInAs(page: Page, email: string, dest: string): Promise<void> 
   }
 }
 
+// Recruiter hire tracking reads accepted contact requests. The page URL stays /recruiter/interests.
 test.describe("recruiter interest card mobile layout", () => {
   test.describe.configure({ mode: "serial" });
 
