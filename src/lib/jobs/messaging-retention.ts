@@ -297,13 +297,13 @@ export function createDrizzleMessagingRetentionStore(
           respondedAt: contactRequests.respondedAt,
           expiresAt: contactRequests.expiresAt,
           updatedAt: contactRequests.updatedAt,
-          hasConversation: sql<boolean>`exists (select 1 from conversations c where c.contact_request_id = ${contactRequests.id})`,
+          hasConversation: sql<boolean>`exists (select 1 from conversations c where c.contact_request_id = contact_requests.id)`,
           hasActiveLegalHoldReport: sql<boolean>`exists (
             select 1 from reports r
             inner join conversations held on held.id = r.conversation_id
-            where r.contact_request_id = ${contactRequests.id}
+            where r.contact_request_id = contact_requests.id
               and held.legal_hold_until is not null
-              and held.legal_hold_until > ${now}
+              and held.legal_hold_until > ${now.toISOString()}::timestamptz
           )`,
         })
         .from(contactRequests)

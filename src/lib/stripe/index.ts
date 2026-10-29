@@ -26,6 +26,16 @@ export const STRIPE_PLANS = {
   },
 } as const;
 
+function appendQueryParam(rawUrl: string, key: string, value: string): string {
+  const absolute = /^[a-z][a-z\d+\-.]*:/i.test(rawUrl);
+  const url = new URL(rawUrl, "http://localhost");
+  url.searchParams.set(key, value);
+  if (absolute) {
+    return url.toString();
+  }
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 export interface CreateCheckoutSessionInput {
   userId: string;
   userEmail: string;
@@ -53,9 +63,10 @@ export async function createCheckoutSession(
 
   if (!stripe) {
     console.log("[Stripe Stub] Creating mock checkout session");
+    const sessionId = `stub_session_${Date.now()}`;
     return {
-      url: `${successUrl}?session_id=stub_session_${Date.now()}`,
-      sessionId: `stub_session_${Date.now()}`,
+      url: appendQueryParam(successUrl, "session_id", sessionId),
+      sessionId,
     };
   }
 

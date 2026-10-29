@@ -73,6 +73,15 @@ describe("i18n messages", () => {
     });
   });
 
+  describe("how it works", () => {
+    it("translates liveness on the Thai page", () => {
+      expect(thMessages.howItWorksPage.talentStep2Body).not.toMatch(/liveness/i);
+      expect(thMessages.howItWorksPage.talentStep2Body).toContain(
+        "ตรวจความเป็นบุคคลจริง"
+      );
+    });
+  });
+
   describe("legal copy", () => {
     const privacyKeys = [
       "dataCollectedBody",

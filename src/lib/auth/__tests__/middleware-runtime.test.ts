@@ -128,6 +128,11 @@ describe("middleware runtime safety", () => {
     expect(
       imported.some((file) => file.includes("next/headers"))
     ).toBe(false);
+    const source = fs.readFileSync(
+      path.join(SRC_ROOT, "lib/auth/edge-config.ts"),
+      "utf8"
+    );
+    expect(source).not.toContain('"/onboarding"');
   });
 });
 

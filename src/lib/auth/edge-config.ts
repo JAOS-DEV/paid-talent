@@ -14,7 +14,6 @@ export const authPages = {
   signIn: "/auth/signin",
   verifyRequest: "/auth/verify-request",
   error: "/auth/error",
-  newUser: "/onboarding",
 } as const;
 
 export const jwtCallback: NonNullable<NextAuthConfig["callbacks"]>["jwt"] =
