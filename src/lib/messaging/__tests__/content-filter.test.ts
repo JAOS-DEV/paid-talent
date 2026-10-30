@@ -57,6 +57,7 @@ describe("content-filter", () => {
     "dot the i's",
     "shift is from nine to five",
     "one or two nights a week",
+    "I'm at the bar. See you at 8",
   ];
 
   it.each(openerMustAllow)("opener allows safe text: %s", (sample) => {
@@ -127,6 +128,8 @@ describe("content-filter", () => {
     "somchai[at]gmail[dot]com",
     "somchai{at}gmail{dot}com",
     "s o m c h a i @ g m a i l . c o m",
+    "somchai @ gmail . com",
+    "l i n e . m e / s o m c h a i",
     "zero eight one two three four five six seven",
     "zero-eight-one-two-three-four-five-six-seven",
     "line dot me slash somchai",

@@ -161,9 +161,9 @@ function replaceSpelledNumberRuns(input: string): string {
 
 function collapseSingleCharacterSequences(text: string): string {
   return text.replace(
-    /(^|[^a-z0-9@.])((?:[a-z0-9@.][ \t]+){7,}[a-z0-9@.])(?![a-z0-9@.])/g,
+    /(^|[^a-z0-9@./])((?:[a-z0-9@./][ \t]+){7,}[a-z0-9@./])(?![a-z0-9@./])/g,
     (match, prefix: string, sequence: string) => {
-      if (!/[@.]/.test(sequence)) {
+      if (!/[@./]/.test(sequence)) {
         return match;
       }
       return prefix + sequence.replace(/[ \t]+/g, "");
@@ -175,6 +175,11 @@ function normalizeObfuscatedContactSpellings(text: string): string {
   let normalized = text;
   normalized = normalized.replace(/\s*[([{]\s*at\s*[)\]}]\s*/g, "@");
   normalized = normalized.replace(/\s*[([{]\s*dot\s*[)\]}]\s*/g, ".");
+  normalized = normalized.replace(
+    /([a-z0-9._%+-]+)\s*@\s*([a-z0-9-]+)((?:\s*\.\s*[a-z0-9-]+)*)\s*\.\s*([a-z]{2,})\b/g,
+    (_m, u: string, d: string, mid: string, tld: string) =>
+      `${u}@${d}${mid.replace(/\s+/g, "")}.${tld}`
+  );
   normalized = collapseSingleCharacterSequences(normalized);
   normalized = normalized.replace(/\s+dot\s+/g, ".");
   normalized = normalized.replace(
