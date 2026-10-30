@@ -548,7 +548,7 @@ describe("Worker verification page", () => {
     workerSession();
 
     for (const [status, heading] of [
-      ["pending", /verification pending/i],
+      ["pending", /under review/i],
       ["verified", /you're verified/i],
       ["rejected", /verification unsuccessful/i],
     ] as const) {

@@ -29,7 +29,6 @@ export default async function HomePage(): Promise<React.ReactElement> {
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
                 <span className="text-charcoal-100">{t("find")}</span>
                 <span className="text-primary-400">{t("talented")}</span>
-                <span className="text-charcoal-100">{t("workers")}</span>
                 <br />
                 <span className="text-charcoal-100">{t("or")}</span>
                 <span className="text-gold-500">{t("getDiscovered")}</span>

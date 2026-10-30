@@ -60,6 +60,7 @@ export interface MessageDto {
   body: string;
   isMine: boolean;
   createdAt: string;
+  contactFlagged?: boolean;
 }
 
 export interface ConversationDetail {
@@ -69,6 +70,7 @@ export interface ConversationDetail {
   counterpart: ConversationListItem["counterpart"];
   messages: MessageDto[];
   safetyNotice: boolean;
+  hiddenFromInbox: boolean;
   shareChannels: ContactShareChannel[];
   messageMaxChars: number;
 }
@@ -420,6 +422,39 @@ export async function getConversation(
       ? await computeSafetyNotice(conversationId, row.contactRequestId)
       : false;
 
+  const messageIds = messageRows.map((msg) => msg.id);
+  const contactFlaggedIds = new Set<string>();
+  if (messageIds.length > 0) {
+    const flagRows = await db
+      .select({
+        messageId: messageFlags.messageId,
+        categories: messageFlags.categories,
+      })
+      .from(messageFlags)
+      .where(
+        and(
+          eq(messageFlags.targetType, "message"),
+          inArray(messageFlags.messageId, messageIds)
+        )
+      );
+    for (const flag of flagRows) {
+      if (
+        flag.messageId &&
+        flag.categories.some(
+          (category) =>
+            category === "contact_shared_in_text" || category === "off_platform"
+        )
+      ) {
+        contactFlaggedIds.add(flag.messageId);
+      }
+    }
+  }
+
+  const hiddenFromInbox =
+    role === "worker"
+      ? row.conversation.workerHiddenAt != null
+      : row.conversation.recruiterHiddenAt != null;
+
   const counterpart =
     role === "worker"
       ? {
@@ -444,6 +479,7 @@ export async function getConversation(
       contactRequestId: row.contactRequestId,
       counterpart,
       safetyNotice,
+      hiddenFromInbox,
       shareChannels,
       messageMaxChars: settings.messageMaxChars,
       messages: messageRows.map((msg) => ({
@@ -452,6 +488,7 @@ export async function getConversation(
         body: msg.body,
         isMine: msg.senderUserId === userId,
         createdAt: msg.createdAt.toISOString(),
+        contactFlagged: contactFlaggedIds.has(msg.id),
       })),
     },
   };

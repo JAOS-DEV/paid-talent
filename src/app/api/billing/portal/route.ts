@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { db, subscriptions } from "@/lib/db";
@@ -9,7 +8,7 @@ import {
 } from "@/lib/recruiter-access";
 import { isStripeConfigured, stripe } from "@/lib/stripe";
 
-export async function POST(_request: NextRequest): Promise<NextResponse> {
+export async function POST(): Promise<NextResponse> {
   const actor = await requireVerifiedRecruiter();
   if (!actor.ok) {
     return deniedVerifiedRecruiterResponse(actor);

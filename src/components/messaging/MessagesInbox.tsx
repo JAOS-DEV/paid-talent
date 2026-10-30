@@ -55,7 +55,11 @@ export function MessagesInbox({
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="mx-auto max-w-3xl space-y-4 px-4 sm:px-6">
+        <div
+          className={`mx-auto space-y-4 px-4 sm:px-6 lg:px-8 ${
+            basePath === "/recruiter/messages" ? "max-w-7xl" : "max-w-3xl"
+          }`}
+        >
           <div>
             <h1 className="text-2xl font-bold text-charcoal-100">
               {t("list.title")}

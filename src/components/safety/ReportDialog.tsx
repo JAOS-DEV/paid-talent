@@ -92,13 +92,14 @@ export function ReportDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/70"
       role="dialog"
       aria-modal="true"
       aria-labelledby="report-dialog-title"
       data-testid="report-dialog"
     >
-      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-charcoal-700 bg-charcoal-900 p-5">
+      <div className="flex min-h-full items-end justify-center p-4 sm:items-center">
+      <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-charcoal-700 bg-charcoal-900 p-5">
         {done ? (
           <>
             <h2
@@ -197,6 +198,7 @@ export function ReportDialog({
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

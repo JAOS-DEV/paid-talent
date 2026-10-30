@@ -216,9 +216,16 @@ export function VenuesManager(): React.ReactElement {
             {t("title")}
           </h1>
           <p className="text-charcoal-400 mt-1">{t("subtitle")}</p>
-          <p className="text-sm text-charcoal-500 mt-2">
-            {t("limit", { count: venues.length, max: maxVenues })}
-          </p>
+          {loading ? (
+            <div
+              className="mt-2 h-5 w-32 animate-pulse rounded bg-charcoal-800"
+              data-testid="venues-limit-skeleton"
+            />
+          ) : (
+            <p className="mt-2 text-sm text-charcoal-300">
+              {t("limit", { count: venues.length, max: maxVenues })}
+            </p>
+          )}
         </div>
         {!showForm && (
           <Button onClick={startCreate} disabled={!canAdd}>

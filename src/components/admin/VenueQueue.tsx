@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { Badge, Button, Card, CardContent, Input } from "@/components/ui";
+import { Button, Card, CardContent, Input } from "@/components/ui";
+import { AdminStatusPill } from "@/components/admin/admin-display";
 
 export interface PendingVenue {
   id: string;
@@ -98,11 +99,12 @@ function VenueCard({
               </p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="warning">Pending review</Badge>
-            <Badge variant="default">
-              Identity: {venue.recruiterVerificationStatus ?? "unknown"}
-            </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <AdminStatusPill status="pending" />
+            <span className="text-sm text-charcoal-300">
+              Identity:{" "}
+              <AdminStatusPill status={venue.recruiterVerificationStatus} />
+            </span>
           </div>
         </div>
 
@@ -150,11 +152,10 @@ function VenueCard({
           </Button>
           <Button
             fullWidth
-            variant="secondary"
+            variant="destructive"
             loading={submitting === "reject"}
             disabled={submitting !== null}
             onClick={() => void review("reject")}
-            className="border-red-500/30 text-red-300 hover:bg-red-500/10"
           >
             Reject
           </Button>

@@ -7,7 +7,7 @@
   --color-charcoal-800: #242424;
   --color-charcoal-700: #2e2e2e;
   --color-charcoal-600: #3d3d3d;
-  --color-charcoal-500: #525252;
+  --color-charcoal-500: #c4c4c4;
   --color-charcoal-400: #9ca3af;
   --color-charcoal-300: #a1a1aa;
   --color-charcoal-200: #d4d4d8;
@@ -63,6 +63,11 @@ body {
   background-color: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+html[lang="th"] body {
+  word-break: keep-all;
+  line-break: strict;
 }
 
 /* Focus ring utility */

@@ -52,11 +52,19 @@ export function ChatThread({
           {t("safety.banner")}
         </p>
       ) : null}
+      {messages.length === 0 ? (
+        <p
+          className="mb-3 rounded-lg border border-charcoal-700 bg-charcoal-800/60 px-3 py-4 text-sm text-charcoal-200"
+          data-testid="chat-empty-state"
+        >
+          {t("thread.empty")}
+        </p>
+      ) : null}
       <ul className="flex flex-col gap-3">
         {messages.map((message) => (
           <li
             key={message.id}
-            className={`flex ${message.isMine ? "justify-end" : "justify-start"}`}
+            className={`flex flex-col ${message.isMine ? "items-end" : "items-start"}`}
           >
             {message.kind === "contact_share" ? (
               <ContactShareCard body={message.body} />
@@ -71,6 +79,14 @@ export function ChatThread({
                 {message.body}
               </p>
             )}
+            {message.contactFlagged ? (
+              <p
+                className="mt-1 max-w-[85%] text-xs text-warning"
+                data-testid="contact-flag-warning"
+              >
+                {t("thread.contactFlag")}
+              </p>
+            ) : null}
           </li>
         ))}
       </ul>

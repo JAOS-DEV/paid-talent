@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { Button, Card, CardContent, Badge, Input } from "@/components/ui";
+import { Button, Card, CardContent, Input } from "@/components/ui";
+import { AdminStatusPill } from "@/components/admin/admin-display";
+import { labelForToken } from "@/lib/admin/token-labels";
 import { buildPhotoRejectBody } from "@/lib/admin/review-actions";
 import { formatModerationConfidencePercent } from "@/lib/admin/format-confidence";
 
@@ -156,7 +158,7 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
                   {photo.worker.email || "No email"}
                 </p>
               </div>
-              <Badge variant="warning">pending</Badge>
+              <AdminStatusPill status="pending" />
             </div>
             <p className="text-sm text-charcoal-300" data-testid={`photo-submission-${photo.submissionKind ?? "primary"}`}>
               <span className="text-charcoal-500">Submission: </span>
@@ -175,7 +177,9 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
             <p className="text-sm text-charcoal-300">
               <span className="text-charcoal-500">Categories: </span>
               {photo.moderationCategories?.length
-                ? photo.moderationCategories.join(", ")
+                ? photo.moderationCategories
+                    .map((category) => labelForToken(category))
+                    .join(", ")
                 : "—"}
             </p>
             {photo.moderationCategories?.includes("explicit_nudity") ? (
@@ -222,10 +226,9 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="destructive"
                   onClick={() => setConfirmReject(true)}
                   disabled={!!submitting}
-                  className="border-red-500/40 text-red-300 hover:bg-red-500/10"
                 >
                   Reject
                 </Button>
@@ -239,16 +242,16 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     type="button"
+                    variant="destructive"
                     onClick={() => void reject()}
                     disabled={!!submitting}
                     loading={submitting === "reject"}
-                    className="bg-red-600 hover:bg-red-700 border-transparent"
                   >
                     Confirm reject
                   </Button>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="secondary"
                     onClick={() => setConfirmReject(false)}
                     disabled={!!submitting}
                   >

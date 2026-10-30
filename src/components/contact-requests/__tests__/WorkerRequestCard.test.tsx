@@ -15,7 +15,7 @@ vi.mock("next/image", () => ({
 }));
 
 describe("WorkerRequestCard", () => {
-  it("shows Verified Pro badge and accept/decline for pending", () => {
+  it("shows accept and decline, and keeps report behind more actions", () => {
     render(
       <WorkerRequestCard
         request={{
@@ -42,7 +42,9 @@ describe("WorkerRequestCard", () => {
       />
     );
 
-    expect(screen.getByTestId("verified-pro-badge")).toBeInTheDocument();
+    expect(screen.queryByTestId("verified-pro-badge")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "inbox.more" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "inbox.report" })).not.toBeInTheDocument();
     expect(screen.getByText("inbox.accept")).toBeInTheDocument();
     expect(screen.getByText("inbox.decline")).toBeInTheDocument();
     expect(screen.getByText("inbox.safetyLine")).toBeInTheDocument();

@@ -204,7 +204,7 @@ function RecruiterInterestsContent(): React.ReactElement {
       <Header />
 
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
+        <div className="mx-auto max-w-7xl overflow-x-hidden px-4 sm:px-6 lg:px-8">
           <div className="mb-6">
             <Link
               href="/recruiter/dashboard"

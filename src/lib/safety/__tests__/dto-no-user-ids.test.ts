@@ -37,6 +37,7 @@ describe("safety DTO contracts hide user ids", () => {
         },
       ],
       safetyNotice: false,
+      hiddenFromInbox: false,
       shareChannels: ["line"],
       messageMaxChars: 2000,
     };

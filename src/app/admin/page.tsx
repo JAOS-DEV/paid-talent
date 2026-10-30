@@ -4,6 +4,7 @@ import { requireAdminPage } from "@/lib/admin/guard";
 import { getAdminOverviewMetrics } from "@/lib/admin/overview-metrics";
 import { listRecentAdminAuditEvents } from "@/lib/admin/activity";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { labelForToken } from "@/lib/admin/token-labels";
 
 function MetricCard(props: {
   title: string;
@@ -54,17 +55,17 @@ export default async function AdminDashboardPage(): Promise<React.ReactElement> 
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <MetricCard title="Total users" value={metrics.totalUsers} hint="All Worker and Recruiter accounts" href="/admin/users" />
-        <MetricCard title="Workers" value={metrics.workers} hint="Worker accounts" href="/admin/users" />
-        <MetricCard title="Recruiters" value={metrics.recruiters} hint="Recruiter accounts" href="/admin/users" />
+        <MetricCard title="Total users" value={metrics.totalUsers} hint="All Talent and Venue accounts" href="/admin/users" />
+        <MetricCard title="Talent" value={metrics.workers} hint="Talent accounts" href="/admin/users" />
+        <MetricCard title="Venues" value={metrics.recruiters} hint="Venue accounts" href="/admin/users" />
         <MetricCard title="New users (7 days)" value={metrics.newUsersLast7Days} hint="Accounts created in the last 7 days" />
         <MetricCard title="New users (30 days)" value={metrics.newUsersLast30Days} hint="Accounts created in the last 30 days" />
-        <MetricCard title="Published workers" value={metrics.publishedWorkers} hint="Workers currently visible in search" />
-        <MetricCard title="Published openings" value={metrics.publishedOpenings} hint="Active recruiter openings" />
+        <MetricCard title="Published talent" value={metrics.publishedWorkers} hint="Talent currently visible in search" />
+        <MetricCard title="Published openings" value={metrics.publishedOpenings} hint="Active venue openings" />
         <MetricCard
           title="Identity verification"
           value={metrics.pendingVerifications}
-          hint="Pending worker identity reviews"
+          hint="Pending talent identity reviews"
           href="/admin/verifications"
         />
         <MetricCard
@@ -107,7 +108,7 @@ export default async function AdminDashboardPage(): Promise<React.ReactElement> 
         <MetricCard
           title="Top Talent"
           value={metrics.topTalentCount}
-          hint="Published workers currently meeting Top Talent ranking"
+          hint="Published talent currently meeting Top Talent ranking"
         />
       </div>
 
@@ -127,7 +128,7 @@ export default async function AdminDashboardPage(): Promise<React.ReactElement> 
                 key={event.id}
                 className="rounded-lg border border-charcoal-800 bg-charcoal-900 px-4 py-3 text-sm"
               >
-                <p className="text-charcoal-100">{event.action.replaceAll("_", " ")}</p>
+                <p className="text-charcoal-100">{labelForToken(event.action)}</p>
                 <p className="text-charcoal-500 mt-1">
                   {event.actorAdminEmail}
                   {event.targetIdentity ? ` → ${event.targetIdentity}` : ""}

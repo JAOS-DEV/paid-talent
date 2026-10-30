@@ -47,6 +47,7 @@ export interface IdentityVerificationFlowProps {
   apiBasePath: "/api/worker/verification" | "/api/recruiter/verification";
   translationNamespace: "worker.verificationFlow" | "recruiter.verification";
   onVerifiedHref: string;
+  contentClassName?: string;
 }
 
 const DOC_TYPE_OPTIONS: { value: DocType; label: string }[] = [
@@ -155,6 +156,7 @@ export function IdentityVerificationFlow({
   apiBasePath,
   translationNamespace,
   onVerifiedHref,
+  contentClassName = "mx-auto max-w-sm px-4",
 }: IdentityVerificationFlowProps): React.ReactElement {
   const t = useTranslations(translationNamespace);
   const router = useRouter();
@@ -175,6 +177,7 @@ export function IdentityVerificationFlow({
   const [videoUploading, setVideoUploading] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [challengeExpired, setChallengeExpired] = useState(false);
+  const [rejectionNote, setRejectionNote] = useState<string | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
 
   const releaseCamera = useCallback((): void => {
@@ -189,6 +192,11 @@ export function IdentityVerificationFlow({
       if (res.ok) {
         const data = await res.json();
         const s = data.verification.verificationStatus as VerificationStatus;
+        const note =
+          typeof data.verification.rejectionNote === "string"
+            ? data.verification.rejectionNote.trim()
+            : "";
+        setRejectionNote(note || null);
         if (s === "pending") {
           setCurrentStep("pending");
         } else if (s === "verified") {
@@ -952,6 +960,11 @@ export function IdentityVerificationFlow({
             {t("rejectedTitle")}
           </h1>
           <p className="text-charcoal-400 mt-2">{t("rejectedBody")}</p>
+          {rejectionNote ? (
+            <p className="mt-3 text-sm text-charcoal-200" data-testid="rejection-reason">
+              {t("rejectionReason", { reason: rejectionNote })}
+            </p>
+          ) : null}
         </div>
 
         <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
@@ -1010,7 +1023,9 @@ export function IdentityVerificationFlow({
       <Header />
 
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="max-w-sm mx-auto px-4">{renderCurrentStep()}</div>
+        <div className={contentClassName}>
+          <div className="mx-auto w-full max-w-xl">{renderCurrentStep()}</div>
+        </div>
       </main>
 
       <Footer />

@@ -12,6 +12,7 @@ export {
   SheetTitle,
 } from "./sheet";
 export { Popover, PopoverTrigger, PopoverContent } from "./popover";
+export { OverflowMenu, type OverflowMenuItem } from "./OverflowMenu";
 export {
   AlertDialog,
   AlertDialogContent,

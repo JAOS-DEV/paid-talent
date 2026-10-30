@@ -1,6 +1,6 @@
 # Paid Talent
 
-A platform connecting skilled workers with recruiters. Workers create profiles showcasing their skills, and recruiters search for and connect with top talent.
+A platform connecting talent with venues. Talent create profiles showcasing their skills, and venues search for and connect with top talent in chat.
 
 ## Tech Stack
 
@@ -15,13 +15,13 @@ A platform connecting skilled workers with recruiters. Workers create profiles s
 
 ## Features
 
-- **Role-based accounts**: Worker or Recruiter
-- **Age verification**: 18+ gate enforced at signup
-- **Worker profiles**: Photo, skills, experience, contact info
-- **Recruiter search**: Filter by role, area, availability
+- **Role-based accounts**: Talent or Venue (stored as `worker` and `recruiter`)
+- **Age verification**: 20+ gate enforced at signup
+- **Talent profiles**: Photo, skills, experience, and private contact methods
+- **Venue search**: Filter by role, area, availability
 - **Top Talent ranking**: View-based ranking system (pluggable)
-- **Subscription unlock**: Recruiters subscribe to view Top Talent contact details
-- **Interest system**: Non-chat "I'm interested" notifications
+- **In-app chat**: Venues message talent in chat. Contact details stay private until talent share them
+- **Contact requests**: A venue sends a request, and chat starts after talent accept
 
 ## Getting Started
 
@@ -258,7 +258,7 @@ See [docs/architecture.md](docs/architecture.md) for detailed documentation on:
 
 ### Auth Flow
 1. Role selection (Worker/Recruiter) **before** auth
-2. Age verification (18+ required, DOB stored)
+2. Age verification (20+ required, DOB stored)
 3. OAuth or email sign-in
 4. Profile creation based on role
 
@@ -268,9 +268,9 @@ See [docs/architecture.md](docs/architecture.md) for detailed documentation on:
 - Easy to swap for engagement-based or ML models
 
 ### Contact Visibility
-- LINE, WhatsApp, phone are protected fields
-- Visible to: profile owner, subscribers, or if profile is NOT top talent
-- Top Talent contacts locked behind subscription
+- LINE, WhatsApp, and phone stay private on the profile
+- Talent share them in chat when they choose
+- Verified Pro lets venues message Top Talent; it does not reveal contact details
 
 ### MVP Constraints
 - **No chat** - Interest expression only

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { Button, Card, CardContent, Badge, Input } from "@/components/ui";
+import { Button, Card, CardContent, Input } from "@/components/ui";
+import { AdminStatusPill } from "@/components/admin/admin-display";
 import { AdminLivenessVideoPlayer } from "@/components/admin/AdminLivenessVideoPlayer";
 import {
   buildVerificationDecisionBody,
@@ -177,7 +178,7 @@ function VerificationCard({
               {worker.displayName ||
                 (subjectType === "recruiter"
                   ? "Unnamed venue"
-                  : "Unnamed worker")}
+                  : "Unnamed talent")}
             </h2>
             <p className="text-sm text-charcoal-400">{worker.email || "No email"}</p>
             <p className="text-sm text-charcoal-500 mt-1">
@@ -185,7 +186,7 @@ function VerificationCard({
                 "Location not set"}
             </p>
           </div>
-          <Badge variant="warning">{worker.verificationStatus}</Badge>
+          <AdminStatusPill status={worker.verificationStatus} />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 text-sm">
@@ -344,11 +345,10 @@ function VerificationCard({
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="destructive"
               onClick={() => void submit("reject")}
               disabled={!!submitting}
               loading={submitting === "reject"}
-              className="border-red-500/40 text-red-300 hover:bg-red-500/10"
             >
               Reject
             </Button>

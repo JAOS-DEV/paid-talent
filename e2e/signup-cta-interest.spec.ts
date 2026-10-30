@@ -19,13 +19,13 @@ test.describe("Canonical signup entry points", () => {
     ).toBeVisible();
   });
 
-  test("Create Worker Profile goes to age-gate with role=worker", async ({
+  test("Create Talent Profile goes to age-gate with role=worker", async ({
     page,
   }) => {
     await page.goto("/");
 
     const workerCta = page.getByRole("link", {
-      name: /create worker profile/i,
+      name: /create talent profile/i,
     });
     await expect(workerCta).toBeVisible();
     await expect(workerCta).toHaveAttribute(
@@ -168,7 +168,7 @@ test.describe("Signup intent cannot be minted from signin query params", () => {
 test.describe("Signup intent survives into signin", () => {
   test("role-select -> age-gate preserves role", async ({ page }) => {
     await page.goto("/auth/role-select");
-    await page.getByText(/i'm a worker/i).click();
+    await page.getByText(/i'm talent/i).click();
     await page.getByRole("button", { name: /continue/i }).click();
 
     await expect(page).toHaveURL(/\/auth\/age-gate/);
@@ -240,7 +240,7 @@ test.describe("Single Google authentication for new signup", () => {
     const google = await blockGoogleAndCount(page);
 
     await page.goto("/");
-    await page.getByRole("link", { name: /create worker profile/i }).click();
+    await page.getByRole("link", { name: /create talent profile/i }).click();
     await expect(page).toHaveURL(/\/auth\/age-gate\?role=worker/);
 
     await page.getByRole("checkbox").check();
@@ -270,7 +270,7 @@ test.describe("Single Google authentication for new signup", () => {
     await page.getByRole("link", { name: /get started/i }).click();
     await expect(page).toHaveURL(/\/auth\/role-select/);
 
-    await page.getByText(/i'm a worker/i).click();
+    await page.getByText(/i'm talent/i).click();
     await page.getByRole("button", { name: /continue/i }).click();
     await expect(page).toHaveURL(/\/auth\/age-gate/);
 
@@ -288,11 +288,11 @@ test.describe("Single Google authentication for new signup", () => {
 test.describe("Mobile canonical signup", () => {
   test.use({ viewport: { width: 375, height: 667 } });
 
-  test("homepage Create Worker Profile is a single-auth mobile journey through the soft gate", async ({
+  test("homepage Create Talent Profile is a single-auth mobile journey through the soft gate", async ({
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: /create worker profile/i }).click();
+    await page.getByRole("link", { name: /create talent profile/i }).click();
     await expect(page).toHaveURL(/\/auth\/age-gate\?role=worker/);
     await expect(page.getByRole("checkbox")).toBeVisible();
 
@@ -306,7 +306,7 @@ test.describe("Mobile canonical signup", () => {
   test("Get Started worker path works on mobile", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("link", { name: /get started/i }).click();
-    await page.getByText(/i'm a worker/i).click();
+    await page.getByText(/i'm talent/i).click();
     await page.getByRole("button", { name: /continue/i }).click();
     await expect(page).toHaveURL(/\/auth\/age-gate/);
     await page.getByRole("checkbox").check();

@@ -112,6 +112,23 @@ describe("POST /api/account/delete-request", () => {
     expect(accepted.status).toBe(200);
   });
 
+  it("does not 500 when the locale cookie is malformed", async () => {
+    const { POST } = await import("../route");
+    const response = await POST(
+      new Request("http://localhost/api/account/delete-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          cookie: "NEXT_LOCALE=%E0%A4%A",
+        },
+        body: JSON.stringify({
+          confirmPhrase: ACCOUNT_DELETION_CONFIRM_PHRASE,
+        }),
+      })
+    );
+    expect(response.status).toBe(200);
+  });
+
   it("suspends the account and withdraws open requests", async () => {
     const { POST } = await import("../route");
     const response = await POST(

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Button, Badge } from "@/components/ui";
+import { Button, OverflowMenu } from "@/components/ui";
 import { ReportDialog } from "@/components/safety";
 import { BlockAlertDialog } from "@/components/safety/BlockAlertDialog";
 import type { InboxContactRequestDto } from "@/lib/contact-requests/queries";
@@ -88,24 +88,31 @@ export function WorkerRequestCard({
           ) : null}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-start justify-between gap-2">
             <h3 className="truncate font-semibold text-charcoal-100">
               {request.venue.name ?? t("inbox.unknownVenue")}
             </h3>
-            {request.isPro ? (
-              <span data-testid="verified-pro-badge">
-                <Badge variant="gold">{t("inbox.verifiedPro")}</Badge>
-              </span>
-            ) : null}
+            <OverflowMenu
+              label={t("inbox.more")}
+              items={[
+                {
+                  id: "report",
+                  label: t("inbox.report"),
+                  onSelect: () => setReportOpen(true),
+                  disabled: busy != null,
+                },
+                {
+                  id: "block",
+                  label: tSafety("blocks.block"),
+                  onSelect: () => setBlockOpen(true),
+                  disabled: busy != null,
+                },
+              ]}
+            />
           </div>
           {request.openingSummary ? (
-            <p className="mt-1 text-sm text-charcoal-400">
+            <p className="mt-1 text-sm text-charcoal-300">
               {request.openingSummary}
-            </p>
-          ) : null}
-          {request.recruiterFirstName ? (
-            <p className="mt-1 text-xs text-charcoal-500">
-              {t("inbox.from", { name: request.recruiterFirstName })}
             </p>
           ) : null}
         </div>
@@ -123,7 +130,7 @@ export function WorkerRequestCard({
       <p className="mt-3 text-xs text-amber-400/90">{t("inbox.safetyLine")}</p>
 
       {request.status === "pending" ? (
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="mt-4 flex flex-col gap-2">
           <Button
             type="button"
             variant="primary"
@@ -142,56 +149,20 @@ export function WorkerRequestCard({
           >
             {busy === "decline" ? t("inbox.declining") : t("inbox.decline")}
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            fullWidth
-            disabled={busy != null}
-            onClick={() => setReportOpen(true)}
-          >
-            {t("inbox.report")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            fullWidth
-            disabled={busy != null}
-            onClick={() => setBlockOpen(true)}
-          >
-            {tSafety("blocks.block")}
-          </Button>
         </div>
       ) : request.status === "accepted" && request.conversationId ? (
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+        <div className="mt-3">
           <Link
             href={`/worker/messages/${request.conversationId}`}
-            className="inline-flex text-sm font-medium text-primary-400 hover:text-primary-300"
+            className="inline-flex min-h-11 items-center text-sm font-medium text-primary-400 hover:text-primary-300"
           >
             {t("sent.openChat")}
           </Link>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setReportOpen(true)}
-          >
-            {t("inbox.report")}
-          </Button>
         </div>
       ) : (
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <p className="text-sm text-charcoal-500">
-            {t(`status.${request.status}`)}
-          </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setReportOpen(true)}
-          >
-            {t("inbox.report")}
-          </Button>
-        </div>
+        <p className="mt-3 text-sm text-charcoal-300">
+          {t(`status.${request.status}`)}
+        </p>
       )}
 
       {error ? (

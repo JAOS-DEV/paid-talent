@@ -179,7 +179,7 @@ describe("Header chrome", () => {
     render(<Header />);
 
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Search Workers" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Search Talent" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute(
       "href",
       "/recruiter/search"

@@ -268,7 +268,7 @@ export function ProfilePhotoGalleryManager({
                 ? photo.moderationReason
                 : photo.moderationStatus === "pending"
                   ? t("pending")
-                  : t("rules");
+                  : null;
             return (
               <li
                 key={photo.id}
@@ -294,15 +294,17 @@ export function ProfilePhotoGalleryManager({
                   <div className="flex items-center gap-2 flex-wrap">
                     <PhotoStatusPill photo={photo} />
                   </div>
-                  <p
-                    className={`text-xs mt-1 break-words ${
-                      photo.moderationStatus === "rejected"
-                        ? "text-red-300"
-                        : "text-charcoal-500"
-                    }`}
-                  >
-                    {supportingCopy}
-                  </p>
+                  {supportingCopy ? (
+                    <p
+                      className={`mt-1 break-words text-xs ${
+                        photo.moderationStatus === "rejected"
+                          ? "text-red-300"
+                          : "text-charcoal-300"
+                      }`}
+                    >
+                      {supportingCopy}
+                    </p>
+                  ) : null}
                   <div className="flex flex-wrap gap-2 mt-2">
                     {canChoosePrimary &&
                     photo.moderationStatus === "approved" &&

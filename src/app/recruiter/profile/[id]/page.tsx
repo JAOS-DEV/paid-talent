@@ -248,7 +248,7 @@ export default function ProfileDetailPage({
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 bg-charcoal-950 py-8">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <Card padding="lg">
               <CardContent className="text-center py-12">
                 <svg
@@ -287,7 +287,7 @@ export default function ProfileDetailPage({
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 bg-charcoal-950 py-8">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
             <Link
               href="/recruiter/search"
               className="inline-flex items-center text-charcoal-400 hover:text-charcoal-200 mb-6 transition-colors min-h-11"
@@ -320,7 +320,7 @@ export default function ProfileDetailPage({
       <Header />
 
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
           <Link
             href="/recruiter/search"
             className="inline-flex items-center text-charcoal-400 hover:text-charcoal-200 mb-6 transition-colors min-h-11"

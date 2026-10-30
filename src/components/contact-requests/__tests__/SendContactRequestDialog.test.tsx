@@ -89,7 +89,7 @@ describe("SendContactRequestDialog", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("opener-char-counter")).toHaveTextContent(
-        "0/300"
+        "dialog.characters"
       );
     });
     expect(screen.getByTestId("opening-upsell")).toBeInTheDocument();

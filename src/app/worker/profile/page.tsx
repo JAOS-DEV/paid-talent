@@ -591,11 +591,8 @@ export default function WorkerProfilePage(): React.ReactElement {
                         {PHOTO_POLICY_COPY.pending}
                       </p>
                     ) : null}
-                    <p className="text-charcoal-500 text-xs mt-2">
+                    <p className="text-charcoal-300 text-xs mt-2">
                       {t("photoHint")}
-                    </p>
-                    <p className="text-charcoal-500 text-xs mt-1">
-                      {PHOTO_POLICY_COPY.rules}
                     </p>
                     {photoPreviewFailed && photoUrl ? (
                       <p className="text-charcoal-300 text-sm mt-2">

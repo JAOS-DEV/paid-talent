@@ -280,9 +280,9 @@ describe("WorkerDashboardPage", () => {
 
     render(<WorkerDashboardPage />);
 
-    expect(await screen.findByText("Unique recruiters in the last 30 days")).toBeInTheDocument();
+    expect(await screen.findByText("Unique venues in the last 30 days")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
-    expect(screen.getByText("Recruiters interested in you")).toBeInTheDocument();
+    expect(screen.getByText("Venues interested in you")).toBeInTheDocument();
     expect(screen.getByText("Sky Bar")).toBeInTheDocument();
     expect(screen.getByText("Interested in you")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View openings" })).toHaveAttribute(

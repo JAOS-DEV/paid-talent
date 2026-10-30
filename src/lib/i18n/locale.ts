@@ -22,5 +22,11 @@ export function localeFromCookieHeader(header: string | null | undefined): Local
   if (!match) {
     return defaultLocale;
   }
-  return resolveLocale(decodeURIComponent(match.slice(LOCALE_COOKIE.length + 1)));
+  try {
+    return resolveLocale(
+      decodeURIComponent(match.slice(LOCALE_COOKIE.length + 1))
+    );
+  } catch {
+    return defaultLocale;
+  }
 }

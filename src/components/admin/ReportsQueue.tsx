@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui";
+import { AdminStatusPill } from "@/components/admin/admin-display";
+import { labelForToken } from "@/lib/admin/token-labels";
 import { AdminReasonAlertDialog } from "@/components/admin/AdminReasonAlertDialog";
 import { ConfirmReasonDialog } from "@/components/admin/ConfirmReasonDialog";
 
@@ -106,10 +108,11 @@ export function ReportsQueue({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="font-semibold text-charcoal-100">
-                  {report.reason.replaceAll("_", " ")}
+                  {labelForToken(report.reason)}
                 </p>
-                <p className="text-xs text-charcoal-500 mt-1">
-                  {new Date(report.createdAt).toLocaleString()} · {report.status}
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-charcoal-300">
+                  <span>{new Date(report.createdAt).toLocaleString()}</span>
+                  <AdminStatusPill status={report.status} />
                 </p>
               </div>
               {report.conversationId ? (
@@ -167,7 +170,7 @@ export function ReportsQueue({
               </Button>
               <Button
                 type="button"
-                variant="gold"
+                variant="primary"
                 size="sm"
                 disabled={busyId === report.id}
                 onClick={() =>
@@ -178,7 +181,7 @@ export function ReportsQueue({
               </Button>
               <Button
                 type="button"
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 disabled={busyId === report.id}
                 onClick={() =>

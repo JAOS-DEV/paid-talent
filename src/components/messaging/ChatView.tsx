@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Header, Footer } from "@/components/layout";
-import { Button } from "@/components/ui";
+import { OverflowMenu } from "@/components/ui";
 import {
   ChatThread,
   MessageComposer,
@@ -22,6 +22,7 @@ interface ChatViewProps {
   role: "worker" | "recruiter";
   listHref: string;
   profileSettingsHref: string;
+  contentClassName?: string;
 }
 
 export function ChatView({
@@ -29,6 +30,7 @@ export function ChatView({
   role,
   listHref,
   profileSettingsHref,
+  contentClassName = "max-w-3xl",
 }: ChatViewProps): React.ReactElement {
   const t = useTranslations("messaging");
   const router = useRouter();
@@ -40,6 +42,7 @@ export function ChatView({
   const [reportOpen, setReportOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -122,15 +125,23 @@ export function ChatView({
 
   const blockUser = async (): Promise<void> => {
     setBlockBusy(true);
-    const res = await fetch("/api/blocks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversationId }),
-    });
-    setBlockBusy(false);
-    if (res.ok) {
+    setToast(null);
+    try {
+      const res = await fetch("/api/blocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId }),
+      });
+      if (!res.ok) {
+        setToast(t("errors.blockFailed"));
+        return;
+      }
       setBlockOpen(false);
       router.push(listHref);
+    } catch {
+      setToast(t("errors.blockFailed"));
+    } finally {
+      setBlockBusy(false);
     }
   };
 
@@ -138,30 +149,33 @@ export function ChatView({
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex flex-1 flex-col bg-charcoal-950">
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-4 sm:px-6">
+        <div
+          className={`mx-auto flex w-full flex-1 flex-col px-4 py-4 sm:px-6 lg:px-8 ${contentClassName}`}
+        >
           <div className="mb-3 flex items-center justify-between gap-2">
             <Link href={listHref} className="text-sm text-primary-400">
               {t("thread.back")}
             </Link>
-            <div className="flex flex-wrap items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setReportOpen(true)}
-              >
-                {t("thread.report")}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setBlockOpen(true)}
-              >
-                {t("thread.block")}
-              </Button>
-              <Button type="button" variant="ghost" onClick={() => void hideChat()}>
-                {t("thread.hide")}
-              </Button>
-            </div>
+            <OverflowMenu
+              label={t("thread.more")}
+              items={[
+                {
+                  id: "report",
+                  label: t("thread.report"),
+                  onSelect: () => setReportOpen(true),
+                },
+                {
+                  id: "block",
+                  label: t("thread.block"),
+                  onSelect: () => setBlockOpen(true),
+                },
+                {
+                  id: "hide",
+                  label: t("thread.hide"),
+                  onSelect: () => void hideChat(),
+                },
+              ]}
+            />
           </div>
           {role === "worker" ? (
             <div className="mb-3">
@@ -199,7 +213,9 @@ export function ChatView({
                   disabled={conversation.status !== "open"}
                 />
               </div>
-              <p className="mt-2 text-xs text-charcoal-500">{t("thread.hideNote")}</p>
+              {conversation.hiddenFromInbox ? (
+                <p className="mt-2 text-xs text-charcoal-300">{t("thread.hideNote")}</p>
+              ) : null}
               <ReportDialog
                 open={reportOpen}
                 onClose={() => setReportOpen(false)}
@@ -217,6 +233,15 @@ export function ChatView({
         onConfirm={() => void blockUser()}
       />
       <Footer />
+      {toast ? (
+        <div
+          role="status"
+          data-testid="error-toast"
+          className="fixed bottom-4 left-1/2 z-50 w-[min(100%-2rem,24rem)] -translate-x-1/2 rounded-lg border border-error/40 bg-charcoal-900 px-4 py-3 text-sm text-error shadow-lg"
+        >
+          {toast}
+        </div>
+      ) : null}
     </div>
   );
 }

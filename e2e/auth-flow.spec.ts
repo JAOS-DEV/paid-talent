@@ -10,7 +10,7 @@ test.describe("Authentication Flow Smoke Tests", () => {
       // Scope to <main> — footer can duplicate "Start Recruiting"
       const mainContent = page.getByRole("main");
       const workerCta = mainContent.getByRole("link", {
-        name: /create worker profile/i,
+        name: /create talent profile/i,
       });
       const recruiterCta = mainContent.getByRole("link", {
         name: /start recruiting/i,
@@ -40,8 +40,8 @@ test.describe("Authentication Flow Smoke Tests", () => {
 
       await expect(page.getByRole("heading", { name: /welcome to paid talent/i })).toBeVisible();
 
-      const workerCard = page.getByText(/i'm a worker/i);
-      const recruiterCard = page.getByText(/i'm a recruiter/i);
+      const workerCard = page.getByText(/i'm talent/i);
+      const recruiterCard = page.getByText(/i'm a venue/i);
 
       await expect(workerCard).toBeVisible();
       await expect(recruiterCard).toBeVisible();
@@ -53,7 +53,7 @@ test.describe("Authentication Flow Smoke Tests", () => {
       const continueButton = page.getByRole("button", { name: /continue/i });
       await expect(continueButton).toBeDisabled();
 
-      await page.getByText(/i'm a worker/i).click();
+      await page.getByText(/i'm talent/i).click();
 
       await expect(continueButton).toBeEnabled();
     });
@@ -64,7 +64,7 @@ test.describe("Authentication Flow Smoke Tests", () => {
       const continueButton = page.getByRole("button", { name: /continue/i });
       await expect(continueButton).toBeDisabled();
 
-      await page.getByText(/i'm a recruiter/i).click();
+      await page.getByText(/i'm a venue/i).click();
 
       await expect(continueButton).toBeEnabled();
     });
@@ -72,7 +72,7 @@ test.describe("Authentication Flow Smoke Tests", () => {
     test("should navigate to age gate after role selection", async ({ page }) => {
       await page.goto("/auth/role-select");
 
-      await page.getByText(/i'm a worker/i).click();
+      await page.getByText(/i'm talent/i).click();
       await page.getByRole("button", { name: /continue/i }).click();
 
       await expect(page).toHaveURL(/auth\/age-gate/);
@@ -81,7 +81,7 @@ test.describe("Authentication Flow Smoke Tests", () => {
     test("should preserve role in URL params when navigating", async ({ page }) => {
       await page.goto("/auth/role-select");
 
-      await page.getByText(/i'm a recruiter/i).click();
+      await page.getByText(/i'm a venue/i).click();
       await page.getByRole("button", { name: /continue/i }).click();
 
       await expect(page).toHaveURL(/role=recruiter/);
@@ -147,9 +147,9 @@ test.describe("Authentication Flow Smoke Tests", () => {
   test.describe("Complete Happy Path Flow", () => {
     test("should complete role-select → age-gate → signin navigation", async ({ page }) => {
       await page.goto("/auth/role-select");
-      await expect(page.getByText(/i'm a worker/i)).toBeVisible();
+      await expect(page.getByText(/i'm talent/i)).toBeVisible();
 
-      await page.getByText(/i'm a worker/i).click();
+      await page.getByText(/i'm talent/i).click();
       await page.getByRole("button", { name: /continue/i }).click();
 
       await expect(page).toHaveURL(/auth\/age-gate/);
@@ -165,7 +165,7 @@ test.describe("Authentication Flow Smoke Tests", () => {
     test("recruiter flow should preserve role through flow", async ({ page }) => {
       await page.goto("/auth/role-select");
 
-      await page.getByText(/i'm a recruiter/i).click();
+      await page.getByText(/i'm a venue/i).click();
       await page.getByRole("button", { name: /continue/i }).click();
 
       await expect(page).toHaveURL(/role=recruiter/);
@@ -195,8 +195,8 @@ test.describe("Mobile Responsiveness", () => {
   test("role selection should be usable on mobile", async ({ page }) => {
     await page.goto("/auth/role-select");
 
-    const workerCard = page.getByText(/i'm a worker/i);
-    const recruiterCard = page.getByText(/i'm a recruiter/i);
+    const workerCard = page.getByText(/i'm talent/i);
+    const recruiterCard = page.getByText(/i'm a venue/i);
     const continueButton = page.getByRole("button", { name: /continue/i });
 
     await expect(workerCard).toBeVisible();
@@ -316,7 +316,7 @@ test.describe("Auth Redirect Loop Regression (anonymous + signup intent)", () =>
     page,
   }) => {
     await page.goto("/auth/role-select");
-    await page.getByText(/i'm a worker/i).click();
+    await page.getByText(/i'm talent/i).click();
     await page.getByRole("button", { name: /continue/i }).click();
     await expect(page).toHaveURL(/auth\/age-gate/);
 
@@ -361,7 +361,7 @@ test.describe("Auth Redirect Loop Regression (anonymous + signup intent)", () =>
     page,
   }) => {
     await page.goto("/auth/role-select");
-    await page.getByText(/i'm a recruiter/i).click();
+    await page.getByText(/i'm a venue/i).click();
     await page.getByRole("button", { name: /continue/i }).click();
     await expect(page).toHaveURL(/role=recruiter/);
 

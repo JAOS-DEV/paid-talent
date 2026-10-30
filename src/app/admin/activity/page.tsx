@@ -7,6 +7,7 @@ import {
   listRecentAdminAuditEvents,
 } from "@/lib/admin/activity";
 import { Card, CardContent } from "@/components/ui";
+import { labelForToken } from "@/lib/admin/token-labels";
 
 interface AdminActivityPageProps {
   searchParams: Promise<{ page?: string }>;
@@ -42,7 +43,7 @@ export default async function AdminActivityPage({
               {events.map((event) => (
                 <li key={event.id} className="px-4 py-3 text-sm">
                   <p className="text-charcoal-100">
-                    {event.action.replaceAll("_", " ")}
+                    {labelForToken(event.action)}
                   </p>
                   <p className="text-charcoal-500 mt-1">
                     {event.actorAdminEmail}
