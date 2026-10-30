@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Button, Card, CardContent, TopTalentBadge } from "@/components/ui";
 import { Header, Footer } from "@/components/layout";
-import { AdSense } from "@/components/ads";
+import { AdSense, ADS_CONFIGURED } from "@/components/ads";
 import { getBillingAccessMode } from "@/lib/platform-settings";
 
 export const dynamic = "force-dynamic";
@@ -131,11 +131,13 @@ export default async function HomePage(): Promise<React.ReactElement> {
           </div>
         </section>
 
-        <section className="py-8 bg-charcoal-950">
-          <div className="max-w-3xl mx-auto px-4">
-            <AdSense adSlot="landing-page-bottom" adFormat="horizontal" />
-          </div>
-        </section>
+        {ADS_CONFIGURED ? (
+          <section className="py-8 bg-charcoal-950">
+            <div className="max-w-3xl mx-auto px-4">
+              <AdSense adSlot="landing-page-bottom" adFormat="horizontal" />
+            </div>
+          </section>
+        ) : null}
       </main>
 
       <Footer />

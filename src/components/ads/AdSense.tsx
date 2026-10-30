@@ -2,15 +2,13 @@
 
 import React, { useEffect } from "react";
 import Script from "next/script";
+import { ADSENSE_CLIENT_ID, ADSENSE_ENABLED } from "./config";
 
 interface AdSenseProps {
   adSlot: string;
   adFormat?: "auto" | "rectangle" | "horizontal" | "vertical";
   className?: string;
 }
-
-const ADSENSE_ENABLED = process.env.NEXT_PUBLIC_ADSENSE_ENABLED === "true";
-const ADSENSE_CLIENT_ID = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 
 export function AdSense({
   adSlot,
@@ -31,14 +29,7 @@ export function AdSense({
   }, []);
 
   if (!ADSENSE_ENABLED) {
-    return (
-      <div
-        className={`bg-charcoal-800 border border-charcoal-700 rounded-lg flex items-center justify-center text-charcoal-500 text-sm ${className}`}
-        style={{ minHeight: "90px" }}
-      >
-        <span>Ad Placeholder</span>
-      </div>
-    );
+    return null;
   }
 
   if (!ADSENSE_CLIENT_ID) {
@@ -74,4 +65,3 @@ export function AdSenseScript(): React.ReactElement | null {
   );
 }
 
-export { ADSENSE_ENABLED, ADSENSE_CLIENT_ID };

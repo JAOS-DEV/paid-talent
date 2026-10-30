@@ -85,6 +85,7 @@ export function normalizeForDetection(text: string): string {
   normalized = collapseDigitSeparators(normalized);
   normalized = normalized.toLowerCase();
   normalized = homoglyphDigitRuns(normalized);
+  normalized = normalizeObfuscatedContactSpellings(normalized);
 
   return normalized;
 }
@@ -94,44 +95,99 @@ interface SpelledToken {
   digit: string;
 }
 
+const SPELLED_NUMBER_SEPARATOR = /^[\s,，、\-]+$/;
+
 function replaceSpelledNumberRuns(input: string): string {
-  const tokens = input.split(/(\s+)/);
+  const tokens = input.split(/([\s,，、\-]+)/);
   const out: string[] = [];
   let run: SpelledToken[] = [];
+  let separators: string[] = [];
+  let pendingSep = "";
 
   const flushRun = (): void => {
     if (run.length >= 6) {
-      out.push(...run.map((t) => t.digit));
+      out.push(run.map((token) => token.digit).join(""));
     } else {
-      for (const item of run) {
-        out.push(item.raw);
+      for (let index = 0; index < run.length; index += 1) {
+        if (index > 0) {
+          out.push(separators[index - 1] ?? "");
+        }
+        out.push(run[index]!.raw);
       }
     }
     run = [];
+    separators = [];
   };
 
   for (const token of tokens) {
-    if (/^\s+$/.test(token)) {
-      flushRun();
-      out.push(token);
+    if (token.length === 0) {
       continue;
     }
 
-    const lower = token.toLowerCase();
-    const thaiDigit = THAI_NUMBER_WORDS[token];
-    const enDigit = ENGLISH_NUMBER_WORDS[lower];
-    const digit = thaiDigit ?? enDigit;
-
-    if (digit != null) {
-      run.push({ raw: token, digit });
-    } else {
-      flushRun();
-      out.push(token);
+    if (SPELLED_NUMBER_SEPARATOR.test(token)) {
+      if (run.length === 0) {
+        out.push(token);
+      } else {
+        pendingSep += token;
+      }
+      continue;
     }
-  }
-  flushRun();
 
+    const digit =
+      THAI_NUMBER_WORDS[token] ?? ENGLISH_NUMBER_WORDS[token.toLowerCase()];
+    if (digit != null) {
+      if (run.length > 0) {
+        separators.push(pendingSep);
+      }
+      pendingSep = "";
+      run.push({ raw: token, digit });
+      continue;
+    }
+
+    flushRun();
+    if (pendingSep) {
+      out.push(pendingSep);
+      pendingSep = "";
+    }
+    out.push(token);
+  }
+
+  flushRun();
+  if (pendingSep) {
+    out.push(pendingSep);
+  }
   return out.join("");
+}
+
+function collapseSingleCharacterSequences(text: string): string {
+  return text.replace(
+    /(^|[^a-z0-9@./])((?:[a-z0-9@./][ \t]+){7,}[a-z0-9@./])(?![a-z0-9@./])/g,
+    (match, prefix: string, sequence: string) => {
+      if (!/[@./]/.test(sequence)) {
+        return match;
+      }
+      return prefix + sequence.replace(/[ \t]+/g, "");
+    }
+  );
+}
+
+function normalizeObfuscatedContactSpellings(text: string): string {
+  let normalized = text;
+  normalized = normalized.replace(/\s*[([{]\s*at\s*[)\]}]\s*/g, "@");
+  normalized = normalized.replace(/\s*[([{]\s*dot\s*[)\]}]\s*/g, ".");
+  normalized = normalized.replace(
+    /([a-z0-9._%+-]+)\s*@\s*([a-z0-9-]+)((?:\s*\.\s*[a-z0-9-]+)*)\s*\.\s*([a-z]{2,})\b/g,
+    (_m, u: string, d: string, mid: string, tld: string) =>
+      `${u}@${d}${mid.replace(/\s+/g, "")}.${tld}`
+  );
+  normalized = collapseSingleCharacterSequences(normalized);
+  normalized = normalized.replace(/\s+dot\s+/g, ".");
+  normalized = normalized.replace(
+    /([a-z0-9._%+-]+)\s+at\s+([a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,})/g,
+    "$1@$2"
+  );
+  normalized = normalized.replace(/\s+slash\s+/g, "/");
+  return normalized;
 }
 
 const THAI_NUMBER_WORD_ALT =

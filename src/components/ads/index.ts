@@ -1,1 +1,2 @@
-export { AdSense, AdSenseScript, ADSENSE_ENABLED } from "./AdSense";
+export { AdSense, AdSenseScript } from "./AdSense";
+export { ADS_CONFIGURED, ADSENSE_CLIENT_ID, ADSENSE_ENABLED } from "./config";

@@ -14,7 +14,7 @@ import {
   Badge,
   TopTalentBadge,
 } from "@/components/ui";
-import { AdSense } from "@/components/ads";
+import { AdSense, ADS_CONFIGURED } from "@/components/ads";
 import { RecruiterAccessBanner } from "@/components/recruiter";
 import { SendContactRequestDialog } from "@/components/contact-requests";
 import type { SearchWorkerResult } from "@/lib/recruiter-access/worker-dto";
@@ -556,9 +556,11 @@ export default function SearchPage(): React.ReactElement {
                 </CardContent>
               </Card>
 
-              <div className="mt-6">
-                <AdSense adSlot="search-sidebar" adFormat="vertical" />
-              </div>
+              {ADS_CONFIGURED ? (
+                <div className="mt-6">
+                  <AdSense adSlot="search-sidebar" adFormat="vertical" />
+                </div>
+              ) : null}
             </div>
 
             <div className="lg:col-span-3">

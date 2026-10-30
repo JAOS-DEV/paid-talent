@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import * as NextServer from "next/server";
 import { db } from "@/lib/db";
 import {
@@ -160,7 +160,7 @@ export async function deliver(notificationId: string): Promise<void> {
             eq(notifications.dedupeKey, row.dedupeKey),
             sql`${notifications.id} <> ${row.id}`,
             isNull(notifications.readAt),
-            sql`${notifications.createdAt} >= ${since}`,
+            gte(notifications.createdAt, since),
             or(
               eq(notifications.emailStatus, "sent"),
               eq(notifications.lineStatus, "sent")
@@ -334,7 +334,7 @@ export async function retryPending(now: Date = new Date()): Promise<number> {
         ne(notifications.emailStatus, "sent"),
         ne(notifications.lineStatus, "sent"),
         lt(notifications.attempts, MAX_ATTEMPTS),
-        sql`${notifications.createdAt} >= ${since}`,
+        gte(notifications.createdAt, since),
         claimAvailable()
       )
     );
