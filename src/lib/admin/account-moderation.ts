@@ -31,13 +31,24 @@ import type { AdminAuditAction } from "@/lib/db/schema";
  */
 
 const MIN_REASON_LENGTH = 3;
+const MIN_RESTRICTIVE_REASON_LENGTH = 5;
 
-export function trimAdminReason(reason: string | null | undefined): string | null {
+export function adminReasonMinimum(action: AccountModerationAction): number {
+  if (action === "suspend" || action === "ban") {
+    return MIN_RESTRICTIVE_REASON_LENGTH;
+  }
+  return MIN_REASON_LENGTH;
+}
+
+export function trimAdminReason(
+  reason: string | null | undefined,
+  minimum = MIN_REASON_LENGTH
+): string | null {
   if (!reason) {
     return null;
   }
   const trimmed = reason.trim();
-  if (trimmed.length < MIN_REASON_LENGTH) {
+  if (trimmed.length < minimum) {
     return null;
   }
   return trimmed;
@@ -124,7 +135,7 @@ export async function moderateAccountWithClient(
   | { ok: true; accountStatus: AccountStatus }
   | { ok: false; status: number; error: string }
 > {
-  const reason = trimAdminReason(input.reason);
+  const reason = trimAdminReason(input.reason, adminReasonMinimum(input.action));
   if (
     (input.action === "suspend" || input.action === "ban") &&
     !reason
@@ -132,7 +143,7 @@ export async function moderateAccountWithClient(
     return {
       ok: false,
       status: 400,
-      error: "A reason is required for this action.",
+      error: "A reason of at least 5 characters is required.",
     };
   }
   if (

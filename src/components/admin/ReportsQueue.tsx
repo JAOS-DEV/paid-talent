@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui";
+import { AdminReasonAlertDialog } from "@/components/admin/AdminReasonAlertDialog";
 import { ConfirmReasonDialog } from "@/components/admin/ConfirmReasonDialog";
 
 export interface AdminReportRow {
@@ -34,6 +35,7 @@ export function ReportsQueue({
     status: "actioned" | "dismissed" | "reviewing";
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pauseUserId, setPauseUserId] = useState<string | null>(null);
 
   const resolve = async (note: string): Promise<void> => {
     if (!dialog) return;
@@ -65,14 +67,30 @@ export function ReportsQueue({
     }
   };
 
-  const pauseMessaging = async (userId: string): Promise<void> => {
-    const reason = window.prompt("Reason for pausing messaging?");
-    if (!reason || reason.trim().length < 3) return;
-    await fetch(`/api/admin/recruiters/${userId}/messaging-pause`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paused: true, reason: reason.trim() }),
-    });
+  const pauseMessaging = async (reason: string): Promise<void> => {
+    if (!pauseUserId || reason.trim().length < 5) return;
+    setBusyId(pauseUserId);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/recruiters/${pauseUserId}/messaging-pause`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paused: true, reason: reason.trim() }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Failed to pause messaging");
+        return;
+      }
+      setPauseUserId(null);
+    } catch {
+      setError("Failed to pause messaging");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -172,9 +190,9 @@ export function ReportsQueue({
               {report.reportedUserId ? (
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="destructive"
                   size="sm"
-                  onClick={() => void pauseMessaging(report.reportedUserId!)}
+                  onClick={() => setPauseUserId(report.reportedUserId)}
                 >
                   Pause messaging
                 </Button>
@@ -196,6 +214,21 @@ export function ReportsQueue({
           setError(null);
         }}
         onConfirm={(note) => void resolve(note)}
+      />
+      <AdminReasonAlertDialog
+        open={pauseUserId != null}
+        title="Pause messaging"
+        description="The recruiter cannot send messages until messaging is unpaused. The reason is stored on the audit row."
+        confirmLabel="Pause"
+        destructive
+        minLength={5}
+        busy={busyId != null && busyId === pauseUserId}
+        error={pauseUserId ? error : null}
+        onCancel={() => {
+          setPauseUserId(null);
+          setError(null);
+        }}
+        onConfirm={(reason) => void pauseMessaging(reason)}
       />
     </div>
   );

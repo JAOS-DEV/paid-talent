@@ -7,3 +7,7 @@ export const stripe = stripeSecretKey
       typescript: true,
     })
   : null;
+
+export function isStripeConfigured(): boolean {
+  return stripe != null;
+}

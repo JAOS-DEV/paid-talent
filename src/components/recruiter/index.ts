@@ -7,4 +7,6 @@ export type { RecruiterInterestCardData } from "./RecruiterInterestCard";
 export { RecruiterBackLink } from "./RecruiterBackLink";
 export { RecruiterUpgradePanel } from "./RecruiterUpgradePanel";
 export { RecruiterAccessBanner } from "./RecruiterAccessBanner";
+export { TeaserPhoto } from "./TeaserPhoto";
+export { RecruiterBillingPanel } from "./RecruiterBillingPanel";
 export { formatOpeningPay, emptyPayToNull, formatOpeningChoiceLabel } from "./format-pay";

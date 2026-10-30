@@ -8,6 +8,7 @@ import {
   mapApprovedPhotosToPublic,
   type PublicWorkerPhoto,
 } from "@/lib/worker-profile/public-profile";
+import { formatTeaserPayBand } from "@/lib/profile/expected-pay";
 import type { RecruiterAccess } from "./index";
 
 export type WorkerPhoto = PublicWorkerPhoto;
@@ -79,9 +80,16 @@ export interface WorkerTeaserDto {
   mode: "teaser";
   id: string;
   firstName: string | null;
+  /** City, when the worker published one. */
+  location: string | null;
   area: string | null;
   jobRoles: string[];
   availability: string[];
+  /**
+   * Rounded pay floor for locked non-Top-Talent cards.
+   * Omitted for locked Top Talent, which shows no pay.
+   */
+  payBand?: string | null;
   isTopTalent: boolean;
   isVerified: true;
   teaserPhotoPath: string;
@@ -130,31 +138,36 @@ export function teaserPhotoPathForWorker(workerProfileId: string): string {
   return `/api/workers/${workerProfileId}/teaser-photo`;
 }
 
-function lockedTopTalentTeaser(workerProfileId: string): WorkerTeaserDto {
-  return {
-    mode: "teaser",
-    id: workerProfileId,
-    firstName: null,
-    area: null,
-    jobRoles: [],
-    availability: [],
-    isTopTalent: true,
-    isVerified: true,
-    teaserPhotoPath: teaserPhotoPathForWorker(workerProfileId),
-  };
-}
-
 function teaserFromProfile(
-  profile: Pick<WorkerProfile, "id" | "displayName" | "area" | "jobRoles" | "availability">,
+  profile: Pick<
+    WorkerProfile,
+    | "id"
+    | "displayName"
+    | "location"
+    | "area"
+    | "jobRoles"
+    | "availability"
+    | "expectedPayMin"
+    | "payCurrency"
+  >,
   isTopTalent: boolean
 ): WorkerTeaserDto {
   return {
     mode: "teaser",
     id: profile.id,
     firstName: firstNameFromDisplayName(profile.displayName),
+    location: profile.location,
     area: profile.area,
     jobRoles: (profile.jobRoles as string[]) ?? [],
     availability: profile.availability ?? [],
+    ...(isTopTalent
+      ? {}
+      : {
+          payBand: formatTeaserPayBand(
+            profile.expectedPayMin,
+            profile.payCurrency
+          ),
+        }),
     isTopTalent,
     isVerified: true,
     teaserPhotoPath: teaserPhotoPathForWorker(profile.id),
@@ -262,7 +275,7 @@ export function toRecruiterSearchWorkerDto(
   isTopTalent: boolean
 ): SearchWorkerResult {
   if (isTopTalent && !access.canViewTopTalentFull) {
-    return lockedTopTalentTeaser(profile.id);
+    return teaserFromProfile(profile, true);
   }
   if (!access.canBrowseFull) {
     return teaserFromProfile(profile, isTopTalent);
@@ -290,14 +303,17 @@ export function resolveWorkerDetailMode(
 export function toRecruiterWorkerTeaserDto(
   profile: Pick<
     WorkerProfile,
-    "id" | "displayName" | "area" | "jobRoles" | "availability"
+    | "id"
+    | "displayName"
+    | "location"
+    | "area"
+    | "jobRoles"
+    | "availability"
+    | "expectedPayMin"
+    | "payCurrency"
   >,
-  isTopTalent: boolean,
-  locked: boolean
+  isTopTalent: boolean
 ): WorkerTeaserDto {
-  if (locked) {
-    return lockedTopTalentTeaser(profile.id);
-  }
   return teaserFromProfile(profile, isTopTalent);
 }
 

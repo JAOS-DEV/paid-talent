@@ -47,6 +47,8 @@
     "notificationsUnread": "Notifications ({count})",
     "verification": "Verification",
     "searchWorkers": "Search Workers",
+    "venues": "Venues",
+    "billing": "Billing",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
   },
@@ -858,7 +860,10 @@
       "verifyToSeeFull": "Verify to see full profiles",
       "teaserNameHidden": "Verified talent",
       "lockedTopTalentHint": "Verified Pro recruiters can view and message Top Talent",
-      "upgradeForTopTalent": "Upgrade for Top Talent"
+      "upgradeForTopTalent": "Upgrade for Top Talent",
+      "verifyIdentityToUnlock": "Verify your identity to unlock",
+      "addVenueToUnlock": "Add a venue to unlock",
+      "subscribeToContact": "Subscribe to contact"
     },
     "workerDetail": {
       "profileNotFound": "Profile not found",
@@ -892,6 +897,35 @@
       "upgradeCta": "Upgrade",
       "proTitle": "Verified Pro",
       "proBody": "You can view Top Talent profiles and use premium messaging features."
+    },
+    "billing": {
+      "title": "Billing",
+      "subtitle": "Your plan and payments.",
+      "currentPlan": "Current plan",
+      "status": "Status",
+      "renewal": "Renews",
+      "expiry": "Expires",
+      "lifetime": "Lifetime",
+      "manageOrCancel": "Manage or cancel",
+      "manageFailed": "Could not open billing. Please try again.",
+      "noPlanBody": "Subscribe to contact Top Talent.",
+      "pricingCta": "View pricing & subscribe",
+      "plans": {
+        "none": "No plan",
+        "monthly": "Monthly",
+        "annual": "Annual",
+        "pass_7d": "7-day pass",
+        "admin_grant": "Admin grant"
+      },
+      "statuses": {
+        "none": "None",
+        "active": "Active",
+        "canceled": "Canceled",
+        "past_due": "Past due",
+        "incomplete": "Incomplete",
+        "trialing": "Trialing",
+        "open_access": "Open access"
+      }
     },
     "profile": {
       "title": "Venue profile",

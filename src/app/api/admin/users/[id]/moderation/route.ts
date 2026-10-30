@@ -28,6 +28,16 @@ export async function POST(
       );
     }
 
+    if (
+      (parsed.data.action === "suspend" || parsed.data.action === "ban") &&
+      parsed.data.reason.trim().length < 5
+    ) {
+      return NextResponse.json(
+        { error: "A reason of at least 5 characters is required." },
+        { status: 400 }
+      );
+    }
+
     const result = await moderateAccount({
       action: parsed.data.action,
       targetUserId: id,

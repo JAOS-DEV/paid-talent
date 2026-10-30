@@ -58,20 +58,26 @@ describe("worker-dto teaser contract", () => {
     expect(firstNameFromDisplayName("  Nattaya  B. ")).toBe("Nattaya");
   });
 
-  it("teaser DTO JSON has no photoUrl/photos/bio/pay/userId/contact keys", () => {
-    const teaser = toRecruiterWorkerTeaserDto(profileWithSecrets(), false, false);
+  it("teaser DTO JSON has a rounded pay band and place but no exact pay or photoUrl/photos/bio/userId/contact keys", () => {
+    const teaser = toRecruiterWorkerTeaserDto(profileWithSecrets(), false);
     const json = JSON.stringify(teaser);
 
     expect(teaser.mode).toBe("teaser");
     expect(teaser.firstName).toBe("Somchai");
+    expect(teaser.location).toBe("Bangkok");
     expect(teaser.area).toBe("Sukhumvit");
+    expect(teaser.jobRoles).toEqual(["Server"]);
+    expect(teaser.payBand).toBe("฿15,000+");
+    expect(teaser).not.toHaveProperty("expectedPayMin");
+    expect(teaser).not.toHaveProperty("expectedPayPeriod");
+    expect(teaser).not.toHaveProperty("payCurrency");
+    expect(json).not.toContain("expectedPayMin");
+    expect(json).not.toContain("15000");
     expect(teaser.teaserPhotoPath).toBe("/api/workers/profile-1/teaser-photo");
 
     expect(json).not.toContain("photoUrl");
     expect(json).not.toContain('"photos"');
     expect(json).not.toContain("bio");
-    expect(json).not.toContain("expectedPay");
-    expect(json).not.toContain("payCurrency");
     expect(json).not.toContain(SECRET_USER_ID);
     expect(json).not.toContain(SECRET_LINE);
     expect(json).not.toContain(SECRET_WHATSAPP);
@@ -80,21 +86,51 @@ describe("worker-dto teaser contract", () => {
     expect(teaser).not.toHaveProperty("photoUrl");
     expect(teaser).not.toHaveProperty("photos");
     expect(teaser).not.toHaveProperty("bio");
+    expect(teaser).not.toHaveProperty("lineId");
+    expect(teaser).not.toHaveProperty("phoneNumber");
+    expect(teaser).not.toHaveProperty("whatsappNumber");
   });
 
-  it("locked Top Talent teaser has null firstName/area and empty arrays", () => {
-    const locked = toRecruiterWorkerTeaserDto(profileWithSecrets(), true, true);
+  it("rounds a normal teaser pay band down to the nearest 500", () => {
+    const banded = toRecruiterWorkerTeaserDto(
+      profileWithSecrets({ expectedPayMin: 1499 }),
+      false
+    );
+    expect(banded.payBand).toBe("฿1,000+");
+    expect(banded).not.toHaveProperty("expectedPayMin");
+    expect(JSON.stringify(banded)).not.toContain("1499");
+
+    const belowStep = toRecruiterWorkerTeaserDto(
+      profileWithSecrets({ expectedPayMin: 499 }),
+      false
+    );
+    expect(belowStep.payBand).toBeNull();
+    expect(belowStep).not.toHaveProperty("expectedPayMin");
+  });
+
+  it("locked Top Talent teaser keeps first name, place, and role and omits pay", () => {
+    const locked = toRecruiterWorkerTeaserDto(profileWithSecrets(), true);
     expect(locked).toEqual({
       mode: "teaser",
       id: "profile-1",
-      firstName: null,
-      area: null,
-      jobRoles: [],
-      availability: [],
+      firstName: "Somchai",
+      location: "Bangkok",
+      area: "Sukhumvit",
+      jobRoles: ["Server"],
+      availability: ["Full-time"],
       isTopTalent: true,
       isVerified: true,
       teaserPhotoPath: "/api/workers/profile-1/teaser-photo",
     });
+    expect(locked).not.toHaveProperty("expectedPayMin");
+    expect(locked).not.toHaveProperty("expectedPayPeriod");
+    expect(locked).not.toHaveProperty("payCurrency");
+    expect(locked).not.toHaveProperty("payBand");
+    const json = JSON.stringify(locked);
+    expect(json).not.toContain("expectedPayMin");
+    expect(json).not.toContain("15000");
+    expect(json).not.toContain(SECRET_LINE);
+    expect(json).not.toContain(SECRET_PHONE);
   });
 
   it("unverified access maps regular workers to teaser and TT to locked", () => {
@@ -119,8 +155,18 @@ describe("worker-dto teaser contract", () => {
     }
     expect(topTalent.mode).toBe("teaser");
     if (topTalent.mode === "teaser") {
-      expect(topTalent.firstName).toBeNull();
-      expect(topTalent.area).toBeNull();
+      expect(topTalent.firstName).toBe("Somchai");
+      expect(topTalent.area).toBe("Sukhumvit");
+      expect(topTalent.jobRoles).toEqual(["Server"]);
+      expect(topTalent).not.toHaveProperty("expectedPayMin");
+      expect(topTalent).not.toHaveProperty("payBand");
+      expect(JSON.stringify(topTalent)).not.toContain("15000");
+      expect(regular).not.toHaveProperty("expectedPayMin");
+      if (regular.mode === "teaser") {
+        expect(regular.payBand).toBe("฿15,000+");
+      }
+      expect(topTalent).not.toHaveProperty("lineId");
+      expect(topTalent).not.toHaveProperty("phoneNumber");
     }
   });
 

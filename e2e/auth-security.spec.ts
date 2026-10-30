@@ -47,6 +47,15 @@ test.describe("Auth Security - Session Creation Guard", () => {
 
       await page.goto("/auth/signin");
       await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /google/i })).toBeVisible();
+
+      if (!config.emailEnabled) {
+        await expect(page.getByLabel(/email/i)).toHaveCount(0);
+        await expect(
+          page.getByText(/email sign-in is not configured/i)
+        ).toHaveCount(0);
+        return;
+      }
 
       // Fill in an existing user's email
       const emailInput = page.getByLabel(/email/i);
@@ -59,11 +68,8 @@ test.describe("Auth Security - Session Creation Guard", () => {
       // Submit the form
       const submitButton = page.getByRole("button", { name: /continue with email|send.*link/i });
       
-      // If button is disabled, email auth is not configured - that's also secure
-      if (await submitButton.isDisabled()) {
-        // Email sign-in not available = secure (can't submit email-only)
-        const disabledMessage = page.getByText(/email sign-in is not configured|please use google/i);
-        await expect(disabledMessage).toBeVisible();
+      if (await submitButton.count() === 0 || await submitButton.isDisabled()) {
+        await expect(page.getByText(/email sign-in is not configured/i)).toHaveCount(0);
         return;
       }
 
@@ -188,12 +194,16 @@ test.describe("Auth Security - Session Creation Guard", () => {
       }
 
       await page.goto("/auth/signin");
+      if (!config.emailEnabled) {
+        await expect(page.getByLabel(/email/i)).toHaveCount(0);
+        await expect(page.getByText(/email sign-in is not configured/i)).toHaveCount(0);
+        return;
+      }
       await page.getByLabel(/email/i).fill("nonexistent-user-xyz@example.com");
 
       const submitButton = page.getByRole("button", { name: /continue with email|send.*link/i });
       
       if (await submitButton.isDisabled()) {
-        // Email not configured - acceptable secure state
         return;
       }
 
@@ -238,11 +248,9 @@ test.describe("Auth Security - Session Creation Guard", () => {
         // Production with email: button shows magic link text
         await expect(page.getByRole("button", { name: /send.*link/i })).toBeVisible();
       } else {
-        // No email configured: email submission should be disabled or hidden
-        const submitButton = page.getByRole("button", { name: /continue with email|send.*link/i });
-        if (await submitButton.isVisible()) {
-          await expect(submitButton).toBeDisabled();
-        }
+        await expect(page.getByLabel(/email/i)).toHaveCount(0);
+        await expect(page.getByText(/email sign-in is not configured/i)).toHaveCount(0);
+        await expect(page.getByRole("button", { name: /google/i })).toBeVisible();
       }
     });
   });
@@ -261,6 +269,13 @@ test.describe("Auth Security - Mobile", () => {
 
     await page.goto("/auth/signin");
     await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+
+    if (!config.emailEnabled) {
+      await expect(page.getByLabel(/email/i)).toHaveCount(0);
+      await expect(page.getByText(/email sign-in is not configured/i)).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /google/i })).toBeVisible();
+      return;
+    }
 
     await page.getByLabel(/email/i).fill(EXISTING_USER_EMAIL);
 

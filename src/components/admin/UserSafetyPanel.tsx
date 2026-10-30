@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
-import { ConfirmReasonDialog } from "@/components/admin/ConfirmReasonDialog";
+import { AdminReasonAlertDialog } from "@/components/admin/AdminReasonAlertDialog";
 
 interface ReportSummary {
   id: string;
@@ -80,7 +80,7 @@ export function UserSafetyPanel({
             </p>
             <Button
               type="button"
-              variant="secondary"
+              variant={paused ? "outline" : "destructive"}
               size="sm"
               onClick={() => setDialogOpen(true)}
             >
@@ -129,11 +129,13 @@ export function UserSafetyPanel({
           )}
         </div>
 
-        <ConfirmReasonDialog
+        <AdminReasonAlertDialog
           open={dialogOpen}
           title={paused ? "Unpause messaging" : "Pause messaging"}
           description="This is recorded in the admin audit log."
-          confirmLabel="Confirm"
+          confirmLabel={paused ? "Unpause" : "Pause"}
+          destructive={!paused}
+          minLength={5}
           busy={busy}
           error={error}
           onCancel={() => {

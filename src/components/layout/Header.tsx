@@ -2,44 +2,34 @@
 
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import { LanguageToggle } from "@/components/i18n";
 import { MessagesNavLink } from "@/components/messaging/MessagesNavLink";
 import { NotificationsBell } from "@/components/notifications";
+import { ADMIN_NAV_ITEMS } from "@/components/admin/admin-nav-items";
+import { BrandMark } from "./BrandMark";
+import { MobileNavSheet, type AccountNavItem } from "./MobileNavSheet";
 
-const MARK_SRC = "/brand/paid-talent-mark.svg";
-const LOCKUP_SRC = "/brand/paid-talent-logo.svg";
+const desktopLinkClass =
+  "inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 lg:px-2.5 lg:text-sm";
 
-function BrandLink({ href }: { href: string }): React.ReactElement {
+function DesktopNavLink({ item }: { item: AccountNavItem }): React.ReactElement {
+  if (item.messages) {
+    return <MessagesNavLink href={item.href} />;
+  }
   return (
     <Link
-      href={href}
-      aria-label="Paid Talent"
-      className="inline-flex h-8 shrink-0 items-center"
+      href={item.href}
+      prefetch={item.prefetch}
+      className={
+        item.tone === "admin"
+          ? "inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg bg-gold-500 px-2 text-xs font-semibold text-charcoal-950 hover:bg-gold-600 lg:px-2.5 lg:text-sm"
+          : desktopLinkClass
+      }
     >
-      <Image
-        src={MARK_SRC}
-        alt=""
-        width={32}
-        height={32}
-        priority
-        unoptimized
-        aria-hidden
-        className="h-8 w-8 min-[380px]:hidden"
-      />
-      <Image
-        src={LOCKUP_SRC}
-        alt=""
-        width={200}
-        height={32}
-        priority
-        unoptimized
-        aria-hidden
-        className="hidden h-7 w-auto max-w-[180px] min-[380px]:block"
-      />
+      {item.label}
     </Link>
   );
 }
@@ -66,12 +56,56 @@ export function Header(): React.ReactElement {
     void signOut({ callbackUrl: "/" });
   };
 
+  const navItems: AccountNavItem[] = [];
+  if (isFullUser && session?.user?.role === "worker") {
+    navItems.push(
+      { href: "/worker/dashboard", label: t("dashboard") },
+      { href: "/worker/requests", label: t("requests") },
+      { href: "/worker/messages", label: t("messages"), messages: true },
+      { href: "/worker/profile", label: t("profile") },
+      { href: "/settings/notifications", label: t("settings") }
+    );
+  }
+  if (isFullUser && session?.user?.role === "recruiter") {
+    navItems.push(
+      { href: "/recruiter/search", label: t("search") },
+      { href: "/recruiter/openings", label: t("openings") },
+      { href: "/recruiter/venues", label: t("venues") },
+      { href: "/recruiter/requests", label: t("requests") },
+      { href: "/recruiter/messages", label: t("messages"), messages: true },
+      { href: "/recruiter/profile", label: t("profile") },
+      { href: "/recruiter/billing", label: t("billing") },
+      { href: "/settings/notifications", label: t("settings") }
+    );
+  }
+  if (isAdmin) {
+    navItems.push({
+      href: "/admin",
+      label: t("admin"),
+      prefetch: false,
+      tone: "admin",
+    });
+  }
+
+  const sheetItems = navItems.filter((item) => item.tone !== "admin");
+  const sheetAdminItems = isAdmin ? ADMIN_NAV_ITEMS : [];
+
   return (
     <header className="h-14 overflow-x-hidden border-b border-charcoal-700 bg-charcoal-900">
-      <div className="mx-auto flex h-full min-w-0 max-w-7xl items-center justify-between gap-1.5 px-3 sm:gap-3 sm:px-6 lg:px-8">
-        <BrandLink href={logoHref} />
+      <div className="mx-auto flex h-full min-w-0 max-w-7xl items-center gap-1.5 px-3 sm:gap-3 sm:px-6 lg:px-8">
+        <BrandMark href={logoHref} />
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
+          {isFullUser ? (
+            <nav
+              className="hidden min-w-0 items-center gap-0.5 overflow-x-auto md:flex"
+              aria-label="Account"
+            >
+              {navItems.map((item) => (
+                <DesktopNavLink key={item.href} item={item} />
+              ))}
+            </nav>
+          ) : null}
           <LanguageToggle />
           {status === "loading" ? (
             <div className="h-8 w-8 animate-pulse rounded-full bg-charcoal-700" />
@@ -83,52 +117,24 @@ export function Header(): React.ReactElement {
             </Link>
           ) : isFullUser ? (
             <>
-              {isAdmin && (
-                <Link
-                  href="/admin"
-                  prefetch={false}
-                  className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg bg-gold-500 px-2 text-xs font-semibold text-charcoal-950 hover:bg-gold-600 sm:px-2.5 sm:text-sm"
-                >
-                  {t("admin")}
-                </Link>
-              )}
-              {session?.user?.role === "worker" ? (
-                <>
-                  <Link
-                    href="/worker/requests"
-                    className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
-                  >
-                    {t("requests")}
-                  </Link>
-                  <MessagesNavLink href="/worker/messages" />
-                </>
-              ) : null}
-              {session?.user?.role === "recruiter" ? (
-                <>
-                  <Link
-                    href="/recruiter/requests"
-                    className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
-                  >
-                    {t("requests")}
-                  </Link>
-                  <MessagesNavLink href="/recruiter/messages" />
-                </>
-              ) : null}
               <NotificationsBell />
-              <Link
-                href="/settings/notifications"
-                className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
-              >
-                {t("settings")}
-              </Link>
-              <Button
-                variant="ghost"
-                size="header"
-                type="button"
-                onClick={handleSignOut}
-              >
-                {t("signOutAction")}
-              </Button>
+              <div className="md:hidden">
+                <MobileNavSheet
+                  items={sheetItems}
+                  adminItems={sheetAdminItems}
+                  onSignOut={handleSignOut}
+                />
+              </div>
+              <div className="hidden md:block">
+                <Button
+                  variant="ghost"
+                  size="header"
+                  type="button"
+                  onClick={handleSignOut}
+                >
+                  {t("signOutAction")}
+                </Button>
+              </div>
             </>
           ) : (
             <>

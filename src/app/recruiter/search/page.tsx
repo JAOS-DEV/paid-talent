@@ -15,10 +15,16 @@ import {
   TopTalentBadge,
 } from "@/components/ui";
 import { AdSense, ADS_CONFIGURED } from "@/components/ads";
-import { RecruiterAccessBanner } from "@/components/recruiter";
+import { RecruiterAccessBanner, TeaserPhoto } from "@/components/recruiter";
 import { SendContactRequestDialog } from "@/components/contact-requests";
 import type { SearchWorkerResult } from "@/lib/recruiter-access/worker-dto";
 import type { RecruiterAccessDto } from "@/lib/recruiter-access";
+import {
+  ADD_VENUE_HREF,
+  teaserContactCta,
+  teaserPlaceLabel,
+  type TeaserCta,
+} from "@/lib/recruiter-access/teaser-cta";
 import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import { AVAILABILITY_OPTIONS } from "@/lib/profile/availability";
 import {
@@ -34,133 +40,67 @@ import {
   formatWorkerExpectedPay,
 } from "@/lib/profile/expected-pay";
 
-function isLockedTopTalent(worker: SearchWorkerResult): boolean {
-  return (
-    worker.mode === "teaser" &&
-    worker.isTopTalent &&
-    worker.firstName == null
-  );
-}
-
-function verifyHref(access: RecruiterAccessDto | null): string {
-  if (access && access.identityStatus === "verified" && !access.hasApprovedVenue) {
-    return "/recruiter/venues";
-  }
-  return "/recruiter/verification";
-}
-
 interface WorkerCardProps {
   worker: SearchWorkerResult;
   interestSent: boolean;
   onExpressInterest: () => void;
-  verifyCtaHref: string;
+  teaserCta: TeaserCta | null;
 }
 
 function WorkerCard({
   worker,
   interestSent,
   onExpressInterest,
-  verifyCtaHref,
+  teaserCta,
 }: WorkerCardProps): React.ReactElement {
   const t = useTranslations("recruiter.search");
   const roleLabels = useTranslations("roles");
 
   if (worker.mode === "teaser") {
-    const locked = isLockedTopTalent(worker);
+    const place = teaserPlaceLabel(worker);
+    const role = worker.jobRoles[0];
     return (
       <Card hover padding="lg">
         <CardContent>
           <div className="flex items-start space-x-4">
-            <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 bg-charcoal-700">
-              <img
-                src={worker.teaserPhotoPath}
-                alt=""
-                className="w-full h-full object-cover scale-150"
-              />
-            </div>
+            <TeaserPhoto src={worker.teaserPhotoPath} />
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                {locked ? (
-                  <>
-                    <span className="text-charcoal-400" aria-hidden>
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                        />
-                      </svg>
-                    </span>
-                    <TopTalentBadge />
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-lg font-semibold text-charcoal-100 truncate">
-                      {worker.firstName ?? t("teaserNameHidden")}
-                    </h3>
-                    {worker.isTopTalent && <TopTalentBadge />}
-                    <Badge variant="success">{t("verified")}</Badge>
-                  </>
-                )}
+                <h3 className="text-lg font-semibold text-charcoal-100 truncate">
+                  {worker.firstName ?? t("teaserNameHidden")}
+                </h3>
+                {worker.isTopTalent && <TopTalentBadge />}
+                <Badge variant="success">{t("verified")}</Badge>
               </div>
 
-              {locked ? (
-                <p className="text-charcoal-400 text-sm mb-2">
-                  {t("lockedTopTalentHint")}
+              {place ? (
+                <p className="text-charcoal-400 text-sm mb-2">{place}</p>
+              ) : null}
+              {role ? (
+                <p className="text-charcoal-200 text-sm mb-2">
+                  {translateCatalogValue(roleLabels, JOB_ROLE_MESSAGE_KEYS, role)}
                 </p>
-              ) : (
-                <>
-                  {worker.area ? (
-                    <p className="text-charcoal-400 text-sm mb-2">{worker.area}</p>
-                  ) : null}
-                  {worker.jobRoles.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {worker.jobRoles.slice(0, 3).map((role) => (
-                        <Badge key={role}>
-                          {translateCatalogValue(
-                            roleLabels,
-                            JOB_ROLE_MESSAGE_KEYS,
-                            role
-                          )}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  {worker.availability.length > 0 && (
-                    <div className="mb-1">
-                      <AvailabilityBadges values={worker.availability} />
-                    </div>
-                  )}
-                </>
-              )}
+              ) : null}
+              {worker.payBand ? (
+                <p className="text-charcoal-300 text-sm">{worker.payBand}</p>
+              ) : null}
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-charcoal-700">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <Link href={`/recruiter/profile/${worker.id}`}>
-                <Button variant="outline" size="sm">
-                  {t("viewProfile")}
+          {teaserCta ? (
+            <div className="mt-4 pt-4 border-t border-charcoal-700">
+              <Link href={teaserCta.href} className="inline-flex">
+                <Button size="sm">
+                  {teaserCta.kind === "subscribe"
+                    ? t("subscribeToContact")
+                    : teaserCta.href === ADD_VENUE_HREF
+                      ? t("addVenueToUnlock")
+                      : t("verifyIdentityToUnlock")}
                 </Button>
               </Link>
-              {locked ? (
-                <Link href="/recruiter/upgrade">
-                  <Button size="sm">{t("upgradeForTopTalent")}</Button>
-                </Link>
-              ) : (
-                <Link href={verifyCtaHref}>
-                  <Button size="sm">{t("verifyToSeeFull")}</Button>
-                </Link>
-              )}
             </div>
-          </div>
+          ) : null}
         </CardContent>
       </Card>
     );
@@ -308,7 +248,11 @@ export default function SearchPage(): React.ReactElement {
   const [access, setAccess] = useState<RecruiterAccessDto | null>(null);
 
   const canBrowseFull = access?.canBrowseFull === true;
-  const verifyCtaHref = verifyHref(access);
+  const teaserCta = teaserContactCta({
+    isVerified: access?.isVerified === true,
+    identityVerified: access?.identityStatus === "verified",
+    hasActivePlan: access?.tier === "pro",
+  });
 
   const fetchWorkers = useCallback(async () => {
     try {
@@ -606,7 +550,7 @@ export default function SearchPage(): React.ReactElement {
                           isTopTalent: worker.isTopTalent,
                         })
                       }
-                      verifyCtaHref={verifyCtaHref}
+                      teaserCta={teaserCta}
                     />
                   ))}
                 </div>

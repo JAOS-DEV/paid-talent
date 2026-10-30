@@ -2,7 +2,13 @@
 
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "gold";
+type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "outline"
+  | "ghost"
+  | "gold"
+  | "destructive";
 type ButtonSize = "sm" | "md" | "lg" | "header";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -22,6 +28,8 @@ const variantStyles: Record<ButtonVariant, string> = {
   ghost:
     "bg-transparent hover:bg-charcoal-800 text-charcoal-300 border-transparent",
   gold: "bg-gold-500 hover:bg-gold-600 text-charcoal-950 border-transparent font-semibold",
+  destructive:
+    "bg-red-600 hover:bg-red-700 text-white border-transparent",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {

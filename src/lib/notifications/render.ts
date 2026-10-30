@@ -1,3 +1,4 @@
+import { getAppBaseUrl } from "@/lib/app-url";
 import type { NotificationType } from "@/lib/db/schema";
 import type { Locale } from "@/lib/i18n/config";
 import { isValidLocale } from "@/lib/i18n/config";
@@ -7,6 +8,8 @@ import type {
 } from "@/lib/notifications/types";
 import en from "../../../messages/en.json";
 import th from "../../../messages/th.json";
+
+export { getAppBaseUrl };
 
 type NotificationMessages = {
   subject: string;
@@ -24,14 +27,6 @@ const catalogs: Record<Locale, NotificationsRoot> = {
   en: en as unknown as NotificationsRoot,
   th: th as unknown as NotificationsRoot,
 };
-
-export function getAppBaseUrl(): string {
-  const raw =
-    process.env.AUTH_URL?.trim() ||
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    "http://localhost:3000";
-  return raw.replace(/\/$/, "");
-}
 
 function interpolate(
   template: string,

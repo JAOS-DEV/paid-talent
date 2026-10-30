@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { createCheckoutSession } from "@/lib/stripe";
 import { getBillingAccessMode } from "@/lib/platform-settings";
 import {
@@ -132,9 +133,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const origin = request.headers.get("origin") || "http://localhost:3000";
-    const successUrl = `${origin}/recruiter/dashboard?subscription=success`;
-    const cancelUrl = `${origin}/recruiter/dashboard?subscription=cancelled`;
+    const appBaseUrl = getAppBaseUrl();
+    const successUrl = `${appBaseUrl}/recruiter/dashboard?subscription=success`;
+    const cancelUrl = `${appBaseUrl}/recruiter/dashboard?subscription=cancelled`;
 
     const metadata: Record<string, string> = {
       userId: actor.user.userId,
