@@ -1,0 +1,1 @@
+ALTER TABLE "verification_events" ADD COLUMN "user_reason_code" text;

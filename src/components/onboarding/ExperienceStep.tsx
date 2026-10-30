@@ -80,7 +80,7 @@ export function ExperienceStep({
             {profile("experienceDescription")}
           </label>
           <textarea
-            className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[100px]"
+            className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[100px]"
             placeholder={onboarding("experienceHistoryPlaceholder")}
             value={experience}
             maxLength={EXPERIENCE_DESCRIPTION_MAX_LENGTH}
@@ -90,7 +90,7 @@ export function ExperienceStep({
             }}
           />
           <div className="flex justify-between items-center mt-1.5">
-            <p className="text-charcoal-500 text-xs">
+            <p className="text-charcoal-300 text-xs">
               {onboarding("experienceHint")}
             </p>
             <CharacterCount

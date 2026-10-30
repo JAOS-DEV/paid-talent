@@ -298,7 +298,7 @@ export function MessagingSettingsPanel({
           apply within about 5 seconds without a redeploy.
         </p>
         {meta.updatedAt && (
-          <p className="text-sm text-charcoal-500">
+          <p className="text-sm text-charcoal-300">
             Last changed {new Date(meta.updatedAt).toLocaleString()}
             {meta.updatedBy ? ` by ${meta.updatedBy}` : ""}
           </p>

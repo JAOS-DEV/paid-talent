@@ -64,7 +64,7 @@ export function AdminReasonAlertDialog({
             required
             minLength={minLength}
           />
-          <p className="mt-1 text-xs text-charcoal-500">
+          <p className="mt-1 text-xs text-charcoal-300">
             At least {minLength} characters. This is stored on the audit row.
           </p>
         </div>

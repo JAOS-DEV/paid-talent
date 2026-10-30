@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import type { RecruiterAccessDto } from "@/lib/recruiter-access";
 import type { VerificationStatus } from "@/lib/db/schema";
+import { isUserRejectionReasonCode } from "@/lib/verification/rejection-reasons";
 
 interface VenueRow {
   reviewStatus: string;
@@ -40,9 +41,12 @@ const toneClass: Record<BannerTone, { box: string; title: string; body: string }
 
 export function RecruiterAccessBanner(): React.ReactElement | null {
   const t = useTranslations("recruiter.accessBanner");
+  const reasonT = useTranslations("verification.rejectionReasons");
   const [access, setAccess] = useState<RecruiterAccessDto | null>(null);
   const [venues, setVenues] = useState<VenueRow[]>([]);
-  const [rejectionNote, setRejectionNote] = useState<string | null>(null);
+  const [rejectionReasonCode, setRejectionReasonCode] = useState<string | null>(
+    null
+  );
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -69,10 +73,12 @@ export function RecruiterAccessBanner(): React.ReactElement | null {
           const data = (await verificationRes.json()) as {
             verification?: {
               verificationStatus?: VerificationStatus;
-              rejectionNote?: string | null;
+              rejectionReasonCode?: string | null;
             };
           };
-          setRejectionNote(data.verification?.rejectionNote?.trim() || null);
+          setRejectionReasonCode(
+            data.verification?.rejectionReasonCode?.trim() || null
+          );
         }
       } catch {
         // Leave the banner hidden when the status cannot be loaded.
@@ -119,8 +125,8 @@ export function RecruiterAccessBanner(): React.ReactElement | null {
   } else if (access.identityStatus === "rejected") {
     tone = "error";
     title = t("rejectedTitle");
-    body = rejectionNote
-      ? t("rejectionReason", { reason: rejectionNote })
+    body = isUserRejectionReasonCode(rejectionReasonCode)
+      ? reasonT(rejectionReasonCode)
       : t("rejectedBody");
     action = { href: "/recruiter/verification", label: t("tryAgain") };
   } else if (access.identityStatus !== "verified") {

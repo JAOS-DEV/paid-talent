@@ -96,7 +96,7 @@ export function WorkerConfirmationCard({
           <p className="text-charcoal-300 text-sm mb-1">{openingContext}</p>
         )}
         {requestedDate && (
-          <p className="text-charcoal-500 text-xs mb-4">
+          <p className="text-charcoal-300 text-xs mb-4">
             Requested {requestedDate}
           </p>
         )}

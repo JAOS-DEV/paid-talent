@@ -99,7 +99,7 @@ export default function RecruiterRequestsPage(): React.ReactElement {
             </h1>
             <p className="mt-1 text-charcoal-400">{t("sent.subtitle")}</p>
             {limits ? (
-              <p className="mt-2 text-sm text-charcoal-500">
+              <p className="mt-2 text-sm text-charcoal-300">
                 {t("dialog.remaining", {
                   daily: limits.remainingDaily,
                   weekly: limits.remainingWeekly,

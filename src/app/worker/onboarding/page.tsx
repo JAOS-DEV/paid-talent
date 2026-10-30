@@ -253,7 +253,7 @@ export default function WorkerOnboardingPage(): React.ReactElement {
           <div className="mt-4 text-center">
             <button
               onClick={handleFinishLater}
-              className="text-charcoal-500 text-sm hover:text-charcoal-300 transition-colors"
+              className="text-charcoal-300 text-sm hover:text-charcoal-300 transition-colors"
             >
               {t("finishLater")}
             </button>

@@ -50,7 +50,10 @@ vi.mock("@/lib/notifications", () => ({
   notify: vi.fn(async () => null),
 }));
 
-import { reviewSubject } from "@/lib/admin/verification-review";
+import {
+  reviewSubject,
+  verificationReviewRequestSchema,
+} from "@/lib/admin/verification-review";
 
 describe("reviewSubject recruiter approval", () => {
   beforeEach(() => {
@@ -127,5 +130,64 @@ describe("reviewSubject recruiter approval", () => {
       })
     );
     expect(result.profile.verifiedAt).toBeInstanceOf(Date);
+  });
+
+  it("rejects without a user-facing reason and stores the code apart from admin notes", async () => {
+    const missing = verificationReviewRequestSchema.safeParse({
+      action: "reject",
+      notes: "INTERNAL-ADMIN-NOTE-do-not-leak",
+    });
+    expect(missing.success).toBe(false);
+
+    const parsed = verificationReviewRequestSchema.safeParse({
+      action: "reject",
+      notes: "INTERNAL-ADMIN-NOTE-do-not-leak",
+      userReasonCode: "face_mismatch",
+    });
+    expect(parsed.success).toBe(true);
+
+    loadById.mockResolvedValue({
+      id: "recruiter-profile-1",
+      userId: "user-1",
+      verificationStatus: "pending",
+      isVerified: false,
+      idDocumentKey: null,
+      livenessVideoKey: null,
+      challengeCode: null,
+      challengeIssuedAt: null,
+      idDocumentSubmittedAt: new Date(),
+      verificationReviewedAt: null,
+      verificationReviewedBy: null,
+      verifiedAt: null,
+      displayName: "Luxury Venues",
+      organizationName: "Luxury Venues",
+    });
+
+    const denied = await reviewSubject({
+      subjectType: "recruiter",
+      profileId: "recruiter-profile-1",
+      action: "reject",
+      notes: "INTERNAL-ADMIN-NOTE-do-not-leak",
+      admin: { userId: "admin-1", email: "admin@example.com" },
+    });
+    expect(denied.ok).toBe(false);
+    expect(insertValues).not.toHaveBeenCalled();
+
+    const result = await reviewSubject({
+      subjectType: "recruiter",
+      profileId: "recruiter-profile-1",
+      action: "reject",
+      notes: "INTERNAL-ADMIN-NOTE-do-not-leak",
+      userReasonCode: "face_mismatch",
+      admin: { userId: "admin-1", email: "admin@example.com" },
+    });
+    expect(result.ok).toBe(true);
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision: "rejected",
+        notes: "INTERNAL-ADMIN-NOTE-do-not-leak",
+        userReasonCode: "face_mismatch",
+      })
+    );
   });
 });

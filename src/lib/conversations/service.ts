@@ -50,7 +50,6 @@ export interface ConversationListItem {
   counterpart: {
     displayName: string;
     photoUrl: string | null;
-    verifiedPro: boolean;
   };
 }
 
@@ -251,7 +250,6 @@ export async function listConversations(
       lastMessageAt: conversations.lastMessageAt,
       workerLastReadAt: conversations.workerLastReadAt,
       recruiterLastReadAt: conversations.recruiterLastReadAt,
-      isPro: contactRequests.isPro,
       venueName: venues.name,
       venueLogoUrl: venues.logoUrl,
       workerDisplayName: workerProfiles.displayName,
@@ -313,7 +311,6 @@ export async function listConversations(
         counterpart: {
           displayName: row.venueName ?? "Venue",
           photoUrl: toPublicVenueLogoUrl(row.venueLogoUrl),
-          verifiedPro: row.isPro,
         },
       };
     }
@@ -326,7 +323,6 @@ export async function listConversations(
       counterpart: {
         displayName: firstName(row.workerUserName ?? row.workerDisplayName),
         photoUrl: row.approvedPhotoUrl ?? row.workerPhotoUrl,
-        verifiedPro: true,
       },
     };
   });
@@ -348,7 +344,6 @@ export async function getConversation(
   const [row] = await db
     .select({
       conversation: conversations,
-      isPro: contactRequests.isPro,
       contactRequestId: contactRequests.id,
       venueName: venues.name,
       venueLogoUrl: venues.logoUrl,
@@ -460,12 +455,10 @@ export async function getConversation(
       ? {
           displayName: row.venueName ?? "Venue",
           photoUrl: toPublicVenueLogoUrl(row.venueLogoUrl),
-          verifiedPro: row.isPro,
         }
       : {
           displayName: firstName(row.workerUserName ?? row.workerDisplayName),
           photoUrl: row.approvedPhotoUrl ?? row.workerPhotoUrl,
-          verifiedPro: true,
         };
 
   const shareChannels = await loadShareChannels(userId, role);

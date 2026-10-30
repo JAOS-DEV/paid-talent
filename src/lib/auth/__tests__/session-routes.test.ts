@@ -6,8 +6,23 @@ import {
   isPublicAuthRoute,
 } from "@/lib/auth/middleware-gate";
 
-const PAGE_GUARD =
-  /requireAdminPage|auth\(|redirect\(\s*["']\/auth\/signin/;
+/**
+ * A page guards itself only when a missing session redirects to sign-in
+ * or calls notFound(). Calling auth() alone does not count.
+ * requireAdminPage redirects unauthenticated visitors and calls notFound()
+ * for everyone else who is not an admin.
+ */
+function pageGuardsMissingSession(source: string): boolean {
+  if (/\brequireAdminPage\s*\(/.test(source)) {
+    return true;
+  }
+
+  const checksSession = /!\s*session\b/.test(source);
+  const redirectsToSignIn = /redirect\s*\(\s*[`'"]\/auth\/signin/.test(source);
+  const callsNotFound = /\bnotFound\s*\(/.test(source);
+
+  return checksSession && (redirectsToSignIn || callsNotFound);
+}
 
 function collectPages(dir: string): string[] {
   const found: string[] = [];
@@ -51,11 +66,25 @@ describe("session routes", () => {
         ({ route, source }) =>
           !isPublicAuthRoute(route) &&
           !isProtectedAppRoute(route) &&
-          !PAGE_GUARD.test(source)
+          !pageGuardsMissingSession(source)
       )
       .map(({ route }) => route);
 
     expect(uncovered).toEqual([]);
     expect(pages.length).toBeGreaterThan(10);
+  });
+
+  it("does not treat a bare auth() call as a page guard", () => {
+    const source = `const session = await auth();\nreturn <Page />;`;
+    expect(pageGuardsMissingSession(source)).toBe(false);
+  });
+
+  it("counts a missing-session redirect or notFound as a page guard", () => {
+    expect(
+      pageGuardsMissingSession(`if (!session) redirect("/auth/signin");`)
+    ).toBe(true);
+    expect(
+      pageGuardsMissingSession(`if (!session?.user) {\n  notFound();\n}`)
+    ).toBe(true);
   });
 });

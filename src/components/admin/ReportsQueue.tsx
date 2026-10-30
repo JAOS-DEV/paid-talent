@@ -98,7 +98,7 @@ export function ReportsQueue({
   return (
     <div className="space-y-4">
       {reports.length === 0 ? (
-        <p className="text-sm text-charcoal-500">No open reports.</p>
+        <p className="text-sm text-charcoal-300">No open reports.</p>
       ) : (
         reports.map((report) => (
           <article

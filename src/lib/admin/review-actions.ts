@@ -11,6 +11,7 @@ export interface VerificationDecisionInput {
   last4?: string;
   issuingCountry?: string;
   notes?: string;
+  userReasonCode?: string;
   canApprove: boolean;
 }
 
@@ -43,10 +44,14 @@ export function buildVerificationDecisionBody(
   const last4 = input.last4?.trim();
   const issuingCountry = input.issuingCountry?.trim();
   const notes = input.notes?.trim();
+  const userReasonCode = input.userReasonCode?.trim();
 
   if (last4) body.last4 = last4;
   if (issuingCountry) body.issuingCountry = issuingCountry;
   if (notes) body.notes = notes;
+  if (input.action === "reject" && userReasonCode) {
+    body.userReasonCode = userReasonCode;
+  }
 
   return body;
 }

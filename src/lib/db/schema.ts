@@ -1059,6 +1059,7 @@ export const verificationEvents = pgTable(
     last4: text("last4"),
     issuingCountry: text("issuing_country"),
     notes: text("notes"),
+    userReasonCode: text("user_reason_code"),
     retentionExpiresAt: timestamp("retention_expires_at", { mode: "date" }),
     idDocumentDeletedAt: timestamp("id_document_deleted_at", { mode: "date" }),
     livenessVideoDeletedAt: timestamp("liveness_video_deleted_at", {

@@ -136,7 +136,7 @@ function WorkerCard({
           ) : (
             <div className="w-16 h-16 rounded-full bg-charcoal-700 flex-shrink-0 flex items-center justify-center">
               <svg
-                className="w-8 h-8 text-charcoal-500"
+                className="w-8 h-8 text-charcoal-300"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -503,7 +503,7 @@ export default function SearchPage(): React.ReactElement {
                           ))}
                         </select>
                       </div>
-                      <p className="text-charcoal-500 text-xs mt-1.5">
+                      <p className="text-charcoal-300 text-xs mt-1.5">
                         {t("payFilterHint")}
                       </p>
                     </div>
@@ -570,7 +570,7 @@ export default function SearchPage(): React.ReactElement {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 text-charcoal-500">
+                <div className="text-center py-12 text-charcoal-300">
                   <svg
                     className="w-12 h-12 mx-auto mb-4 opacity-50"
                     fill="none"

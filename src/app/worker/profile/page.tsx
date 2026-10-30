@@ -712,7 +712,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                       ))}
                     </select>
                   </div>
-                  <p className="text-charcoal-500 text-xs mt-1.5">
+                  <p className="text-charcoal-300 text-xs mt-1.5">
                     {t("payHint")}
                   </p>
                 </div>
@@ -775,7 +775,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                     {t("experienceDescription")}
                   </label>
                   <textarea
-                    className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[80px]"
+                    className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[80px]"
                     placeholder={t("experienceDescriptionPlaceholder")}
                     value={experience}
                     maxLength={EXPERIENCE_DESCRIPTION_MAX_LENGTH}
@@ -822,7 +822,7 @@ export default function WorkerProfilePage(): React.ReactElement {
                     {t("bioLabel")}
                   </label>
                   <textarea
-                    className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[100px]"
+                    className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 placeholder:text-charcoal-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[100px]"
                     placeholder={t("bioPlaceholder")}
                     value={bio}
                     onChange={(e) => {

@@ -8,6 +8,10 @@ import {
   buildVerificationDecisionBody,
   type VerificationDocType,
 } from "@/lib/admin/review-actions";
+import {
+  USER_REJECTION_REASON_CODES,
+  type UserRejectionReasonCode,
+} from "@/lib/verification/rejection-reasons";
 
 export interface PendingWorker {
   id: string;
@@ -37,6 +41,14 @@ const DOC_TYPE_OPTIONS: { value: VerificationDocType; label: string }[] = [
   { value: "drivers_license", label: "Driver's licence" },
   { value: "other", label: "Other" },
 ];
+
+const USER_REASON_LABELS: Record<UserRejectionReasonCode, string> = {
+  document_unreadable: "Document unreadable",
+  face_mismatch: "Face doesn't match",
+  liveness_failed: "Liveness check failed",
+  document_expired: "Document expired",
+  other: "Other",
+};
 
 function missingMaterials(worker: PendingWorker): string[] {
   const missing: string[] = [];
@@ -76,6 +88,9 @@ function VerificationCard({
   const [last4, setLast4] = useState("");
   const [issuingCountry, setIssuingCountry] = useState("");
   const [notes, setNotes] = useState("");
+  const [userReasonCode, setUserReasonCode] = useState<
+    UserRejectionReasonCode | ""
+  >("");
   const [submitting, setSubmitting] = useState<"approve" | "reject" | null>(
     null
   );
@@ -122,12 +137,18 @@ function VerificationCard({
 
   const submit = useCallback(
     async (action: "approve" | "reject") => {
+      if (action === "reject" && !userReasonCode) {
+        setError("Choose the reason shown to the user.");
+        return;
+      }
+
       const body = buildVerificationDecisionBody({
         action,
         docType: docType || undefined,
         last4,
         issuingCountry,
         notes,
+        userReasonCode: userReasonCode || undefined,
         canApprove: worker.canApprove,
       });
 
@@ -166,7 +187,16 @@ function VerificationCard({
         setSubmitting(null);
       }
     },
-    [apiBase, worker, docType, last4, issuingCountry, notes, onResolved]
+    [
+      apiBase,
+      worker,
+      docType,
+      last4,
+      issuingCountry,
+      notes,
+      userReasonCode,
+      onResolved,
+    ]
   );
 
   return (
@@ -181,7 +211,7 @@ function VerificationCard({
                   : "Unnamed talent")}
             </h2>
             <p className="text-sm text-charcoal-400">{worker.email || "No email"}</p>
-            <p className="text-sm text-charcoal-500 mt-1">
+            <p className="text-sm text-charcoal-300 mt-1">
               {[worker.location, worker.area].filter(Boolean).join(" · ") ||
                 "Location not set"}
             </p>
@@ -191,13 +221,13 @@ function VerificationCard({
 
         <div className="grid gap-3 sm:grid-cols-2 text-sm">
           <div>
-            <p className="text-charcoal-500">Submitted</p>
+            <p className="text-charcoal-300">Submitted</p>
             <p className="text-charcoal-200">
               {formatDate(worker.idDocumentSubmittedAt || worker.createdAt)}
             </p>
           </div>
           <div>
-            <p className="text-charcoal-500">Challenge code</p>
+            <p className="text-charcoal-300">Challenge code</p>
             <p className="text-2xl font-mono font-bold tracking-widest text-primary-300">
               {worker.challengeCodeDisplay || worker.challengeCode || "—"}
             </p>
@@ -312,8 +342,38 @@ function VerificationCard({
             disabled={!!submitting || !!success}
             placeholder="e.g. TH"
           />
+          <div className="space-y-1.5">
+            <label
+              htmlFor={`userReason-${worker.id}`}
+              className="block text-sm font-medium text-charcoal-200"
+            >
+              Reason shown to the user
+            </label>
+            <select
+              id={`userReason-${worker.id}`}
+              value={userReasonCode}
+              required
+              onChange={(e) =>
+                setUserReasonCode(
+                  e.target.value as UserRejectionReasonCode | ""
+                )
+              }
+              disabled={!!submitting || !!success}
+              className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100"
+            >
+              <option value="">Select a reason</option>
+              {USER_REJECTION_REASON_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {USER_REASON_LABELS[code]}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-charcoal-300">
+              Talent and venues see this reason. They do not see admin notes.
+            </p>
+          </div>
           <Input
-            label="Admin notes (optional)"
+            label="Admin notes (internal only)"
             value={notes}
             onChange={(e) => setNotes(e.target.value.slice(0, 500))}
             maxLength={500}
@@ -347,7 +407,7 @@ function VerificationCard({
               type="button"
               variant="destructive"
               onClick={() => void submit("reject")}
-              disabled={!!submitting}
+              disabled={!!submitting || !userReasonCode}
               loading={submitting === "reject"}
             >
               Reject
@@ -439,7 +499,7 @@ export function VerificationQueue({
     <div className="space-y-6">
       {banner && <p className="text-green-400 text-sm">{banner}</p>}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-charcoal-500">{workers.length} pending</p>
+        <p className="text-sm text-charcoal-300">{workers.length} pending</p>
         <Button type="button" variant="ghost" size="sm" onClick={() => void load()}>
           Refresh
         </Button>

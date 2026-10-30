@@ -60,7 +60,7 @@ export function OpeningInterestSelect({
         ))}
       </select>
       {published.length === 0 && (
-        <p className="mt-2 text-xs text-charcoal-500">
+        <p className="mt-2 text-xs text-charcoal-300">
           {t("noPublished")}{" "}
           <Link
             href="/recruiter/openings/new"

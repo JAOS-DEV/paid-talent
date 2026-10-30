@@ -14,7 +14,7 @@ function ProfilePhotoPlaceholder(): React.ReactElement {
   return (
     <div className="w-full h-full flex items-center justify-center">
       <svg
-        className="w-16 h-16 text-charcoal-500"
+        className="w-16 h-16 text-charcoal-300"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"

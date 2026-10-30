@@ -43,19 +43,19 @@ function StatsBar({ stats }: { stats: OutcomeStats }): React.ReactElement {
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
       <div className="bg-charcoal-800 rounded-lg p-4 text-center">
         <div className="text-2xl font-bold text-charcoal-100">{stats.total}</div>
-        <div className="text-charcoal-500 text-sm">{t("total")}</div>
+        <div className="text-charcoal-300 text-sm">{t("total")}</div>
       </div>
       <div className="bg-charcoal-800 rounded-lg p-4 text-center">
         <div className="text-2xl font-bold text-primary-400">{stats.interested}</div>
-        <div className="text-charcoal-500 text-sm">{t("interested")}</div>
+        <div className="text-charcoal-300 text-sm">{t("interested")}</div>
       </div>
       <div className="bg-charcoal-800 rounded-lg p-4 text-center">
         <div className="text-2xl font-bold text-gold-400">{stats.hired}</div>
-        <div className="text-charcoal-500 text-sm">{t("hired")}</div>
+        <div className="text-charcoal-300 text-sm">{t("hired")}</div>
       </div>
       <div className="bg-charcoal-800 rounded-lg p-4 text-center">
         <div className="text-2xl font-bold text-green-400">{stats.started}</div>
-        <div className="text-charcoal-500 text-sm">{t("started")}</div>
+        <div className="text-charcoal-300 text-sm">{t("started")}</div>
       </div>
     </div>
   );

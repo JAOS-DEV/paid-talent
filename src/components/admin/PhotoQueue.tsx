@@ -130,7 +130,7 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
               className="w-full sm:w-48 h-48 object-cover rounded-lg border border-charcoal-700 bg-charcoal-900"
             />
             ) : (
-            <div className="w-full sm:w-48 h-48 rounded-lg border border-charcoal-700 bg-charcoal-900 flex items-center justify-center text-sm text-charcoal-500 px-3 text-center">
+            <div className="w-full sm:w-48 h-48 rounded-lg border border-charcoal-700 bg-charcoal-900 flex items-center justify-center text-sm text-charcoal-300 px-3 text-center">
               Preview unavailable
             </div>
             )
@@ -161,21 +161,21 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
               <AdminStatusPill status="pending" />
             </div>
             <p className="text-sm text-charcoal-300" data-testid={`photo-submission-${photo.submissionKind ?? "primary"}`}>
-              <span className="text-charcoal-500">Submission: </span>
+              <span className="text-charcoal-300">Submission: </span>
               {photo.submissionKind === "gallery"
                 ? "Gallery photo"
                 : "Primary submission"}
             </p>
             <p className="text-sm text-charcoal-300">
-              <span className="text-charcoal-500">Reason: </span>
+              <span className="text-charcoal-300">Reason: </span>
               {photo.moderationReason || "—"}
             </p>
               <p className="text-sm text-charcoal-300">
-              <span className="text-charcoal-500">Confidence: </span>
+              <span className="text-charcoal-300">Confidence: </span>
               {formatModerationConfidencePercent(photo.moderationConfidence)}
             </p>
             <p className="text-sm text-charcoal-300">
-              <span className="text-charcoal-500">Categories: </span>
+              <span className="text-charcoal-300">Categories: </span>
               {photo.moderationCategories?.length
                 ? photo.moderationCategories
                     .map((category) => labelForToken(category))
@@ -188,7 +188,7 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
                 or reject manually.
               </p>
             ) : null}
-            <p className="text-sm text-charcoal-500">
+            <p className="text-sm text-charcoal-300">
               Uploaded {formatDate(photo.createdAt)}
             </p>
           </div>
@@ -338,7 +338,7 @@ export function PhotoQueue({
     <div className="space-y-6">
       {banner && <p className="text-green-400 text-sm">{banner}</p>}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-charcoal-500">{photos.length} pending</p>
+        <p className="text-sm text-charcoal-300">{photos.length} pending</p>
         <Button type="button" variant="ghost" size="sm" onClick={() => void load()}>
           Refresh
         </Button>

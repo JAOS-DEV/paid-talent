@@ -86,7 +86,7 @@ export default async function AdminUsersPage({
                 ))}
                 {result.users.length === 0 && (
                   <tr>
-                    <td className="px-4 py-6 text-charcoal-500" colSpan={7}>
+                    <td className="px-4 py-6 text-charcoal-300" colSpan={7}>
                       No users matched that search.
                     </td>
                   </tr>

@@ -283,7 +283,7 @@ export function ProfilePhotoGalleryManager({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-charcoal-500 text-xs px-1 text-center">
+                    <div className="w-full h-full flex items-center justify-center text-charcoal-300 text-xs px-1 text-center">
                       {photo.moderationStatus === "pending"
                         ? t("inReview")
                         : t("hidden")}

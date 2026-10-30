@@ -338,7 +338,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
                     <p className="text-charcoal-400 text-sm">
                       {t("uniqueRecruiters")}
                     </p>
-                    <div className="mt-4 text-sm text-charcoal-500">
+                    <div className="mt-4 text-sm text-charcoal-300">
                       {stats.profileViewEventsLast30Days > 0
                         ? stats.profileViewEventsLast30Days === 1
                           ? t("totalViewsOne", {
@@ -368,7 +368,7 @@ export default function WorkerDashboardPage(): React.ReactElement {
                     <p className="text-charcoal-400 text-sm">
                       {t("recruitersInterested")}
                     </p>
-                    <div className="mt-4 text-sm text-charcoal-500">
+                    <div className="mt-4 text-sm text-charcoal-300">
                       {t("interestNotify")}
                     </div>
                   </CardContent>

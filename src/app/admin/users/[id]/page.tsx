@@ -180,7 +180,7 @@ export default async function AdminUserDetailPage({
         </CardHeader>
         <CardContent>
           {activity.length === 0 ? (
-            <p className="text-sm text-charcoal-500">No audit events for this user.</p>
+            <p className="text-sm text-charcoal-300">No audit events for this user.</p>
           ) : (
             <ul className="space-y-2 text-sm">
               {activity.map((event) => (
@@ -188,7 +188,7 @@ export default async function AdminUserDetailPage({
                   <p className="text-charcoal-100">
                     {event.action.replaceAll("_", " ")}
                   </p>
-                  <p className="text-charcoal-500">
+                  <p className="text-charcoal-300">
                     {event.actorAdminEmail} ·{" "}
                     {event.createdAt.toLocaleString()}
                     {event.reason ? ` · ${event.reason}` : ""}

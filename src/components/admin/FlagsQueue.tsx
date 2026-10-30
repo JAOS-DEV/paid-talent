@@ -61,7 +61,7 @@ export function FlagsQueue({
     <div className="space-y-4">
       {error ? <p className="text-sm text-error">{error}</p> : null}
       {flags.length === 0 ? (
-        <p className="text-sm text-charcoal-500">No open flags.</p>
+        <p className="text-sm text-charcoal-300">No open flags.</p>
       ) : (
         flags.map((flag) => (
           <article

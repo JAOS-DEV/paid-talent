@@ -167,7 +167,7 @@ export function RecruiterProfileForm({
                   {t("title")}
                 </h2>
                 <p className="text-sm text-charcoal-400 mt-1">{t("subtitle")}</p>
-                <p className="text-xs text-charcoal-500 mt-2">{t("logoHint")}</p>
+                <p className="text-xs text-charcoal-300 mt-2">{t("logoHint")}</p>
               </div>
             </div>
             {completeness.isComplete ? (

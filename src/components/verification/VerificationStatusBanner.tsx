@@ -10,6 +10,7 @@ import {
   readVerifiedBannerDismissed,
   writeVerifiedBannerDismissed,
 } from "@/lib/verification/banner-dismissal";
+import { isUserRejectionReasonCode } from "@/lib/verification/rejection-reasons";
 
 interface VerificationStatusBannerProps {
   status: VerificationStatus;
@@ -23,7 +24,7 @@ function getStatusConfig(
   status: VerificationStatus,
   isPublished: boolean,
   hasApprovedPrimaryPhoto: boolean,
-  rejectionNote: string | null,
+  rejectionReason: string | null,
   t: (key: string, values?: Record<string, string>) => string
 ) {
   if (status === "verified" && isPublished && hasApprovedPrimaryPhoto) {
@@ -73,9 +74,7 @@ function getStatusConfig(
       type: "error" as const,
       icon: XCircleIcon,
       title: t("rejected"),
-      description: rejectionNote
-        ? t("rejectionReason", { reason: rejectionNote })
-        : t("rejectedBody"),
+      description: rejectionReason ?? t("rejectedBody"),
       showAction: true,
       actionText: t("tryAgain"),
       actionHref: "/worker/verification",
@@ -177,13 +176,19 @@ export function VerificationStatusBanner({
   userId,
 }: VerificationStatusBannerProps): React.ReactElement {
   const t = useTranslations("worker.verificationBanner");
+  const reasonT = useTranslations("verification.rejectionReasons");
   const isSuccess = isVerifiedLiveSuccessState(
     status,
     isPublished,
     hasApprovedPrimaryPhoto
   );
   const [dismissedThisSession, setDismissedThisSession] = useState(false);
-  const [rejectionNote, setRejectionNote] = useState<string | null>(null);
+  const [rejectionReasonCode, setRejectionReasonCode] = useState<string | null>(
+    null
+  );
+  const rejectionReason = isUserRejectionReasonCode(rejectionReasonCode)
+    ? reasonT(rejectionReasonCode)
+    : null;
 
   useEffect(() => {
     if (status !== "rejected") {
@@ -196,10 +201,11 @@ export function VerificationStatusBanner({
           return;
         }
         const data = (await response.json()) as {
-          verification?: { rejectionNote?: string | null };
+          verification?: { rejectionReasonCode?: string | null };
         };
+        const code = data.verification?.rejectionReasonCode?.trim() || null;
         if (!cancelled) {
-          setRejectionNote(data.verification?.rejectionNote?.trim() || null);
+          setRejectionReasonCode(code);
         }
       })
       .catch(() => undefined);
@@ -237,7 +243,7 @@ export function VerificationStatusBanner({
     status,
     isPublished,
     hasApprovedPrimaryPhoto,
-    rejectionNote,
+    rejectionReason,
     t
   );
   const styles = typeStyles[config.type];

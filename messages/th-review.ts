@@ -523,4 +523,14 @@ export const TH_REVIEW = {
   "messaging.thread.more": "การดำเนินการเพิ่มเติม",
   // TODO(th-review)
   "messaging.errors.blockFailed": "บล็อกไม่สำเร็จ โปรดลองอีกครั้ง",
+  // TODO(th-review)
+  "verification.rejectionReasons.document_unreadable": "เราอ่านเอกสารของคุณไม่ชัด โปรดอัปโหลดรูปที่ชัดกว่านี้",
+  // TODO(th-review)
+  "verification.rejectionReasons.face_mismatch": "ใบหน้าในวิดีโอไม่ตรงกับเอกสาร",
+  // TODO(th-review)
+  "verification.rejectionReasons.liveness_failed": "วิดีโอตรวจความเป็นบุคคลไม่ผ่าน โปรดบันทึกใหม่",
+  // TODO(th-review)
+  "verification.rejectionReasons.document_expired": "เอกสารที่อัปโหลดหมดอายุแล้ว",
+  // TODO(th-review)
+  "verification.rejectionReasons.other": "เราไม่สามารถยืนยันตัวตนของคุณได้ โปรดลองอีกครั้ง",
 } as const;

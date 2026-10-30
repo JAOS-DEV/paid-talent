@@ -34,7 +34,7 @@ export function AccountVisibilityStrip({
 }: AccountVisibilityStripProps): React.ReactElement {
   return (
     <div
-      className={`flex items-center gap-2 rounded-lg border border-charcoal-800 bg-charcoal-900/60 px-3 py-2 text-xs text-charcoal-500 ${className}`}
+      className={`flex items-center gap-2 rounded-lg border border-charcoal-800 bg-charcoal-900/60 px-3 py-2 text-xs text-charcoal-300 ${className}`}
       data-testid="account-visibility-strip"
     >
       <LockIcon />

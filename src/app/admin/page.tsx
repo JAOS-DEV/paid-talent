@@ -120,7 +120,7 @@ export default async function AdminDashboardPage(): Promise<React.ReactElement> 
           </Link>
         </div>
         {activity.length === 0 ? (
-          <p className="text-sm text-charcoal-500">No admin actions recorded yet.</p>
+          <p className="text-sm text-charcoal-300">No admin actions recorded yet.</p>
         ) : (
           <ul className="space-y-2">
             {activity.map((event) => (
@@ -129,7 +129,7 @@ export default async function AdminDashboardPage(): Promise<React.ReactElement> 
                 className="rounded-lg border border-charcoal-800 bg-charcoal-900 px-4 py-3 text-sm"
               >
                 <p className="text-charcoal-100">{labelForToken(event.action)}</p>
-                <p className="text-charcoal-500 mt-1">
+                <p className="text-charcoal-300 mt-1">
                   {event.actorAdminEmail}
                   {event.targetIdentity ? ` → ${event.targetIdentity}` : ""}
                   {" · "}

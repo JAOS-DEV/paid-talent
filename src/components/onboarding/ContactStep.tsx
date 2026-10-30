@@ -134,7 +134,7 @@ export function ContactStep({
             type="button"
             onClick={handleSkip}
             disabled={saving}
-            className="text-charcoal-500 text-sm hover:text-charcoal-300 transition-colors"
+            className="text-charcoal-300 text-sm hover:text-charcoal-300 transition-colors"
           >
             {onboarding("skipContacts")}
           </button>

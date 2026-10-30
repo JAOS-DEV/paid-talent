@@ -413,16 +413,16 @@ export default function ProfileDetailPage({
               {interestOutcome && (
                 <div className="mt-4 pt-4 border-t border-charcoal-700">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-charcoal-500">{t("hireStatus")}</span>
+                    <span className="text-charcoal-300">{t("hireStatus")}</span>
                     <HireOutcomeStatusBadge status={interestOutcome.status} />
                   </div>
                   {interestOutcome.hiredAt && (
-                    <p className="text-charcoal-500 text-xs mt-2">
+                    <p className="text-charcoal-300 text-xs mt-2">
                       {t("hiredOn")} {formatLocaleDate(interestOutcome.hiredAt, locale)}
                     </p>
                   )}
                   {interestOutcome.startedAt && (
-                    <p className="text-charcoal-500 text-xs mt-1">
+                    <p className="text-charcoal-300 text-xs mt-1">
                       {t("startedOn")} {formatLocaleDate(interestOutcome.startedAt, locale)}
                     </p>
                   )}

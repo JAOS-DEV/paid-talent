@@ -24,7 +24,7 @@ interface VenueLogoPickerProps {
 function PlusIcon(): React.ReactElement {
   return (
     <svg
-      className="h-8 w-8 text-charcoal-500"
+      className="h-8 w-8 text-charcoal-300"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -159,7 +159,7 @@ export function VenueLogoPicker({
             </span>
           ) : null}
         </span>
-        <span className="text-xs text-charcoal-500">{controlLabel}</span>
+        <span className="text-xs text-charcoal-300">{controlLabel}</span>
       </label>
       <input
         id="venue-logo-input"

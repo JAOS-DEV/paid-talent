@@ -64,9 +64,11 @@ function assertOwnedKeys(
   }
 }
 
-async function latestRejectionNote(userId: string): Promise<string | null> {
+async function latestRejectionReasonCode(
+  userId: string
+): Promise<string | null> {
   const [row] = await db
-    .select({ notes: verificationEvents.notes })
+    .select({ userReasonCode: verificationEvents.userReasonCode })
     .from(verificationEvents)
     .where(
       and(
@@ -76,8 +78,8 @@ async function latestRejectionNote(userId: string): Promise<string | null> {
     )
     .orderBy(desc(verificationEvents.createdAt))
     .limit(1);
-  const note = row?.notes?.trim();
-  return note ? note : null;
+  const code = row?.userReasonCode?.trim();
+  return code ? code : null;
 }
 
 export async function getVerificationStatus(
@@ -93,16 +95,16 @@ export async function getVerificationStatus(
     );
   }
 
-  const rejectionNote =
+  const rejectionReasonCode =
     profile.verificationStatus === "rejected"
-      ? await latestRejectionNote(userId)
+      ? await latestRejectionReasonCode(userId)
       : null;
 
   return NextResponse.json({
     success: true,
     verification: {
       ...toWorkerVerificationStatusDto(profile),
-      rejectionNote,
+      rejectionReasonCode,
     },
   });
 }

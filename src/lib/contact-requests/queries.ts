@@ -19,7 +19,6 @@ import { getLimitsForRecruiter, releaseQueuedForWorker } from "./service";
 export interface InboxContactRequestDto {
   id: string;
   status: string;
-  isPro: boolean;
   openerText: string;
   followUpText: string | null;
   followUpSentAt: string | null;
@@ -76,7 +75,6 @@ export async function listWorkerInbox(
     .select({
       id: contactRequests.id,
       status: contactRequests.status,
-      isPro: contactRequests.isPro,
       openerText: contactRequests.openerText,
       followUpText: contactRequests.followUpText,
       followUpSentAt: contactRequests.followUpSentAt,
@@ -142,7 +140,6 @@ export async function listWorkerInbox(
     return {
       id: row.id,
       status: row.status,
-      isPro: row.isPro,
       openerText: row.openerText,
       followUpText: row.followUpText,
       followUpSentAt: row.followUpSentAt?.toISOString() ?? null,

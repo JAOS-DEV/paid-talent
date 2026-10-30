@@ -171,7 +171,7 @@ export function UserEntitlementPanel({
             </Button>
           )}
         </div>
-        <p className="text-charcoal-500">
+        <p className="text-charcoal-300">
           Paid Stripe cancellation and refunds are not available in this panel.
           Revoking an admin grant does not change Stripe-owned subscription records.
         </p>

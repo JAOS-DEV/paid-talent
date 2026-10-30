@@ -1460,5 +1460,14 @@
     "heic": "HEIC photos aren't supported yet. Please choose a JPG, PNG or WebP image.",
     "invalidType": "Please choose a JPG, PNG or WebP image.",
     "uploadFailed": "We couldn't upload your photo. Please try again."
+  },
+  "verification": {
+    "rejectionReasons": {
+      "document_unreadable": "We couldn't read your document. Upload a clearer photo.",
+      "face_mismatch": "The face in your video didn't match the document.",
+      "liveness_failed": "The liveness check didn't pass. Please record it again.",
+      "document_expired": "The document you uploaded has expired.",
+      "other": "We couldn't verify your identity. Please try again."
+    }
   }
 }

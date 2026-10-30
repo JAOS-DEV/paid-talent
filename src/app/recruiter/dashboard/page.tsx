@@ -103,7 +103,7 @@ function InterestsCard(): React.ReactElement {
               {t("interestsBody")}
             </p>
             {stats && stats.total > 0 && (
-              <div className="flex gap-4 text-xs text-charcoal-500 mb-4">
+              <div className="flex gap-4 text-xs text-charcoal-300 mb-4">
                 <span>
                   <span className="text-primary-400 font-medium">
                     {stats.interested}
@@ -215,7 +215,7 @@ function SetupChecklistCard(): React.ReactElement {
                 <p className="text-charcoal-100 font-medium">
                   {t("checklistVerify")}
                 </p>
-                <p className="text-charcoal-500 mt-0.5">
+                <p className="text-charcoal-300 mt-0.5">
                   {identityDone
                     ? t("checklistVerifyDone")
                     : identityPending
@@ -321,7 +321,7 @@ function VenueStatusCard(): React.ReactElement {
           {t("venueBody")}
         </p>
         {!loading && (
-          <p className="text-xs text-charcoal-500 mb-4">
+          <p className="text-xs text-charcoal-300 mb-4">
             {t("openingsSummary", {
               published: publishedCount,
               draft: draftCount,
@@ -476,7 +476,7 @@ export default function RecruiterDashboardPage(): React.ReactElement {
                 <CardTitle>{t("recentTopTalent")}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-charcoal-500">
+                <div className="text-center py-8 text-charcoal-300">
                   <svg
                     className="w-12 h-12 mx-auto mb-4 opacity-50"
                     fill="none"

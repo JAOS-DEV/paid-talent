@@ -21,7 +21,6 @@ describe("WorkerRequestCard", () => {
         request={{
           id: "req-1",
           status: "pending",
-          isPro: true,
           openerText: "Hello from the venue",
           followUpText: null,
           followUpSentAt: null,

@@ -37,7 +37,7 @@ export default async function AdminActivityPage({
       <Card padding="none">
         <CardContent>
           {events.length === 0 ? (
-            <p className="p-4 text-sm text-charcoal-500">No activity yet.</p>
+            <p className="p-4 text-sm text-charcoal-300">No activity yet.</p>
           ) : (
             <ul className="divide-y divide-charcoal-800">
               {events.map((event) => (
@@ -45,7 +45,7 @@ export default async function AdminActivityPage({
                   <p className="text-charcoal-100">
                     {labelForToken(event.action)}
                   </p>
-                  <p className="text-charcoal-500 mt-1">
+                  <p className="text-charcoal-300 mt-1">
                     {event.actorAdminEmail}
                     {event.targetIdentity ? ` → ${event.targetIdentity}` : ""}
                     {" · "}

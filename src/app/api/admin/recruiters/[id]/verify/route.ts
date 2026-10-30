@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { requireAdminApi } from "@/lib/admin/api-guard";
-import { reviewSubject } from "@/lib/admin/verification-review";
+import {
+  reviewSubject,
+  verificationReviewRequestSchema,
+} from "@/lib/admin/verification-review";
 import { formatSchemaErrorResponse } from "@/lib/helpers/db-errors";
-
-const verifyRequestSchema = z.object({
-  action: z.enum(["approve", "reject", "revoke"]),
-  docType: z
-    .enum(["passport", "thai_id", "drivers_license", "other"])
-    .optional(),
-  last4: z.string().max(4).optional(),
-  issuingCountry: z.string().max(3).optional(),
-  notes: z.string().max(500).optional(),
-});
 
 export async function POST(
   request: NextRequest,
@@ -25,7 +17,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const parsed = verifyRequestSchema.safeParse(body);
+    const parsed = verificationReviewRequestSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -38,7 +30,8 @@ export async function POST(
     }
 
     const { id: profileId } = await params;
-    const { action, docType, last4, issuingCountry, notes } = parsed.data;
+    const { action, docType, last4, issuingCountry, notes, userReasonCode } =
+      parsed.data;
 
     const result = await reviewSubject({
       subjectType: "recruiter",
@@ -48,6 +41,7 @@ export async function POST(
       last4,
       issuingCountry,
       notes,
+      userReasonCode,
       admin: guard.actor,
     });
 

@@ -48,7 +48,6 @@ describe("GET /api/conversations/[id]", () => {
         counterpart: {
           displayName: "Neon Bar",
           photoUrl: null,
-          verifiedPro: true,
         },
         safetyNotice: false,
         shareChannels: ["line"],
@@ -73,5 +72,8 @@ describe("GET /api/conversations/[id]", () => {
     const keys = collectJsonKeys(json);
 
     expect(keys.some((key) => /userId/i.test(key))).toBe(false);
+    expect(keys.some((key) => ["isPro", "verifiedPro", "tier", "plan"].includes(key))).toBe(
+      false
+    );
   });
 });

@@ -386,7 +386,7 @@ export function OpeningForm({
                 >
                   {t("saveDraft")}
                 </Button>
-                <p className="text-center text-xs text-charcoal-500">
+                <p className="text-center text-xs text-charcoal-300">
                   {t("publishHint")}
                 </p>
               </div>

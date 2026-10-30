@@ -301,7 +301,7 @@ export function VenuesManager(): React.ReactElement {
                 required
                 placeholder="https://maps.app.goo.gl/..."
               />
-              <p className="text-xs text-charcoal-500 mt-1.5">
+              <p className="text-xs text-charcoal-300 mt-1.5">
                 {t("venueLinkHelp")}
               </p>
             </div>

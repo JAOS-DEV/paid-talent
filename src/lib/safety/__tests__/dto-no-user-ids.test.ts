@@ -25,7 +25,6 @@ describe("safety DTO contracts hide user ids", () => {
       counterpart: {
         displayName: "Venue",
         photoUrl: null,
-        verifiedPro: true,
       },
       messages: [
         {
@@ -49,7 +48,6 @@ describe("safety DTO contracts hide user ids", () => {
     const request: InboxContactRequestDto = {
       id: "cr1",
       status: "pending",
-      isPro: false,
       openerText: "hello",
       followUpText: null,
       followUpSentAt: null,
