@@ -3,8 +3,8 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
-import { Badge } from "@/components/ui";
+import { useLocale, useTranslations } from "next-intl";
+import { formatRelativeTime } from "@/lib/i18n/format-date";
 import type { ConversationListItem } from "@/lib/conversations/service";
 
 interface ConversationListProps {
@@ -17,6 +17,7 @@ export function ConversationList({
   basePath,
 }: ConversationListProps): React.ReactElement {
   const t = useTranslations("messaging");
+  const locale = useLocale();
 
   if (items.length === 0) {
     return (
@@ -50,18 +51,23 @@ export function ConversationList({
                 <span className="truncate font-semibold text-charcoal-100">
                   {item.counterpart.displayName}
                 </span>
-                {item.counterpart.verifiedPro ? (
-                  <Badge variant="gold">{t("list.verifiedPro")}</Badge>
+                {item.lastMessageAt ? (
+                  <time
+                    className="ml-auto shrink-0 text-xs text-charcoal-300"
+                    dateTime={item.lastMessageAt}
+                  >
+                    {formatRelativeTime(item.lastMessageAt, locale)}
+                  </time>
                 ) : null}
                 {item.unread ? (
-                  <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-primary-500" />
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-primary-500" />
                 ) : null}
               </div>
-              {item.lastMessagePreview ? (
-                <p className="truncate text-sm text-charcoal-400">
-                  {item.lastMessagePreview}
-                </p>
-              ) : null}
+              <p className="truncate whitespace-nowrap text-sm text-charcoal-300">
+                {item.lastMessagePreview
+                  ? item.lastMessagePreview.replace(/\s+/g, " ").trim()
+                  : t("list.noPreview")}
+              </p>
             </div>
           </Link>
         </li>

@@ -53,13 +53,13 @@ export default function VerifyRequestPage(): React.ReactElement {
               <p className="text-charcoal-200">
                 {t("clickEmailLink")}
               </p>
-              <p className="text-charcoal-500 text-sm">
+              <p className="text-charcoal-300 text-sm">
                 {t("linkExpiry")}
               </p>
             </div>
 
             <div className="pt-4 border-t border-charcoal-800">
-              <p className="text-charcoal-500 text-sm mb-4">
+              <p className="text-charcoal-300 text-sm mb-4">
                 {t("checkSpam")}
               </p>
               <Button

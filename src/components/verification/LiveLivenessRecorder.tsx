@@ -389,7 +389,7 @@ export function LiveLivenessRecorder({
           <button
             type="button"
             onClick={handleCancel}
-            className="block w-full text-center text-xs text-charcoal-500 hover:text-charcoal-300"
+            className="block w-full text-center text-xs text-charcoal-300 hover:text-charcoal-300"
           >
             Cancel
           </button>

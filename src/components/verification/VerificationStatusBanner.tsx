@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useSyncExternalStore } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button, Badge } from "@/components/ui";
@@ -10,6 +10,7 @@ import {
   readVerifiedBannerDismissed,
   writeVerifiedBannerDismissed,
 } from "@/lib/verification/banner-dismissal";
+import { isUserRejectionReasonCode } from "@/lib/verification/rejection-reasons";
 
 interface VerificationStatusBannerProps {
   status: VerificationStatus;
@@ -23,7 +24,8 @@ function getStatusConfig(
   status: VerificationStatus,
   isPublished: boolean,
   hasApprovedPrimaryPhoto: boolean,
-  t: (key: string) => string
+  rejectionReason: string | null,
+  t: (key: string, values?: Record<string, string>) => string
 ) {
   if (status === "verified" && isPublished && hasApprovedPrimaryPhoto) {
     return {
@@ -72,9 +74,9 @@ function getStatusConfig(
       type: "error" as const,
       icon: XCircleIcon,
       title: t("rejected"),
-      description: t("rejectedBody"),
+      description: rejectionReason ?? t("rejectedBody"),
       showAction: true,
-      actionText: t("resubmit"),
+      actionText: t("tryAgain"),
       actionHref: "/worker/verification",
     };
   }
@@ -148,10 +150,10 @@ const typeStyles = {
     description: "text-green-200/70",
   },
   warning: {
-    container: "bg-yellow-500/10 border-yellow-500/30",
-    icon: "text-yellow-400",
-    title: "text-yellow-300",
-    description: "text-yellow-200/70",
+    container: "bg-warning/10 border-warning/30",
+    icon: "text-warning",
+    title: "text-warning",
+    description: "text-charcoal-200",
   },
   error: {
     container: "bg-red-500/10 border-red-500/30",
@@ -160,10 +162,10 @@ const typeStyles = {
     description: "text-red-200/70",
   },
   info: {
-    container: "bg-blue-500/10 border-blue-500/30",
-    icon: "text-blue-400",
-    title: "text-blue-300",
-    description: "text-blue-200/70",
+    container: "bg-primary-500/10 border-primary-500/30",
+    icon: "text-primary-300",
+    title: "text-primary-200",
+    description: "text-primary-100/80",
   },
 };
 
@@ -174,12 +176,43 @@ export function VerificationStatusBanner({
   userId,
 }: VerificationStatusBannerProps): React.ReactElement {
   const t = useTranslations("worker.verificationBanner");
+  const reasonT = useTranslations("verification.rejectionReasons");
   const isSuccess = isVerifiedLiveSuccessState(
     status,
     isPublished,
     hasApprovedPrimaryPhoto
   );
   const [dismissedThisSession, setDismissedThisSession] = useState(false);
+  const [rejectionReasonCode, setRejectionReasonCode] = useState<string | null>(
+    null
+  );
+  const rejectionReason = isUserRejectionReasonCode(rejectionReasonCode)
+    ? reasonT(rejectionReasonCode)
+    : null;
+
+  useEffect(() => {
+    if (status !== "rejected") {
+      return;
+    }
+    let cancelled = false;
+    void fetch("/api/worker/verification")
+      .then(async (response) => {
+        if (!response.ok) {
+          return;
+        }
+        const data = (await response.json()) as {
+          verification?: { rejectionReasonCode?: string | null };
+        };
+        const code = data.verification?.rejectionReasonCode?.trim() || null;
+        if (!cancelled) {
+          setRejectionReasonCode(code);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
   const storedDismissed = useSyncExternalStore(
     subscribeBannerStorage,
     () =>
@@ -206,7 +239,13 @@ export function VerificationStatusBanner({
     );
   }
 
-  const config = getStatusConfig(status, isPublished, hasApprovedPrimaryPhoto, t);
+  const config = getStatusConfig(
+    status,
+    isPublished,
+    hasApprovedPrimaryPhoto,
+    rejectionReason,
+    t
+  );
   const styles = typeStyles[config.type];
   const Icon = config.icon;
 

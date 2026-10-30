@@ -24,7 +24,12 @@ export const AUTH_PUBLIC_ROUTES = [
   "/api/auth",
 ] as const;
 
-const PROTECTED_PREFIXES = ["/worker", "/recruiter", "/admin", "/settings"] as const;
+export const PROTECTED_PREFIXES = [
+  "/worker",
+  "/recruiter",
+  "/admin",
+  "/settings",
+] as const;
 
 export const AGE_VERIFICATION_PATH = "/auth/age-verification";
 

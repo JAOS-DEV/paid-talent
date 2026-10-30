@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requireAdminPage } from "@/lib/admin/guard";
 import { searchAdminUsers } from "@/lib/admin/users";
 import { Button, Card, CardContent, Input } from "@/components/ui";
+import { AdminStatusPill } from "@/components/admin/admin-display";
+import { adminRoleLabel } from "@/lib/admin/display-labels";
 
 interface AdminUsersPageProps {
   searchParams: Promise<{ q?: string; page?: string }>;
@@ -67,20 +69,24 @@ export default async function AdminUsersPage({
                     <td className="px-4 py-3 text-charcoal-200">
                       {user.name || "—"}
                     </td>
-                    <td className="px-4 py-3 capitalize">{user.role}</td>
+                    <td className="px-4 py-3">
+                      {adminRoleLabel(user.email, user.role)}
+                    </td>
                     <td className="px-4 py-3 text-charcoal-400">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
                       {user.ageVerified ? "Verified" : "Unverified"}
                     </td>
-                    <td className="px-4 py-3 capitalize">{user.accountStatus}</td>
+                    <td className="px-4 py-3">
+                      <AdminStatusPill status={user.accountStatus} />
+                    </td>
                     <td className="px-4 py-3">{user.premiumSummary}</td>
                   </tr>
                 ))}
                 {result.users.length === 0 && (
                   <tr>
-                    <td className="px-4 py-6 text-charcoal-500" colSpan={7}>
+                    <td className="px-4 py-6 text-charcoal-300" colSpan={7}>
                       No users matched that search.
                     </td>
                   </tr>

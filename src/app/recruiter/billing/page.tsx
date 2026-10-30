@@ -18,7 +18,7 @@ export default async function RecruiterBillingPage(): Promise<React.ReactElement
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="mx-auto max-w-lg px-4">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <RecruiterBillingPanel summary={summary} />
         </div>
       </main>

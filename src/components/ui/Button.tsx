@@ -64,8 +64,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           rounded-lg border font-medium
           transition-colors duration-200
           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-charcoal-950
-          disabled:opacity-50 disabled:cursor-not-allowed
-          ${variantStyles[variant]}
+          disabled:cursor-not-allowed
+          ${
+            disabled || loading
+              ? "!border-charcoal-600 !bg-charcoal-800 !text-charcoal-400 !opacity-100 shadow-none"
+              : variantStyles[variant]
+          }
           ${sizeStyles[size]}
           ${fullWidth ? "w-full" : ""}
           ${className}

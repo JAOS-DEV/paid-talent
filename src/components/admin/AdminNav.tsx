@@ -112,7 +112,7 @@ export function AdminNav({
       <div className="mx-auto hidden min-w-0 max-w-6xl flex-col gap-4 px-4 py-4 md:flex">
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="mb-1 text-xs uppercase tracking-wide text-charcoal-500">
+            <p className="mb-1 text-xs uppercase tracking-wide text-charcoal-300">
               Internal
             </p>
             <Link

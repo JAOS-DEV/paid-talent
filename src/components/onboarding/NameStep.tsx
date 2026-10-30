@@ -65,7 +65,7 @@ export function NameStep({
           error={error ?? undefined}
           autoFocus
         />
-        <p className="text-charcoal-500 text-xs mt-2">
+        <p className="text-charcoal-300 text-xs mt-2">
           {t("seenByRecruiters")}
         </p>
       </div>

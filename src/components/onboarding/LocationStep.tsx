@@ -180,7 +180,7 @@ export function LocationStep({
               ))}
             </select>
           </div>
-          <p className="text-charcoal-500 text-xs mt-1.5">
+          <p className="text-charcoal-300 text-xs mt-1.5">
             {onboarding("payHint")}
           </p>
         </div>

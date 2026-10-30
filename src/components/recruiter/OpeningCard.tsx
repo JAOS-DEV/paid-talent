@@ -39,7 +39,7 @@ interface OpeningCardProps {
 function ChevronRightIcon(): React.ReactElement {
   return (
     <svg
-      className="w-5 h-5 text-charcoal-500"
+      className="w-5 h-5 text-charcoal-300"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -150,7 +150,7 @@ export function OpeningCard({
             )}
           </div>
           {opening.notes && (
-            <p className="text-sm text-charcoal-500 line-clamp-2 break-words">
+            <p className="text-sm text-charcoal-300 line-clamp-2 break-words">
               {opening.notes}
             </p>
           )}

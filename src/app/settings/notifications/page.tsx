@@ -9,8 +9,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Checkbox,
   Select,
   SelectContent,
@@ -22,6 +20,12 @@ import {
   InboundRequestControls,
   type InboundPrefs,
 } from "@/components/notifications";
+
+interface NotificationDraft {
+  emailEnabled: boolean;
+  lineEnabled: boolean;
+  locale: "en" | "th";
+}
 
 interface NotificationPrefsState {
   emailEnabled: boolean;
@@ -43,6 +47,7 @@ export default function NotificationSettingsPage(): React.ReactElement {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const [prefs, setPrefs] = useState<NotificationPrefsState | null>(null);
+  const [draft, setDraft] = useState<NotificationDraft | null>(null);
   const [inbound, setInbound] = useState<InboundPrefs | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -56,7 +61,13 @@ export default function NotificationSettingsPage(): React.ReactElement {
         : Promise.resolve(null),
     ]);
     if (prefsRes.ok) {
-      setPrefs(await prefsRes.json());
+      const data = (await prefsRes.json()) as NotificationPrefsState;
+      setPrefs(data);
+      setDraft({
+        emailEnabled: data.emailEnabled,
+        lineEnabled: data.lineEnabled,
+        locale: data.locale,
+      });
     }
     if (inboundRes?.ok) {
       setInbound(await inboundRes.json());
@@ -92,26 +103,31 @@ export default function NotificationSettingsPage(): React.ReactElement {
     redirect("/auth/signin");
   }
 
-  const save = async (
-    patch: Partial<
-      Pick<NotificationPrefsState, "emailEnabled" | "lineEnabled" | "locale">
-    >
-  ): Promise<void> => {
-    if (!prefs) return;
+  const dirty =
+    draft != null &&
+    prefs != null &&
+    (draft.emailEnabled !== prefs.emailEnabled ||
+      draft.lineEnabled !== prefs.lineEnabled ||
+      draft.locale !== prefs.locale);
+
+  const save = async (): Promise<void> => {
+    if (!draft || !dirty) return;
     setSaving(true);
     setMessage(null);
     try {
       const res = await fetch("/api/notification-prefs", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emailEnabled: patch.emailEnabled ?? prefs.emailEnabled,
-          lineEnabled: patch.lineEnabled ?? prefs.lineEnabled,
-          locale: patch.locale ?? prefs.locale,
-        }),
+        body: JSON.stringify(draft),
       });
       if (res.ok) {
-        setPrefs(await res.json());
+        const data = (await res.json()) as NotificationPrefsState;
+        setPrefs(data);
+        setDraft({
+          emailEnabled: data.emailEnabled,
+          lineEnabled: data.lineEnabled,
+          locale: data.locale,
+        });
         setMessage(t("settings.saved"));
       } else {
         setMessage(t("settings.saveFailed"));
@@ -142,9 +158,7 @@ export default function NotificationSettingsPage(): React.ReactElement {
   };
 
   const lineToggleEnabled =
-    Boolean(prefs?.lineConfigured) &&
-    Boolean(prefs?.lineLink?.isFriend) &&
-    !saving;
+    Boolean(prefs?.lineConfigured) && Boolean(prefs?.lineLink?.isFriend);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -158,38 +172,25 @@ export default function NotificationSettingsPage(): React.ReactElement {
             <p className="mt-1 text-charcoal-400">{t("settings.subtitle")}</p>
           </div>
 
-          {prefs ? (
+          {prefs && draft ? (
             <Card padding="lg">
-              <CardHeader>
-                <CardTitle>{t("settings.title")}</CardTitle>
-              </CardHeader>
               <CardContent className="space-y-4">
                 <label className="flex items-center gap-3 text-sm text-charcoal-200">
                   <Checkbox
-                    checked={prefs.emailEnabled}
+                    checked={draft.emailEnabled}
                     disabled={saving}
                     onCheckedChange={(checked) =>
-                      void save({ emailEnabled: checked === true })
+                      setDraft((current) =>
+                        current
+                          ? { ...current, emailEnabled: checked === true }
+                          : current
+                      )
                     }
                   />
                   {t("settings.emailEnabled")}
                 </label>
 
-                {!prefs.lineConfigured ? (
-                  <label className="flex items-start gap-3 text-sm text-charcoal-200">
-                    <Checkbox
-                      checked={prefs.lineEnabled}
-                      disabled
-                      className="mt-0.5"
-                    />
-                    <span>
-                      {t("settings.lineEnabled")}
-                      <span className="mt-0.5 block text-xs text-charcoal-400">
-                        {t("settings.lineComingSoon")}
-                      </span>
-                    </span>
-                  </label>
-                ) : (
+                {prefs.lineConfigured ? (
                   <div className="space-y-3 rounded-lg border border-charcoal-700 px-4 py-3">
                     <p className="text-sm font-medium text-charcoal-100">
                       {t("settings.lineSectionTitle")}
@@ -247,10 +248,14 @@ export default function NotificationSettingsPage(): React.ReactElement {
                         </p>
                         <label className="flex items-center gap-3 text-sm text-charcoal-200">
                           <Checkbox
-                            checked={prefs.lineEnabled}
-                            disabled={!lineToggleEnabled}
+                            checked={draft.lineEnabled}
+                            disabled={!lineToggleEnabled || saving}
                             onCheckedChange={(checked) =>
-                              void save({ lineEnabled: checked === true })
+                              setDraft((current) =>
+                                current
+                                  ? { ...current, lineEnabled: checked === true }
+                                  : current
+                              )
                             }
                           />
                           {t("settings.lineEnabled")}
@@ -272,7 +277,7 @@ export default function NotificationSettingsPage(): React.ReactElement {
                       </p>
                     ) : null}
                   </div>
-                )}
+                ) : null}
 
                 <div>
                   <label
@@ -282,10 +287,14 @@ export default function NotificationSettingsPage(): React.ReactElement {
                     {t("settings.locale")}
                   </label>
                   <Select
-                    value={prefs.locale}
+                    value={draft.locale}
                     disabled={saving}
                     onValueChange={(value) =>
-                      void save({ locale: value === "th" ? "th" : "en" })
+                      setDraft((current) =>
+                        current
+                          ? { ...current, locale: value === "th" ? "th" : "en" }
+                          : current
+                      )
                     }
                   >
                     <SelectTrigger id="notification-locale" className="sm:max-w-xs">
@@ -304,11 +313,11 @@ export default function NotificationSettingsPage(): React.ReactElement {
 
                 <Button
                   type="button"
-                  variant="ghost"
-                  disabled={saving}
-                  onClick={() => void save({})}
+                  variant="primary"
+                  disabled={!dirty || saving}
+                  onClick={() => void save()}
                 >
-                  {t("settings.save")}
+                  {dirty ? t("settings.save") : t("settings.savedLabel")}
                 </Button>
               </CardContent>
             </Card>

@@ -166,7 +166,7 @@ export default function AgeVerificationPage(): React.ReactElement {
           </CardContent>
         </Card>
 
-        <p className="text-center text-charcoal-500 text-xs mt-6">
+        <p className="text-center text-charcoal-300 text-xs mt-6">
           {t("footnote")}
         </p>
       </div>

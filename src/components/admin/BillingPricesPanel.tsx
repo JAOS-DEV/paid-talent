@@ -157,7 +157,7 @@ export function BillingPricesPanel(): React.ReactElement {
           are owned in Stripe — only IDs are stored here.
         </p>
         {form.updatedAt && (
-          <p className="text-sm text-charcoal-500">
+          <p className="text-sm text-charcoal-300">
             Last changed {new Date(form.updatedAt).toLocaleString()}
             {form.updatedBy ? ` by ${form.updatedBy}` : ""}
           </p>

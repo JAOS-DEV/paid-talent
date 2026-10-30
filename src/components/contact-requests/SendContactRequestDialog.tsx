@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import type { RecruiterAccessDto } from "@/lib/recruiter-access";
 import type { LimitsWithRemaining } from "@/lib/contact-requests/service";
+import { detectContactInfo } from "@/lib/messaging/content-filter";
 
 interface VenueOption {
   id: string;
@@ -126,6 +127,24 @@ export function SendContactRequestDialog({
     (o) => !venueId || o.venueId === venueId || o.venueId == null
   );
 
+  const contactBlocked = detectContactInfo(openerText).blocked;
+  const dailyLimitReached = limits != null && limits.remainingDaily <= 0;
+  const openerEmpty = openerText.trim().length === 0;
+  const openerTooLong = openerText.length > maxChars;
+  let sendDisabledReason: string | null = null;
+  if (dailyLimitReached) {
+    sendDisabledReason = t("dialog.sendDisabled.dailyLimit");
+  } else if (!venueId) {
+    sendDisabledReason = t("dialog.sendDisabled.noVenue");
+  } else if (openerEmpty) {
+    sendDisabledReason = t("dialog.sendDisabled.empty");
+  } else if (openerTooLong) {
+    sendDisabledReason = t("dialog.sendDisabled.tooLong");
+  } else if (contactBlocked) {
+    sendDisabledReason = t("dialog.sendDisabled.contact");
+  }
+  const sendDisabled = sendDisabledReason != null || submitting;
+
   const mapError = (code: string, retryAfter?: string): string => {
     const hours = hoursUntil(retryAfter);
     switch (code) {
@@ -165,7 +184,7 @@ export function SendContactRequestDialog({
   };
 
   const handleSubmit = async (): Promise<void> => {
-    if (!venueId || !openerText.trim() || submitting) return;
+    if (sendDisabled) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -233,10 +252,10 @@ export function SendContactRequestDialog({
         ) : (
           <div className="space-y-4">
             {limits ? (
-              <p className="text-sm text-charcoal-400">
-                {t("dialog.remaining", {
-                  daily: limits.remainingDaily,
-                  weekly: limits.remainingWeekly,
+              <p className="text-sm text-charcoal-300" data-testid="requests-left">
+                {t("dialog.requestsLeft", {
+                  remaining: limits.remainingDaily,
+                  limit: limits.dailyNew,
                 })}
               </p>
             ) : null}
@@ -305,18 +324,20 @@ export function SendContactRequestDialog({
                   {t("dialog.opener")}
                 </label>
                 <span
-                  className="text-xs text-charcoal-500"
+                  className="text-xs text-charcoal-300"
                   data-testid="opener-char-counter"
                 >
-                  {openerText.length}/{maxChars}
+                  {t("dialog.characters", {
+                    current: openerText.length,
+                    max: maxChars,
+                  })}
                 </span>
               </div>
               <textarea
                 id="contact-request-opener"
                 value={openerText}
-                onChange={(e) => setOpenerText(e.target.value.slice(0, maxChars))}
+                onChange={(e) => setOpenerText(e.target.value)}
                 rows={4}
-                maxLength={maxChars}
                 className="w-full rounded-lg border border-charcoal-600 bg-charcoal-800 px-4 py-2.5 text-charcoal-100"
                 placeholder={t("dialog.openerPlaceholder")}
               />
@@ -328,12 +349,18 @@ export function SendContactRequestDialog({
               </p>
             ) : null}
 
+            {sendDisabledReason && !submitting ? (
+              <p className="text-sm text-charcoal-200" data-testid="send-disabled-reason">
+                {sendDisabledReason}
+              </p>
+            ) : null}
+
             <div className="flex flex-col gap-2 sm:flex-row-reverse">
               <Button
                 type="button"
                 variant="primary"
                 fullWidth
-                disabled={!venueId || !openerText.trim() || submitting}
+                disabled={sendDisabled}
                 onClick={() => void handleSubmit()}
               >
                 {submitting ? t("dialog.sending") : t("dialog.send")}

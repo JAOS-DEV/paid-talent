@@ -41,16 +41,16 @@ interface GroupDef {
 
 const GROUPS: GroupDef[] = [
   {
-    title: "Free recruiters",
+    title: "Free venues",
     explanation:
-      "Caps for verified free recruiters. Open Access never raises these numbers.",
+      "Caps for verified free venues. Open Access never raises these numbers.",
     fields: [
-      { key: "freeDailyNew", label: "Daily new requests", type: "number" },
-      { key: "freeWeeklyNew", label: "Weekly new requests", type: "number" },
-      { key: "freePendingMax", label: "Max pending requests", type: "number" },
+      { key: "freeDailyNew", label: "New requests (per day)", type: "number" },
+      { key: "freeWeeklyNew", label: "New requests (per week)", type: "number" },
+      { key: "freePendingMax", label: "Pending requests", type: "number" },
       {
         key: "freeOpenerMaxChars",
-        label: "Opener max characters",
+        label: "Opener length (characters)",
         type: "number",
       },
       {
@@ -58,55 +58,55 @@ const GROUPS: GroupDef[] = [
         label: "Can attach opening to first message",
         type: "boolean",
       },
-      { key: "freeMaxVenues", label: "Max venues", type: "number" },
+      { key: "freeMaxVenues", label: "Venues", type: "number" },
     ],
   },
   {
-    title: "Pro recruiters",
+    title: "Pro venues",
     explanation:
-      "Higher caps for paid or admin-granted recruiters, including Top Talent daily quota.",
+      "Higher caps for paid or admin-granted venues, including Top Talent daily quota.",
     fields: [
-      { key: "paidDailyNew", label: "Daily new requests", type: "number" },
-      { key: "paidWeeklyNew", label: "Weekly new requests", type: "number" },
+      { key: "paidDailyNew", label: "New requests (per day)", type: "number" },
+      { key: "paidWeeklyNew", label: "New requests (per week)", type: "number" },
       {
         key: "paidDailyTopTalent",
-        label: "Daily Top Talent requests",
+        label: "Top Talent requests (per day)",
         type: "number",
       },
-      { key: "paidPendingMax", label: "Max pending requests", type: "number" },
+      { key: "paidPendingMax", label: "Pending requests", type: "number" },
       {
         key: "paidOpenerMaxChars",
-        label: "Opener max characters",
+        label: "Opener length (characters)",
         type: "number",
       },
-      { key: "paidMaxVenues", label: "Max venues", type: "number" },
+      { key: "paidMaxVenues", label: "Venues", type: "number" },
     ],
   },
   {
-    title: "New recruiters",
+    title: "New venues",
     explanation:
       "Temporary daily hold applied after verification until the window expires.",
     fields: [
       {
         key: "newRecruiterDailyCap",
-        label: "New recruiter daily cap",
+        label: "New venue cap (per day)",
         type: "number",
       },
       {
         key: "newRecruiterWindowDays",
-        label: "New recruiter window (days)",
+        label: "New venue window (days)",
         type: "number",
       },
     ],
   },
   {
-    title: "Workers",
+    title: "Talent",
     explanation:
-      "Default inbound delivery budget per worker per Bangkok day before queueing.",
+      "Default inbound delivery budget per talent per Bangkok day before queueing.",
     fields: [
       {
         key: "workerInboundDailyDefault",
-        label: "Default inbound daily limit",
+        label: "Inbound requests (per day)",
         type: "number",
       },
     ],
@@ -133,7 +133,7 @@ const GROUPS: GroupDef[] = [
       },
       {
         key: "messageMaxChars",
-        label: "Message max characters",
+        label: "Message length (characters)",
         type: "number",
       },
     ],
@@ -145,7 +145,7 @@ const GROUPS: GroupDef[] = [
     fields: [
       {
         key: "autoPauseReportThreshold",
-        label: "Auto-pause report threshold",
+        label: "Auto-pause (reports)",
         type: "number",
       },
       {
@@ -167,7 +167,7 @@ const GROUPS: GroupDef[] = [
       },
       {
         key: "lineMonthlyPushBudget",
-        label: "LINE monthly push budget",
+        label: "LINE budget (pushes)",
         type: "number",
       },
     ],
@@ -298,7 +298,7 @@ export function MessagingSettingsPanel({
           apply within about 5 seconds without a redeploy.
         </p>
         {meta.updatedAt && (
-          <p className="text-sm text-charcoal-500">
+          <p className="text-sm text-charcoal-300">
             Last changed {new Date(meta.updatedAt).toLocaleString()}
             {meta.updatedBy ? ` by ${meta.updatedBy}` : ""}
           </p>

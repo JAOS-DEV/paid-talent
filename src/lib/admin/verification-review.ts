@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { db, users, verificationEvents } from "@/lib/db";
 import type {
   AdminAuditAction,
@@ -24,8 +25,32 @@ import {
 } from "@/lib/storage/s3";
 import { PrivateStorageConfigError } from "@/lib/storage/config";
 import { notify } from "@/lib/notifications";
+import { USER_REJECTION_REASON_CODES } from "@/lib/verification/rejection-reasons";
 
 export type VerificationReviewAction = "approve" | "reject" | "revoke";
+
+export const userReasonCodeSchema = z.enum(USER_REJECTION_REASON_CODES);
+
+export const verificationReviewRequestSchema = z
+  .object({
+    action: z.enum(["approve", "reject", "revoke"]),
+    docType: z
+      .enum(["passport", "thai_id", "drivers_license", "other"])
+      .optional(),
+    last4: z.string().max(4).optional(),
+    issuingCountry: z.string().max(3).optional(),
+    notes: z.string().max(500).optional(),
+    userReasonCode: userReasonCodeSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.action === "reject" && !value.userReasonCode) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["userReasonCode"],
+        message: "A reason shown to the user is required",
+      });
+    }
+  });
 
 export interface ReviewSubjectInput {
   subjectType: SubjectType;
@@ -35,6 +60,7 @@ export interface ReviewSubjectInput {
   last4?: string;
   issuingCountry?: string;
   notes?: string;
+  userReasonCode?: string;
   admin: {
     userId: string;
     email: string;
@@ -196,6 +222,19 @@ export async function reviewSubject(
     }
   }
 
+  const parsedReason =
+    input.action === "reject"
+      ? userReasonCodeSchema.safeParse(input.userReasonCode)
+      : null;
+
+  if (input.action === "reject" && !parsedReason?.success) {
+    return {
+      ok: false,
+      status: 400,
+      error: "A reason shown to the user is required",
+    };
+  }
+
   const decision: VerificationDecision =
     input.action === "approve"
       ? "approved"
@@ -226,6 +265,7 @@ export async function reviewSubject(
     last4: input.last4 ?? null,
     issuingCountry: input.issuingCountry ?? null,
     notes: input.notes ?? null,
+    userReasonCode: parsedReason?.success ? parsedReason.data : null,
     retentionExpiresAt,
     createdAt: now,
   });

@@ -90,7 +90,7 @@ export default async function AdminVerificationsPage({
               : "text-charcoal-400 hover:text-charcoal-200"
           }`}
         >
-          Workers ({workerCount})
+          Talent ({workerCount})
         </Link>
         <Link
           href="/admin/verifications?tab=recruiters"
@@ -100,7 +100,7 @@ export default async function AdminVerificationsPage({
               : "text-charcoal-400 hover:text-charcoal-200"
           }`}
         >
-          Recruiters ({recruiterCount})
+          Venues ({recruiterCount})
         </Link>
       </div>
 

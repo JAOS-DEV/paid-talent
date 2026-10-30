@@ -58,7 +58,7 @@ export function BioStep({
         <textarea
           className={`
             w-full px-4 py-2.5 bg-charcoal-800 border rounded-lg text-charcoal-100 
-            placeholder:text-charcoal-500 focus:outline-none focus:ring-2 
+            placeholder:text-charcoal-300 focus:outline-none focus:ring-2 
             focus:ring-primary-500 focus:border-transparent min-h-[150px] resize-none
             ${error ? "border-error" : "border-charcoal-600"}
           `}
@@ -72,7 +72,7 @@ export function BioStep({
           autoFocus
         />
         <div className="flex justify-between items-center mt-1.5">
-          <p className="text-charcoal-500 text-xs">
+          <p className="text-charcoal-300 text-xs">
             {onboarding("minimumCharacters", { count: BIO_MIN_LENGTH })}
           </p>
           <CharacterCount

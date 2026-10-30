@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { and, desc, eq } from "drizzle-orm";
 import { db, verificationEvents } from "@/lib/db";
 import {
   canTransitionVerificationStatus,
@@ -63,6 +64,24 @@ function assertOwnedKeys(
   }
 }
 
+async function latestRejectionReasonCode(
+  userId: string
+): Promise<string | null> {
+  const [row] = await db
+    .select({ userReasonCode: verificationEvents.userReasonCode })
+    .from(verificationEvents)
+    .where(
+      and(
+        eq(verificationEvents.userId, userId),
+        eq(verificationEvents.decision, "rejected")
+      )
+    )
+    .orderBy(desc(verificationEvents.createdAt))
+    .limit(1);
+  const code = row?.userReasonCode?.trim();
+  return code ? code : null;
+}
+
 export async function getVerificationStatus(
   subject: VerificationSubjectAdapter,
   userId: string
@@ -76,9 +95,17 @@ export async function getVerificationStatus(
     );
   }
 
+  const rejectionReasonCode =
+    profile.verificationStatus === "rejected"
+      ? await latestRejectionReasonCode(userId)
+      : null;
+
   return NextResponse.json({
     success: true,
-    verification: toWorkerVerificationStatusDto(profile),
+    verification: {
+      ...toWorkerVerificationStatusDto(profile),
+      rejectionReasonCode,
+    },
   });
 }
 

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
+import { auth } from "@/lib/auth";
 import { AuthProvider } from "@/components/auth";
 import { AdSenseScript } from "@/components/ads";
 import "./globals.css";
@@ -31,6 +32,7 @@ export default async function RootLayout({
 }): Promise<React.ReactElement> {
   const locale = await getLocale();
   const messages = await getMessages();
+  const session = await auth();
 
   return (
     <html
@@ -39,7 +41,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col antialiased">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider session={session}>{children}</AuthProvider>
         </NextIntlClientProvider>
         <AdSenseScript />
       </body>

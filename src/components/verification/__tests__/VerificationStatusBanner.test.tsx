@@ -69,7 +69,7 @@ describe("VerificationStatusBanner", () => {
         userId="worker-1"
       />
     );
-    expect(screen.getByText("Verification Pending")).toBeInTheDocument();
+    expect(screen.getByText("Under review")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /dismiss verified banner/i })).not.toBeInTheDocument();
 
     rerender(

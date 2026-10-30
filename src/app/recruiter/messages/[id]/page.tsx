@@ -28,6 +28,7 @@ export default function RecruiterChatPage(): React.ReactElement {
       role="recruiter"
       listHref="/recruiter/messages"
       profileSettingsHref="/recruiter/profile"
+      contentClassName="max-w-7xl"
     />
   );
 }

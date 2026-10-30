@@ -25,7 +25,6 @@ import {
 } from "@/lib/recruiter-profile";
 import { VenueLogo } from "@/components/media/VenueLogo";
 import { toPublicVenueLogoUrl } from "@/lib/media/venue-logo";
-import { RecruiterVerificationBanner } from "@/components/verification/RecruiterVerificationBanner";
 import { RecruiterAccessBanner } from "@/components/recruiter";
 import { RecruiterMessagingPausedBanner } from "@/components/safety";
 
@@ -104,7 +103,7 @@ function InterestsCard(): React.ReactElement {
               {t("interestsBody")}
             </p>
             {stats && stats.total > 0 && (
-              <div className="flex gap-4 text-xs text-charcoal-500 mb-4">
+              <div className="flex gap-4 text-xs text-charcoal-300 mb-4">
                 <span>
                   <span className="text-primary-400 font-medium">
                     {stats.interested}
@@ -144,13 +143,15 @@ function SetupChecklistCard(): React.ReactElement {
   const [hasVenueLink, setHasVenueLink] = useState(false);
   const [venueApproved, setVenueApproved] = useState(false);
   const [venuePending, setVenuePending] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
 
   useEffect(() => {
     const load = async (): Promise<void> => {
       try {
-        const [profile, venuesRes] = await Promise.all([
+        const [profile, venuesRes, accessRes] = await Promise.all([
           getRecruiterProfile(),
           fetch("/api/recruiter/venues"),
+          fetch("/api/recruiter/access"),
         ]);
         setVerificationStatus(profile?.verificationStatus ?? "unverified");
         if (venuesRes.ok) {
@@ -166,6 +167,15 @@ function SetupChecklistCard(): React.ReactElement {
           );
           setVenueApproved(list.some((v) => v.reviewStatus === "approved"));
           setVenuePending(list.some((v) => v.reviewStatus === "pending"));
+        }
+        if (accessRes.ok) {
+          const access = (await accessRes.json()) as {
+            tier?: string;
+            canViewTopTalentFull?: boolean;
+          };
+          setSubscribed(
+            access.tier === "pro" || access.canViewTopTalentFull === true
+          );
         }
       } catch {
         // leave defaults
@@ -205,7 +215,7 @@ function SetupChecklistCard(): React.ReactElement {
                 <p className="text-charcoal-100 font-medium">
                   {t("checklistVerify")}
                 </p>
-                <p className="text-charcoal-500 mt-0.5">
+                <p className="text-charcoal-300 mt-0.5">
                   {identityDone
                     ? t("checklistVerifyDone")
                     : identityPending
@@ -215,55 +225,43 @@ function SetupChecklistCard(): React.ReactElement {
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <Badge variant={hasVenueLink ? "success" : "default"}>2</Badge>
+              <Badge
+                variant={
+                  venueApproved ? "success" : venuePending ? "warning" : "default"
+                }
+              >
+                2
+              </Badge>
               <div>
                 <p className="text-charcoal-100 font-medium">
                   {t("checklistVenueLink")}
                 </p>
-                <p className="text-charcoal-500 mt-0.5">
-                  {hasVenueLink
+                <p className="mt-0.5 text-charcoal-300">
+                  {venueApproved
                     ? t("checklistVenueLinkDone")
-                    : t("checklistVenueLinkTodo")}
+                    : venuePending
+                      ? t("checklistVerifyPending")
+                      : hasVenueLink
+                        ? t("checklistApprovalPending")
+                        : t("checklistVenueLinkTodo")}
                 </p>
               </div>
             </li>
             <li className="flex items-start gap-3">
-              <Badge
-                variant={
-                  venueApproved
-                    ? "success"
-                    : venuePending
-                      ? "warning"
-                      : "default"
-                }
-              >
-                3
-              </Badge>
+              <Badge variant={subscribed ? "success" : "default"}>3</Badge>
               <div>
                 <p className="text-charcoal-100 font-medium">
-                  {t("checklistApproval")}
+                  {t("checklistSubscribe")}
                 </p>
-                <p className="text-charcoal-500 mt-0.5">
-                  {venueApproved
-                    ? t("checklistApprovalDone")
-                    : venuePending
-                      ? t("checklistApprovalPending")
-                      : t("checklistApprovalTodo")}
+                <p className="mt-0.5 text-charcoal-300">
+                  {subscribed
+                    ? t("checklistSubscribeDone")
+                    : t("checklistSubscribeTodo")}
                 </p>
               </div>
             </li>
           </ol>
         )}
-        <div className="flex flex-col sm:flex-row gap-2 mt-4">
-          <Link href="/recruiter/verification" className="flex-1">
-            <Button fullWidth variant="outline">
-              {t("verificationTitle")}
-            </Button>
-          </Link>
-          <Link href="/recruiter/venues" className="flex-1">
-            <Button fullWidth>{t("manageVenues")}</Button>
-          </Link>
-        </div>
       </CardContent>
     </Card>
   );
@@ -323,7 +321,7 @@ function VenueStatusCard(): React.ReactElement {
           {t("venueBody")}
         </p>
         {!loading && (
-          <p className="text-xs text-charcoal-500 mb-4">
+          <p className="text-xs text-charcoal-300 mb-4">
             {t("openingsSummary", {
               published: publishedCount,
               draft: draftCount,
@@ -434,7 +432,6 @@ export default function RecruiterDashboardPage(): React.ReactElement {
             <SubscriptionAlert />
           </Suspense>
 
-          <RecruiterVerificationBanner />
           <RecruiterAccessBanner />
           <div className="mb-4">
             <RecruiterMessagingPausedBanner />
@@ -479,7 +476,7 @@ export default function RecruiterDashboardPage(): React.ReactElement {
                 <CardTitle>{t("recentTopTalent")}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-charcoal-500">
+                <div className="text-center py-8 text-charcoal-300">
                   <svg
                     className="w-12 h-12 mx-auto mb-4 opacity-50"
                     fill="none"

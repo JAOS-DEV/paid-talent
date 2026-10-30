@@ -63,11 +63,11 @@ export function BlockedAccountsSection(): React.ReactElement {
       <h2 className="text-lg font-semibold text-charcoal-100">{t("title")}</h2>
       <p className="text-sm text-charcoal-400">{t("description")}</p>
       {loading ? (
-        <p className="text-sm text-charcoal-500">{t("loading")}</p>
+        <p className="text-sm text-charcoal-300">{t("loading")}</p>
       ) : error ? (
         <p className="text-sm text-error">{error}</p>
       ) : blocks.length === 0 ? (
-        <p className="text-sm text-charcoal-500">{t("empty")}</p>
+        <p className="text-sm text-charcoal-300">{t("empty")}</p>
       ) : (
         <ul className="space-y-2">
           {blocks.map((block) => (

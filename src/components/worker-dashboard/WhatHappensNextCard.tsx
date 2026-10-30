@@ -81,8 +81,6 @@ export function WhatHappensNextCard({
   const profileAction = getWorkerDashboardProfileAction(completeness);
   const hasContact = workerHasPublishedContact(profile);
   const statusLabel = t(verificationStatusLabelKey(verificationStatus));
-  const verificationCta =
-    verificationStatus === "unverified" ? t("step3Cta") : t("step3CtaPending");
 
   function handleDismiss(): void {
     writeWhatHappensNextDismissed(userId);
@@ -157,12 +155,6 @@ export function WhatHappensNextCard({
               >
                 {t("step3Status", { status: statusLabel })}
               </p>
-              <Link
-                href="/worker/verification"
-                className="inline-block mt-2 text-sm text-primary-400 hover:text-primary-300"
-              >
-                {verificationCta}
-              </Link>
             </li>
 
             <li data-testid="what-happens-next-step-4">

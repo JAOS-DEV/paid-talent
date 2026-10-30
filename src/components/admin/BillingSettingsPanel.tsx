@@ -66,7 +66,7 @@ export function BillingSettingsPanel({
           </span>
         </p>
         {updatedAt && (
-          <p className="text-sm text-charcoal-500">
+          <p className="text-sm text-charcoal-300">
             Last changed {new Date(updatedAt).toLocaleString()}
             {updatedBy ? ` by ${updatedBy}` : ""}
             {reason ? ` · ${reason}` : ""}

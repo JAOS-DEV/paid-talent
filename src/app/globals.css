@@ -65,6 +65,11 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+html[lang="th"] body {
+  word-break: keep-all;
+  line-break: strict;
+}
+
 /* Focus ring utility */
 .focus-ring {
   @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-charcoal-950;

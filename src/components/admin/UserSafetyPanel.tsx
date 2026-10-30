@@ -94,7 +94,7 @@ export function UserSafetyPanel({
             Reports against ({reportsAgainst.length})
           </p>
           {reportsAgainst.length === 0 ? (
-            <p className="text-charcoal-500">None</p>
+            <p className="text-charcoal-300">None</p>
           ) : (
             <ul className="space-y-1">
               {reportsAgainst.map((r) => (
@@ -117,7 +117,7 @@ export function UserSafetyPanel({
             Reports by ({reportsBy.length})
           </p>
           {reportsBy.length === 0 ? (
-            <p className="text-charcoal-500">None</p>
+            <p className="text-charcoal-300">None</p>
           ) : (
             <ul className="space-y-1">
               {reportsBy.map((r) => (

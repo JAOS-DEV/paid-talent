@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui";
+import { AdminStatusPill } from "@/components/admin/admin-display";
+import { labelForToken } from "@/lib/admin/token-labels";
 
 export interface AdminFlagRow {
   id: string;
@@ -59,7 +61,7 @@ export function FlagsQueue({
     <div className="space-y-4">
       {error ? <p className="text-sm text-error">{error}</p> : null}
       {flags.length === 0 ? (
-        <p className="text-sm text-charcoal-500">No open flags.</p>
+        <p className="text-sm text-charcoal-300">No open flags.</p>
       ) : (
         flags.map((flag) => (
           <article
@@ -69,10 +71,13 @@ export function FlagsQueue({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="font-semibold text-charcoal-100">
-                  {flag.categories.join(", ") || flag.targetType}
+                  {flag.categories.length > 0
+                    ? flag.categories.map((category) => labelForToken(category)).join(", ")
+                    : labelForToken(flag.targetType)}
                 </p>
-                <p className="text-xs text-charcoal-500 mt-1">
-                  {new Date(flag.createdAt).toLocaleString()} · {flag.status}
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-charcoal-300">
+                  <span>{new Date(flag.createdAt).toLocaleString()}</span>
+                  <AdminStatusPill status={flag.status} />
                 </p>
               </div>
               {flag.conversationId ? (
@@ -98,7 +103,7 @@ export function FlagsQueue({
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                variant="gold"
+                variant="primary"
                 size="sm"
                 disabled={busyId === flag.id}
                 onClick={() => void review(flag.id, "actioned")}
@@ -107,7 +112,7 @@ export function FlagsQueue({
               </Button>
               <Button
                 type="button"
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 disabled={busyId === flag.id}
                 onClick={() => void review(flag.id, "dismissed")}

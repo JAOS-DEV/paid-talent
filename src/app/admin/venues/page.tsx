@@ -35,7 +35,7 @@ export default async function AdminVenuesPage(): Promise<React.ReactElement> {
         <h1 className="text-2xl font-bold text-charcoal-100">Venues</h1>
         <p className="text-charcoal-400 mt-1">
           Review venue links (Google Maps, Facebook, or Instagram) before they
-          are shown to workers.
+          are shown to talent.
         </p>
       </div>
       <VenueQueue initialVenues={serializeVenues(pending)} />

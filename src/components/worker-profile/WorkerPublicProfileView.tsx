@@ -40,7 +40,7 @@ function ContactItem({
     <div className="flex items-center gap-3 py-2">
       <div className="text-charcoal-400">{icon}</div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-charcoal-500">{label}</p>
+        <p className="text-xs text-charcoal-300">{label}</p>
         <p className="text-charcoal-100 break-words">{value}</p>
       </div>
     </div>
@@ -144,7 +144,7 @@ export function WorkerPublicProfileView({
 
               {profile.availability.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-charcoal-500 text-sm mb-2">{t("availability")}</p>
+                  <p className="text-charcoal-300 text-sm mb-2">{t("availability")}</p>
                   <AvailabilityBadges values={profile.availability} />
                 </div>
               )}
@@ -175,7 +175,7 @@ export function WorkerPublicProfileView({
             <CardContent>
               {profile.experienceYears !== null && (
                 <p className="text-charcoal-300 mb-2">
-                  <span className="text-charcoal-500">{t("years")}</span>{" "}
+                  <span className="text-charcoal-300">{t("years")}</span>{" "}
                   {profile.experienceYears}+
                 </p>
               )}
@@ -289,7 +289,7 @@ export function WorkerPublicProfileView({
                   />
                 </div>
               ) : (
-                <p className="text-charcoal-500 text-sm">{t("ownContactEmpty")}</p>
+                <p className="text-charcoal-300 text-sm">{t("ownContactEmpty")}</p>
               )}
             </CardContent>
           </Card>

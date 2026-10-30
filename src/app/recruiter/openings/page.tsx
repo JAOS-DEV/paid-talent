@@ -39,7 +39,7 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="max-w-2xl mx-auto px-4">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-6 min-w-0">
             <RecruiterBackLink href="/recruiter/dashboard">
               {t("backToDashboard")}
@@ -56,7 +56,7 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
                   </h1>
                   <p className="text-charcoal-400 mt-1">{t("subtitle")}</p>
                   {openings.length > 0 && (
-                    <p className="text-sm text-charcoal-500 mt-2">
+                    <p className="text-sm text-charcoal-300 mt-2">
                       {t("publishedDraft", {
                         published: publishedCount,
                         draft: draftCount,
@@ -76,7 +76,7 @@ export default async function RecruiterOpeningsPage(): Promise<React.ReactElemen
               <CardContent className="text-center py-12">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-charcoal-800 flex items-center justify-center">
                   <svg
-                    className="w-8 h-8 text-charcoal-500"
+                    className="w-8 h-8 text-charcoal-300"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"

@@ -168,11 +168,16 @@ async function repair(): Promise<void> {
         "last4" text,
         "issuing_country" text,
         "notes" text,
+        "user_reason_code" text,
         "retention_expires_at" timestamp,
         "id_document_deleted_at" timestamp,
         "liveness_video_deleted_at" timestamp,
         "created_at" timestamp DEFAULT now() NOT NULL
       )
+    `);
+    await db.execute(sql`
+      ALTER TABLE "verification_events"
+      ADD COLUMN IF NOT EXISTS "user_reason_code" text
     `);
     console.log("✓ verification_events table ready");
 

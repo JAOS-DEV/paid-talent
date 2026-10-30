@@ -50,11 +50,11 @@ describe("public signup entry points", () => {
     expect(header).toMatch(/href=["']\/auth\/signin["']/);
   });
 
-  it("Create Worker Profile goes to age-gate with role=worker", () => {
+  it("Create Talent Profile goes to age-gate with role=worker", () => {
     const home = readSrc("app/page.tsx");
     expect(home).toMatch(/href=["']\/auth\/age-gate\?role=worker["']/);
     expect(home).toContain('t("createWorkerProfile")');
-    expect(enMessages.home.createWorkerProfile).toBe("Create Worker Profile");
+    expect(enMessages.home.createWorkerProfile).toBe("Create Talent Profile");
   });
 
   it("Start Recruiting goes to age-gate with role=recruiter", () => {

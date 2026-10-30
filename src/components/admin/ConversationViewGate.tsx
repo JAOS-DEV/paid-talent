@@ -117,7 +117,7 @@ export function ConversationViewGate({
                 key={msg.id}
                 className="rounded-lg border border-charcoal-800 bg-charcoal-900 px-3 py-2"
               >
-                <p className="text-xs text-charcoal-500">
+                <p className="text-xs text-charcoal-300">
                   {msg.senderRole} · {msg.kind} ·{" "}
                   {new Date(msg.createdAt).toLocaleString()}
                 </p>

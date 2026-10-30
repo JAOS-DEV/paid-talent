@@ -97,7 +97,7 @@ export function Footer(): React.ReactElement {
         </div>
 
         <div className="border-t border-charcoal-700 mt-8 pt-8 text-center">
-          <p className="text-charcoal-500 text-sm">
+          <p className="text-charcoal-300 text-sm">
             {t("rights", { year: new Date().getFullYear() })}
           </p>
         </div>

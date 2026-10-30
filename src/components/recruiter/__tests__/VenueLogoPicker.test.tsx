@@ -111,7 +111,7 @@ describe("RecruiterProfileForm account strip", () => {
     expect(strip).toHaveTextContent("recruiter@example.com");
 
     const subtitle = screen.getByText(
-      "This is what workers see when you express interest."
+      "This is what talent sees when you express interest."
     );
     expect(subtitle.parentElement).not.toContainElement(strip);
     expect(subtitle.parentElement).not.toHaveTextContent(

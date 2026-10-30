@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { Badge, Button, Card, CardContent, Input } from "@/components/ui";
+import { Button, Card, CardContent, Input } from "@/components/ui";
+import { AdminStatusPill } from "@/components/admin/admin-display";
 
 export interface PendingVenue {
   id: string;
@@ -93,21 +94,22 @@ function VenueCard({
                 : ""}
             </p>
             {(venue.area || venue.subArea) && (
-              <p className="text-sm text-charcoal-500 mt-1">
+              <p className="text-sm text-charcoal-300 mt-1">
                 {[venue.area, venue.subArea].filter(Boolean).join(" · ")}
               </p>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="warning">Pending review</Badge>
-            <Badge variant="default">
-              Identity: {venue.recruiterVerificationStatus ?? "unknown"}
-            </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <AdminStatusPill status="pending" />
+            <span className="text-sm text-charcoal-300">
+              Identity:{" "}
+              <AdminStatusPill status={venue.recruiterVerificationStatus} />
+            </span>
           </div>
         </div>
 
         <div className="rounded-lg border border-charcoal-700 bg-charcoal-900/50 p-3 space-y-2">
-          <p className="text-xs uppercase tracking-wide text-charcoal-500">
+          <p className="text-xs uppercase tracking-wide text-charcoal-300">
             Checklist
           </p>
           <ul className="text-sm text-charcoal-300 list-disc pl-5 space-y-1">
@@ -150,11 +152,10 @@ function VenueCard({
           </Button>
           <Button
             fullWidth
-            variant="secondary"
+            variant="destructive"
             loading={submitting === "reject"}
             disabled={submitting !== null}
             onClick={() => void review("reject")}
-            className="border-red-500/30 text-red-300 hover:bg-red-500/10"
           >
             Reject
           </Button>
@@ -175,7 +176,7 @@ export function VenueQueue({
 
   if (venues.length === 0) {
     return (
-      <p className="text-sm text-charcoal-500">
+      <p className="text-sm text-charcoal-300">
         No venues awaiting review.
       </p>
     );

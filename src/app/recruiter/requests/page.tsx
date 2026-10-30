@@ -92,14 +92,14 @@ export default function RecruiterRequestsPage(): React.ReactElement {
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="mx-auto max-w-3xl space-y-6 px-4 sm:px-6">
+        <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
           <div>
             <h1 className="text-2xl font-bold text-charcoal-100">
               {t("sent.title")}
             </h1>
             <p className="mt-1 text-charcoal-400">{t("sent.subtitle")}</p>
             {limits ? (
-              <p className="mt-2 text-sm text-charcoal-500">
+              <p className="mt-2 text-sm text-charcoal-300">
                 {t("dialog.remaining", {
                   daily: limits.remainingDaily,
                   weekly: limits.remainingWeekly,

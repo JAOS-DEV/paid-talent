@@ -195,10 +195,10 @@ export function PhotoStep({
           </p>
         ) : null}
 
-        <p className="text-charcoal-500 text-xs mt-2">
+        <p className="text-charcoal-300 text-xs mt-2">
           {t("photoHint")}
         </p>
-        <p className="text-charcoal-500 text-xs mt-1 text-center">
+        <p className="text-charcoal-300 text-xs mt-1 text-center">
           {PHOTO_POLICY_COPY.rules}
         </p>
 

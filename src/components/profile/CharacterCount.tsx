@@ -23,7 +23,7 @@ export function CharacterCount({
           ? "text-error"
           : meetsMin
             ? "text-charcoal-400"
-            : "text-charcoal-500"
+            : "text-charcoal-300"
       }`}
     >
       {current}/{max}

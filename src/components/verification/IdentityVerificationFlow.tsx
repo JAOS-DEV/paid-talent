@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 import { LiveLivenessRecorder } from "@/components/verification/LiveLivenessRecorder";
 import type { VerificationStatus, DocType } from "@/lib/db/schema";
+import { isUserRejectionReasonCode } from "@/lib/verification/rejection-reasons";
 import {
   LIVE_CAMERA_CONSTRAINTS,
   UNSUPPORTED_LIVE_RECORDING_MESSAGE,
@@ -47,6 +48,7 @@ export interface IdentityVerificationFlowProps {
   apiBasePath: "/api/worker/verification" | "/api/recruiter/verification";
   translationNamespace: "worker.verificationFlow" | "recruiter.verification";
   onVerifiedHref: string;
+  contentClassName?: string;
 }
 
 const DOC_TYPE_OPTIONS: { value: DocType; label: string }[] = [
@@ -66,7 +68,7 @@ function ChecklistItem({
   return (
     <div className="flex items-center gap-3">
       <div
-        className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${checked ? "bg-green-500/20 text-green-400" : "bg-charcoal-700 text-charcoal-500"}`}
+        className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${checked ? "bg-green-500/20 text-green-400" : "bg-charcoal-700 text-charcoal-300"}`}
       >
         {checked ? (
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -117,12 +119,12 @@ function WhyWeAskModal({
             {t("whyBody")}
           </p>
           <p>{t("whyListIntro")}</p>
-          <ul className="list-disc list-inside space-y-1 text-charcoal-500">
+          <ul className="list-disc list-inside space-y-1 text-charcoal-300">
             <li>{t("whyIdentity")}</li>
             <li>{t("whyAge")}</li>
             <li>{t("whyReal")}</li>
           </ul>
-          <p className="text-charcoal-500">{t("whyRetention")}</p>
+          <p className="text-charcoal-300">{t("whyRetention")}</p>
         </div>
         <Button fullWidth className="mt-4" onClick={onClose}>
           {common("gotIt")}
@@ -144,7 +146,7 @@ function StartAgainButton({
     <button
       type="button"
       onClick={onClick}
-      className="block w-full text-center text-xs text-charcoal-500 hover:text-charcoal-300 pt-1"
+      className="block w-full text-center text-xs text-charcoal-300 hover:text-charcoal-300 pt-1"
     >
       {t("startAgain")}
     </button>
@@ -155,8 +157,10 @@ export function IdentityVerificationFlow({
   apiBasePath,
   translationNamespace,
   onVerifiedHref,
+  contentClassName = "mx-auto max-w-sm px-4",
 }: IdentityVerificationFlowProps): React.ReactElement {
   const t = useTranslations(translationNamespace);
+  const reasonT = useTranslations("verification.rejectionReasons");
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -175,6 +179,9 @@ export function IdentityVerificationFlow({
   const [videoUploading, setVideoUploading] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [challengeExpired, setChallengeExpired] = useState(false);
+  const [rejectionReasonCode, setRejectionReasonCode] = useState<string | null>(
+    null
+  );
   const cameraStreamRef = useRef<MediaStream | null>(null);
 
   const releaseCamera = useCallback((): void => {
@@ -189,6 +196,11 @@ export function IdentityVerificationFlow({
       if (res.ok) {
         const data = await res.json();
         const s = data.verification.verificationStatus as VerificationStatus;
+        const code =
+          typeof data.verification.rejectionReasonCode === "string"
+            ? data.verification.rejectionReasonCode.trim()
+            : "";
+        setRejectionReasonCode(code || null);
         if (s === "pending") {
           setCurrentStep("pending");
         } else if (s === "verified") {
@@ -534,7 +546,7 @@ export function IdentityVerificationFlow({
                 <p className="text-charcoal-100 font-medium text-sm">
                   {t("uploadIdPhoto")}
                 </p>
-                <p className="text-charcoal-500 text-xs mt-0.5">
+                <p className="text-charcoal-300 text-xs mt-0.5">
                   {t("imageTypes")}
                 </p>
               </>
@@ -557,7 +569,7 @@ export function IdentityVerificationFlow({
         )}
 
         <div className="text-center pt-3 border-t border-charcoal-800">
-          <p className="text-charcoal-500 text-xs">
+          <p className="text-charcoal-300 text-xs">
             {t("usedForChecks")}
           </p>
           <button
@@ -687,7 +699,7 @@ export function IdentityVerificationFlow({
         />
 
         <div className="text-center pt-3 border-t border-charcoal-800">
-          <p className="text-charcoal-500 text-xs">
+          <p className="text-charcoal-300 text-xs">
             {t("usedForChecks")}
           </p>
           <button
@@ -836,7 +848,7 @@ export function IdentityVerificationFlow({
         </div>
 
         <div className="text-center pt-2 border-t border-charcoal-800">
-          <p className="text-charcoal-500 text-xs">
+          <p className="text-charcoal-300 text-xs">
             {t("usedForChecks")}
           </p>
         </div>
@@ -952,6 +964,11 @@ export function IdentityVerificationFlow({
             {t("rejectedTitle")}
           </h1>
           <p className="text-charcoal-400 mt-2">{t("rejectedBody")}</p>
+          {isUserRejectionReasonCode(rejectionReasonCode) ? (
+            <p className="mt-3 text-sm text-charcoal-200" data-testid="rejection-reason">
+              {reasonT(rejectionReasonCode)}
+            </p>
+          ) : null}
         </div>
 
         <div className="bg-charcoal-800/50 rounded-lg p-4 border border-charcoal-700">
@@ -1010,7 +1027,9 @@ export function IdentityVerificationFlow({
       <Header />
 
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="max-w-sm mx-auto px-4">{renderCurrentStep()}</div>
+        <div className={contentClassName}>
+          <div className="mx-auto w-full max-w-xl">{renderCurrentStep()}</div>
+        </div>
       </main>
 
       <Footer />

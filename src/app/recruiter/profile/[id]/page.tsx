@@ -248,7 +248,7 @@ export default function ProfileDetailPage({
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 bg-charcoal-950 py-8">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <Card padding="lg">
               <CardContent className="text-center py-12">
                 <svg
@@ -287,7 +287,7 @@ export default function ProfileDetailPage({
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 bg-charcoal-950 py-8">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
             <Link
               href="/recruiter/search"
               className="inline-flex items-center text-charcoal-400 hover:text-charcoal-200 mb-6 transition-colors min-h-11"
@@ -320,7 +320,7 @@ export default function ProfileDetailPage({
       <Header />
 
       <main className="flex-1 bg-charcoal-950 py-8">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-x-hidden">
           <Link
             href="/recruiter/search"
             className="inline-flex items-center text-charcoal-400 hover:text-charcoal-200 mb-6 transition-colors min-h-11"
@@ -413,16 +413,16 @@ export default function ProfileDetailPage({
               {interestOutcome && (
                 <div className="mt-4 pt-4 border-t border-charcoal-700">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-charcoal-500">{t("hireStatus")}</span>
+                    <span className="text-charcoal-300">{t("hireStatus")}</span>
                     <HireOutcomeStatusBadge status={interestOutcome.status} />
                   </div>
                   {interestOutcome.hiredAt && (
-                    <p className="text-charcoal-500 text-xs mt-2">
+                    <p className="text-charcoal-300 text-xs mt-2">
                       {t("hiredOn")} {formatLocaleDate(interestOutcome.hiredAt, locale)}
                     </p>
                   )}
                   {interestOutcome.startedAt && (
-                    <p className="text-charcoal-500 text-xs mt-1">
+                    <p className="text-charcoal-300 text-xs mt-1">
                       {t("startedOn")} {formatLocaleDate(interestOutcome.startedAt, locale)}
                     </p>
                   )}

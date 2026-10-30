@@ -72,7 +72,7 @@ describe("WorkerPublicProfileView contact privacy", () => {
     expect(screen.getByTestId("own-contact-card")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Only you can see this. Recruiters never see your contact details unless you share them in chat."
+        "Only you can see this. Venues never see your contact details unless you share them in chat."
       )
     ).toBeInTheDocument();
     expect(screen.getByText(SECRET_LINE)).toBeInTheDocument();

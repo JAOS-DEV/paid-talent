@@ -85,7 +85,7 @@ export function RecruiterInterestCard({
                 ) : (
                   <div className="w-16 h-16 rounded-full bg-charcoal-700 flex items-center justify-center">
                     <svg
-                      className="w-8 h-8 text-charcoal-500"
+                      className="w-8 h-8 text-charcoal-300"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -112,7 +112,7 @@ export function RecruiterInterestCard({
                   <HireOutcomeStatusBadge status={effectiveStatus} />
                 </div>
 
-                <p className="text-charcoal-500 text-sm mb-2">
+                <p className="text-charcoal-300 text-sm mb-2">
                   {t("interestedOn", { date: createdDate })}
                 </p>
 
@@ -123,13 +123,13 @@ export function RecruiterInterestCard({
                 )}
 
                 {interest.hireOutcome?.hiredAt && (
-                  <p className="text-charcoal-500 text-xs">
+                  <p className="text-charcoal-300 text-xs">
                     {t("hiredOn")}{" "}
                     {formatLocaleDate(interest.hireOutcome.hiredAt, locale)}
                   </p>
                 )}
                 {interest.hireOutcome?.startedAt && (
-                  <p className="text-charcoal-500 text-xs">
+                  <p className="text-charcoal-300 text-xs">
                     {t("startedOn")}{" "}
                     {formatLocaleDate(interest.hireOutcome.startedAt, locale)}
                   </p>

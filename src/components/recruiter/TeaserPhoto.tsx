@@ -11,7 +11,7 @@ function PhotoPlaceholder(): React.ReactElement {
   return (
     <div className="flex h-full w-full items-center justify-center bg-charcoal-700">
       <svg
-        className="h-8 w-8 text-charcoal-500"
+        className="h-8 w-8 text-charcoal-300"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"

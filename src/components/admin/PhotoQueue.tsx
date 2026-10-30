@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
-import { Button, Card, CardContent, Badge, Input } from "@/components/ui";
+import { Button, Card, CardContent, Input } from "@/components/ui";
+import { AdminStatusPill } from "@/components/admin/admin-display";
+import { labelForToken } from "@/lib/admin/token-labels";
 import { buildPhotoRejectBody } from "@/lib/admin/review-actions";
 import { formatModerationConfidencePercent } from "@/lib/admin/format-confidence";
 
@@ -128,7 +130,7 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
               className="w-full sm:w-48 h-48 object-cover rounded-lg border border-charcoal-700 bg-charcoal-900"
             />
             ) : (
-            <div className="w-full sm:w-48 h-48 rounded-lg border border-charcoal-700 bg-charcoal-900 flex items-center justify-center text-sm text-charcoal-500 px-3 text-center">
+            <div className="w-full sm:w-48 h-48 rounded-lg border border-charcoal-700 bg-charcoal-900 flex items-center justify-center text-sm text-charcoal-300 px-3 text-center">
               Preview unavailable
             </div>
             )
@@ -156,26 +158,28 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
                   {photo.worker.email || "No email"}
                 </p>
               </div>
-              <Badge variant="warning">pending</Badge>
+              <AdminStatusPill status="pending" />
             </div>
             <p className="text-sm text-charcoal-300" data-testid={`photo-submission-${photo.submissionKind ?? "primary"}`}>
-              <span className="text-charcoal-500">Submission: </span>
+              <span className="text-charcoal-300">Submission: </span>
               {photo.submissionKind === "gallery"
                 ? "Gallery photo"
                 : "Primary submission"}
             </p>
             <p className="text-sm text-charcoal-300">
-              <span className="text-charcoal-500">Reason: </span>
+              <span className="text-charcoal-300">Reason: </span>
               {photo.moderationReason || "—"}
             </p>
               <p className="text-sm text-charcoal-300">
-              <span className="text-charcoal-500">Confidence: </span>
+              <span className="text-charcoal-300">Confidence: </span>
               {formatModerationConfidencePercent(photo.moderationConfidence)}
             </p>
             <p className="text-sm text-charcoal-300">
-              <span className="text-charcoal-500">Categories: </span>
+              <span className="text-charcoal-300">Categories: </span>
               {photo.moderationCategories?.length
-                ? photo.moderationCategories.join(", ")
+                ? photo.moderationCategories
+                    .map((category) => labelForToken(category))
+                    .join(", ")
                 : "—"}
             </p>
             {photo.moderationCategories?.includes("explicit_nudity") ? (
@@ -184,7 +188,7 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
                 or reject manually.
               </p>
             ) : null}
-            <p className="text-sm text-charcoal-500">
+            <p className="text-sm text-charcoal-300">
               Uploaded {formatDate(photo.createdAt)}
             </p>
           </div>
@@ -222,10 +226,9 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="destructive"
                   onClick={() => setConfirmReject(true)}
                   disabled={!!submitting}
-                  className="border-red-500/40 text-red-300 hover:bg-red-500/10"
                 >
                   Reject
                 </Button>
@@ -239,16 +242,16 @@ function PhotoCard({ photo, onResolved }: PhotoCardProps): React.ReactElement {
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     type="button"
+                    variant="destructive"
                     onClick={() => void reject()}
                     disabled={!!submitting}
                     loading={submitting === "reject"}
-                    className="bg-red-600 hover:bg-red-700 border-transparent"
                   >
                     Confirm reject
                   </Button>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="secondary"
                     onClick={() => setConfirmReject(false)}
                     disabled={!!submitting}
                   >
@@ -335,7 +338,7 @@ export function PhotoQueue({
     <div className="space-y-6">
       {banner && <p className="text-green-400 text-sm">{banner}</p>}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-charcoal-500">{photos.length} pending</p>
+        <p className="text-sm text-charcoal-300">{photos.length} pending</p>
         <Button type="button" variant="ghost" size="sm" onClick={() => void load()}>
           Refresh
         </Button>

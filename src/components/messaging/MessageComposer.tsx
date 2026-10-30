@@ -67,7 +67,7 @@ export function MessageComposer({
         aria-label={t("composer.placeholder")}
       />
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-charcoal-500">
+        <span className="text-xs text-charcoal-300">
           {t("composer.counter", { remaining })}
         </span>
         <Button

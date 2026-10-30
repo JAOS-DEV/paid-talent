@@ -152,7 +152,7 @@ function RoleSelectFooter(): React.ReactElement | null {
   }
 
   return (
-    <p className="text-center text-charcoal-500 text-sm mt-6">
+    <p className="text-center text-charcoal-300 text-sm mt-6">
       {t("alreadyHaveAccount")}{" "}
       <a
         href="/auth/signin"

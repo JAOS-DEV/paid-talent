@@ -50,7 +50,6 @@ export interface ConversationListItem {
   counterpart: {
     displayName: string;
     photoUrl: string | null;
-    verifiedPro: boolean;
   };
 }
 
@@ -60,6 +59,7 @@ export interface MessageDto {
   body: string;
   isMine: boolean;
   createdAt: string;
+  contactFlagged?: boolean;
 }
 
 export interface ConversationDetail {
@@ -69,6 +69,7 @@ export interface ConversationDetail {
   counterpart: ConversationListItem["counterpart"];
   messages: MessageDto[];
   safetyNotice: boolean;
+  hiddenFromInbox: boolean;
   shareChannels: ContactShareChannel[];
   messageMaxChars: number;
 }
@@ -249,7 +250,6 @@ export async function listConversations(
       lastMessageAt: conversations.lastMessageAt,
       workerLastReadAt: conversations.workerLastReadAt,
       recruiterLastReadAt: conversations.recruiterLastReadAt,
-      isPro: contactRequests.isPro,
       venueName: venues.name,
       venueLogoUrl: venues.logoUrl,
       workerDisplayName: workerProfiles.displayName,
@@ -311,7 +311,6 @@ export async function listConversations(
         counterpart: {
           displayName: row.venueName ?? "Venue",
           photoUrl: toPublicVenueLogoUrl(row.venueLogoUrl),
-          verifiedPro: row.isPro,
         },
       };
     }
@@ -324,7 +323,6 @@ export async function listConversations(
       counterpart: {
         displayName: firstName(row.workerUserName ?? row.workerDisplayName),
         photoUrl: row.approvedPhotoUrl ?? row.workerPhotoUrl,
-        verifiedPro: true,
       },
     };
   });
@@ -346,7 +344,6 @@ export async function getConversation(
   const [row] = await db
     .select({
       conversation: conversations,
-      isPro: contactRequests.isPro,
       contactRequestId: contactRequests.id,
       venueName: venues.name,
       venueLogoUrl: venues.logoUrl,
@@ -420,17 +417,48 @@ export async function getConversation(
       ? await computeSafetyNotice(conversationId, row.contactRequestId)
       : false;
 
+  const messageIds = messageRows.map((msg) => msg.id);
+  const contactFlaggedIds = new Set<string>();
+  if (messageIds.length > 0) {
+    const flagRows = await db
+      .select({
+        messageId: messageFlags.messageId,
+        categories: messageFlags.categories,
+      })
+      .from(messageFlags)
+      .where(
+        and(
+          eq(messageFlags.targetType, "message"),
+          inArray(messageFlags.messageId, messageIds)
+        )
+      );
+    for (const flag of flagRows) {
+      if (
+        flag.messageId &&
+        flag.categories.some(
+          (category) =>
+            category === "contact_shared_in_text" || category === "off_platform"
+        )
+      ) {
+        contactFlaggedIds.add(flag.messageId);
+      }
+    }
+  }
+
+  const hiddenFromInbox =
+    role === "worker"
+      ? row.conversation.workerHiddenAt != null
+      : row.conversation.recruiterHiddenAt != null;
+
   const counterpart =
     role === "worker"
       ? {
           displayName: row.venueName ?? "Venue",
           photoUrl: toPublicVenueLogoUrl(row.venueLogoUrl),
-          verifiedPro: row.isPro,
         }
       : {
           displayName: firstName(row.workerUserName ?? row.workerDisplayName),
           photoUrl: row.approvedPhotoUrl ?? row.workerPhotoUrl,
-          verifiedPro: true,
         };
 
   const shareChannels = await loadShareChannels(userId, role);
@@ -444,6 +472,7 @@ export async function getConversation(
       contactRequestId: row.contactRequestId,
       counterpart,
       safetyNotice,
+      hiddenFromInbox,
       shareChannels,
       messageMaxChars: settings.messageMaxChars,
       messages: messageRows.map((msg) => ({
@@ -452,6 +481,7 @@ export async function getConversation(
         body: msg.body,
         isMine: msg.senderUserId === userId,
         createdAt: msg.createdAt.toISOString(),
+        contactFlagged: contactFlaggedIds.has(msg.id),
       })),
     },
   };

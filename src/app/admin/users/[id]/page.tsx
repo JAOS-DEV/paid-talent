@@ -4,7 +4,10 @@ import { requireAdminPage } from "@/lib/admin/guard";
 import { getAdminUserDetail } from "@/lib/admin/users";
 import { listAdminAuditEventsForUser } from "@/lib/admin/activity";
 import { listReportsForUser } from "@/lib/admin/reports";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { AdminStatusPill, ShortId } from "@/components/admin/admin-display";
+import { adminRoleLabel } from "@/lib/admin/display-labels";
 import { UserModerationPanel } from "@/components/admin/UserModerationPanel";
 import { DeletionRequestPanel } from "@/components/admin/DeletionRequestPanel";
 import { UserEntitlementPanel } from "@/components/admin/UserEntitlementPanel";
@@ -42,6 +45,13 @@ export default async function AdminUserDetailPage({
   return (
     <div className="space-y-6">
       <div>
+        <Link
+          href="/admin/users"
+          prefetch={false}
+          className="inline-flex min-h-11 items-center text-sm text-primary-300 hover:text-primary-200"
+        >
+          Back to users
+        </Link>
         <h1 className="text-2xl font-bold text-charcoal-100">
           {detail.user.name || detail.user.email}
         </h1>
@@ -54,10 +64,14 @@ export default async function AdminUserDetailPage({
             <CardTitle>Account</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-charcoal-300">
-            <p>User id: {detail.user.id}</p>
-            <p className="capitalize">Role: {detail.user.role}</p>
+            <p className="flex flex-wrap items-center gap-2">
+              User id: <ShortId id={detail.user.id} />
+            </p>
+            <p>Role: {adminRoleLabel(detail.user.email, detail.user.role)}</p>
             <p>Age verification: {detail.user.ageVerified ? "Verified" : "Unverified"}</p>
-            <p className="capitalize">Status: {detail.user.accountStatus}</p>
+            <p className="flex flex-wrap items-center gap-2">
+              Status: <AdminStatusPill status={detail.user.accountStatus} />
+            </p>
             <p>Created: {new Date(detail.user.createdAt).toLocaleString()}</p>
             {detail.user.deletionRequestedAt ? (
               <p>
@@ -71,13 +85,14 @@ export default async function AdminUserDetailPage({
         {detail.worker && (
           <Card padding="lg">
             <CardHeader>
-              <CardTitle>Worker profile</CardTitle>
+              <CardTitle>Talent profile</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-charcoal-300">
               <p>Display name: {detail.worker.displayName}</p>
               <p>Published: {detail.worker.publicationStatus ? "Yes" : "No"}</p>
-              <p className="capitalize">
-                Identity verification: {detail.worker.identityVerificationStatus}
+              <p className="flex flex-wrap items-center gap-2">
+                Identity verification:{" "}
+                <AdminStatusPill status={detail.worker.identityVerificationStatus} />
               </p>
               <p>
                 Photos: {detail.worker.photoCounts.approved} approved,{" "}
@@ -92,7 +107,7 @@ export default async function AdminUserDetailPage({
         {detail.recruiter && (
           <Card padding="lg">
             <CardHeader>
-              <CardTitle>Recruiter profile</CardTitle>
+              <CardTitle>Venue profile</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-charcoal-300">
               <p>Organization: {detail.recruiter.organizationName || "—"}</p>
@@ -165,7 +180,7 @@ export default async function AdminUserDetailPage({
         </CardHeader>
         <CardContent>
           {activity.length === 0 ? (
-            <p className="text-sm text-charcoal-500">No audit events for this user.</p>
+            <p className="text-sm text-charcoal-300">No audit events for this user.</p>
           ) : (
             <ul className="space-y-2 text-sm">
               {activity.map((event) => (
@@ -173,7 +188,7 @@ export default async function AdminUserDetailPage({
                   <p className="text-charcoal-100">
                     {event.action.replaceAll("_", " ")}
                   </p>
-                  <p className="text-charcoal-500">
+                  <p className="text-charcoal-300">
                     {event.actorAdminEmail} ·{" "}
                     {event.createdAt.toLocaleString()}
                     {event.reason ? ` · ${event.reason}` : ""}

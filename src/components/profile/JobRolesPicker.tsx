@@ -101,7 +101,7 @@ export function JobRolesPicker({
             maxLength={CUSTOM_JOB_ROLE_MAX_LENGTH}
             onChange={(event) => onCustomRoleChange(event.target.value)}
           />
-          <p className="text-charcoal-500 text-xs mt-1.5">
+          <p className="text-charcoal-300 text-xs mt-1.5">
             {customRole.length}/{CUSTOM_JOB_ROLE_MAX_LENGTH}
           </p>
         </div>

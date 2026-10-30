@@ -27,6 +27,7 @@ export default function RecruiterVerificationPage(): React.ReactElement {
       apiBasePath="/api/recruiter/verification"
       translationNamespace="recruiter.verification"
       onVerifiedHref="/recruiter/dashboard"
+      contentClassName="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
     />
   );
 }

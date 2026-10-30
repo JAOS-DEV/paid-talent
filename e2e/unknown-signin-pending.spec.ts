@@ -36,7 +36,7 @@ test.describe("Unknown Google account via Sign in (one OAuth)", () => {
       page.getByRole("heading", { name: /sign in to your account/i })
     ).toHaveCount(0);
 
-    await page.getByText(/i'm a worker/i).click();
+    await page.getByText(/i'm talent/i).click();
     await page.getByRole("button", { name: /continue/i }).click();
     await expect(page).toHaveURL(/\/auth\/age-gate/);
     await expect(
@@ -112,7 +112,7 @@ test.describe("Unknown Google account via Sign in — mobile", () => {
       })
     ).toBeVisible();
 
-    await page.getByText(/i'm a recruiter/i).click();
+    await page.getByText(/i'm a venue/i).click();
     await page.getByRole("button", { name: /continue/i }).click();
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /continue/i }).click();
