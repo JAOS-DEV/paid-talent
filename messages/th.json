@@ -47,6 +47,8 @@
     "notificationsUnread": "การแจ้งเตือน ({count})",
     "verification": "ยืนยันตัวตน",
     "searchWorkers": "ค้นหาผู้ทำงาน",
+    "venues": "สถานที่",
+    "billing": "การชำระเงิน",
     "openMenu": "เปิดเมนู",
     "closeMenu": "ปิดเมนู"
   },
@@ -858,7 +860,9 @@
       "verifyToSeeFull": "ยืนยันตัวตนเพื่อดูโปรไฟล์เต็ม",
       "teaserNameHidden": "ผู้ทำงานที่ยืนยันแล้ว",
       "lockedTopTalentHint": "ผู้รับสมัคร Verified Pro สามารถดูและส่งข้อความถึง Top Talent ได้",
-      "upgradeForTopTalent": "อัปเกรดเพื่อดู Top Talent"
+      "upgradeForTopTalent": "อัปเกรดเพื่อดู Top Talent",
+      "verifyVenueToUnlock": "ยืนยันสถานที่ของคุณเพื่อปลดล็อก",
+      "subscribeToContact": "สมัครสมาชิกเพื่อติดต่อ"
     },
     "workerDetail": {
       "profileNotFound": "ไม่พบโปรไฟล์",
@@ -892,6 +896,35 @@
       "upgradeCta": "อัปเกรด",
       "proTitle": "Verified Pro",
       "proBody": "คุณดูโปรไฟล์ Top Talent และใช้ฟีเจอร์ข้อความพรีเมียมได้"
+    },
+    "billing": {
+      "title": "การชำระเงิน",
+      "subtitle": "แผนและการชำระเงินของคุณ",
+      "currentPlan": "แผนปัจจุบัน",
+      "status": "สถานะ",
+      "renewal": "ต่ออายุ",
+      "expiry": "หมดอายุ",
+      "lifetime": "ตลอดชีพ",
+      "manageOrCancel": "จัดการหรือยกเลิก",
+      "manageFailed": "เปิดหน้าเรียกเก็บเงินไม่สำเร็จ โปรดลองอีกครั้ง",
+      "noPlanBody": "สมัครสมาชิกเพื่อติดต่อ Top Talent",
+      "pricingCta": "ดูราคาและสมัครสมาชิก",
+      "plans": {
+        "none": "ไม่มีแผน",
+        "monthly": "รายเดือน",
+        "annual": "รายปี",
+        "pass_7d": "บัตรผ่าน 7 วัน",
+        "admin_grant": "สิทธิ์จากผู้ดูแล"
+      },
+      "statuses": {
+        "none": "ไม่มี",
+        "active": "ใช้งานอยู่",
+        "canceled": "ยกเลิกแล้ว",
+        "past_due": "ค้างชำระ",
+        "incomplete": "ยังไม่สมบูรณ์",
+        "trialing": "ช่วงทดลอง",
+        "open_access": "เปิดใช้งานฟรี"
+      }
     },
     "profile": {
       "title": "โปรไฟล์สถานที่",

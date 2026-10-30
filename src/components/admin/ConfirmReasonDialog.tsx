@@ -34,6 +34,8 @@ export function ConfirmReasonDialog({
     return null;
   }
 
+  const minimum = destructive ? 5 : 3;
+
   const handleConfirm = (): void => {
     onConfirm(reason.trim());
   };
@@ -60,17 +62,17 @@ export function ConfirmReasonDialog({
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             required
-            minLength={3}
+            minLength={minimum}
           />
         </div>
         {error && <p className="mt-2 text-sm text-error">{error}</p>}
         <div className="mt-5 flex flex-col gap-2">
           <Button
             type="button"
-            variant={destructive ? "primary" : "gold"}
+            variant={destructive ? "destructive" : "gold"}
             fullWidth
             loading={busy}
-            disabled={reason.trim().length < 3 || busy}
+            disabled={reason.trim().length < minimum || busy}
             onClick={handleConfirm}
           >
             {confirmLabel}

@@ -78,11 +78,7 @@ export async function GET(
 
     if (detailMode !== "full") {
       return NextResponse.json({
-        profile: toRecruiterWorkerTeaserDto(
-          workerProfile,
-          isTopTalent,
-          detailMode === "locked_top_talent"
-        ),
+        profile: toRecruiterWorkerTeaserDto(workerProfile, isTopTalent),
       });
     }
 

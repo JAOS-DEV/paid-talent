@@ -162,7 +162,11 @@ export function UserEntitlementPanel({
             Grant lifetime premium
           </Button>
           {entitlement.adminGrantAccess && (
-            <Button type="button" onClick={() => setDialog({ kind: "revoke" })}>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setDialog({ kind: "revoke" })}
+            >
               Revoke admin-granted premium
             </Button>
           )}

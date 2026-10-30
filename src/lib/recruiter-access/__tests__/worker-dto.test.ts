@@ -58,20 +58,23 @@ describe("worker-dto teaser contract", () => {
     expect(firstNameFromDisplayName("  Nattaya  B. ")).toBe("Nattaya");
   });
 
-  it("teaser DTO JSON has no photoUrl/photos/bio/pay/userId/contact keys", () => {
-    const teaser = toRecruiterWorkerTeaserDto(profileWithSecrets(), false, false);
+  it("teaser DTO JSON has pay and place but no photoUrl/photos/bio/userId/contact keys", () => {
+    const teaser = toRecruiterWorkerTeaserDto(profileWithSecrets(), false);
     const json = JSON.stringify(teaser);
 
     expect(teaser.mode).toBe("teaser");
     expect(teaser.firstName).toBe("Somchai");
+    expect(teaser.location).toBe("Bangkok");
     expect(teaser.area).toBe("Sukhumvit");
+    expect(teaser.jobRoles).toEqual(["Server"]);
+    expect(teaser.expectedPayMin).toBe(15000);
+    expect(teaser.expectedPayPeriod).toBe("month");
+    expect(teaser.payCurrency).toBe("THB");
     expect(teaser.teaserPhotoPath).toBe("/api/workers/profile-1/teaser-photo");
 
     expect(json).not.toContain("photoUrl");
     expect(json).not.toContain('"photos"');
     expect(json).not.toContain("bio");
-    expect(json).not.toContain("expectedPay");
-    expect(json).not.toContain("payCurrency");
     expect(json).not.toContain(SECRET_USER_ID);
     expect(json).not.toContain(SECRET_LINE);
     expect(json).not.toContain(SECRET_WHATSAPP);
@@ -80,21 +83,30 @@ describe("worker-dto teaser contract", () => {
     expect(teaser).not.toHaveProperty("photoUrl");
     expect(teaser).not.toHaveProperty("photos");
     expect(teaser).not.toHaveProperty("bio");
+    expect(teaser).not.toHaveProperty("lineId");
+    expect(teaser).not.toHaveProperty("phoneNumber");
+    expect(teaser).not.toHaveProperty("whatsappNumber");
   });
 
-  it("locked Top Talent teaser has null firstName/area and empty arrays", () => {
-    const locked = toRecruiterWorkerTeaserDto(profileWithSecrets(), true, true);
+  it("locked Top Talent teaser keeps first name, place, role, and pay", () => {
+    const locked = toRecruiterWorkerTeaserDto(profileWithSecrets(), true);
     expect(locked).toEqual({
       mode: "teaser",
       id: "profile-1",
-      firstName: null,
-      area: null,
-      jobRoles: [],
-      availability: [],
+      firstName: "Somchai",
+      location: "Bangkok",
+      area: "Sukhumvit",
+      jobRoles: ["Server"],
+      availability: ["Full-time"],
+      expectedPayMin: 15000,
+      expectedPayPeriod: "month",
+      payCurrency: "THB",
       isTopTalent: true,
       isVerified: true,
       teaserPhotoPath: "/api/workers/profile-1/teaser-photo",
     });
+    expect(JSON.stringify(locked)).not.toContain(SECRET_LINE);
+    expect(JSON.stringify(locked)).not.toContain(SECRET_PHONE);
   });
 
   it("unverified access maps regular workers to teaser and TT to locked", () => {
@@ -119,8 +131,12 @@ describe("worker-dto teaser contract", () => {
     }
     expect(topTalent.mode).toBe("teaser");
     if (topTalent.mode === "teaser") {
-      expect(topTalent.firstName).toBeNull();
-      expect(topTalent.area).toBeNull();
+      expect(topTalent.firstName).toBe("Somchai");
+      expect(topTalent.area).toBe("Sukhumvit");
+      expect(topTalent.jobRoles).toEqual(["Server"]);
+      expect(topTalent.expectedPayMin).toBe(15000);
+      expect(topTalent).not.toHaveProperty("lineId");
+      expect(topTalent).not.toHaveProperty("phoneNumber");
     }
   });
 

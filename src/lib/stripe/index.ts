@@ -10,7 +10,7 @@ import {
 import { stripe } from "./client";
 import { addUtcDays } from "@/lib/entitlements/resolve";
 
-export { stripe } from "./client";
+export { isStripeConfigured, stripe } from "./client";
 
 export const STRIPE_PLANS = {
   TOP_TALENT_UNLOCK: {

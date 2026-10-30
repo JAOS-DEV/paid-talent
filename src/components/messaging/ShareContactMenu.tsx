@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/ui";
+import { Button, Popover, PopoverContent, PopoverTrigger } from "@/components/ui";
 import type { ContactShareChannel } from "@/lib/db/schema";
 
 interface ShareContactMenuProps {
@@ -58,74 +58,78 @@ export function ShareContactMenu({
   };
 
   return (
-    <div className="relative">
-      <Button
-        type="button"
-        variant="outline"
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {t("share.menu")}
-      </Button>
-      {open ? (
-        <div className="absolute bottom-full right-0 z-10 mb-2 w-56 rounded-lg border border-charcoal-600 bg-charcoal-900 p-2 shadow-lg">
-          {pendingChannel ? (
-            <div className="space-y-2 p-1">
-              <p className="text-sm text-charcoal-200">
-                {t("share.confirm", {
-                  channel: t(`share.${CHANNEL_LABEL_KEY[pendingChannel]}`),
-                  name: counterpartName,
-                })}
-              </p>
-              <div className="flex flex-col gap-2">
-                <Button
-                  type="button"
-                  variant="primary"
-                  fullWidth
-                  disabled={busy}
-                  onClick={() => void runShare(pendingChannel)}
-                >
-                  {t("share.confirmAction")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  fullWidth
-                  disabled={busy}
-                  onClick={() => setPendingChannel(null)}
-                >
-                  {t("share.cancel")}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <ul className="space-y-1">
-              {channels.map((channel) => (
-                <li key={channel}>
-                  <button
-                    type="button"
-                    className="w-full rounded-md px-3 py-2 text-left text-sm text-charcoal-100 hover:bg-charcoal-800"
-                    onClick={() => {
-                      setNoValue(false);
-                      setPendingChannel(channel);
-                    }}
-                  >
-                    {t(`share.${CHANNEL_LABEL_KEY[channel]}`)}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {noValue ? (
-            <p className="mt-2 text-xs text-red-400">
-              {t("share.noValue")}{" "}
-              <Link href={profileSettingsHref} className="underline">
-                {t("share.profileSettings")}
-              </Link>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          setPendingChannel(null);
+          setNoValue(false);
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" disabled={disabled}>
+          {t("share.menu")}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" collisionPadding={12}>
+        {pendingChannel ? (
+          <div className="space-y-2 p-1">
+            <p className="text-sm text-charcoal-200">
+              {t("share.confirm", {
+                channel: t(`share.${CHANNEL_LABEL_KEY[pendingChannel]}`),
+                name: counterpartName,
+              })}
             </p>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="primary"
+                fullWidth
+                disabled={busy}
+                onClick={() => void runShare(pendingChannel)}
+              >
+                {t("share.confirmAction")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                fullWidth
+                disabled={busy}
+                onClick={() => setPendingChannel(null)}
+              >
+                {t("share.cancel")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <ul className="space-y-1">
+            {channels.map((channel) => (
+              <li key={channel}>
+                <button
+                  type="button"
+                  className="min-h-11 w-full rounded-md px-3 py-2 text-left text-sm text-charcoal-100 hover:bg-charcoal-800"
+                  onClick={() => {
+                    setNoValue(false);
+                    setPendingChannel(channel);
+                  }}
+                >
+                  {t(`share.${CHANNEL_LABEL_KEY[channel]}`)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {noValue ? (
+          <p className="mt-2 text-xs text-red-400">
+            {t("share.noValue")}{" "}
+            <Link href={profileSettingsHref} className="underline">
+              {t("share.profileSettings")}
+            </Link>
+          </p>
+        ) : null}
+      </PopoverContent>
+    </Popover>
   );
 }

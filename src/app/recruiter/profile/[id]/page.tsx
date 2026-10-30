@@ -20,13 +20,18 @@ import {
 import { SendContactRequestDialog } from "@/components/contact-requests";
 import { ReportDialog } from "@/components/safety";
 import { WorkerPublicProfileView } from "@/components/worker-profile";
-import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import {
   JOB_ROLE_MESSAGE_KEYS,
   translateCatalogValue,
 } from "@/lib/i18n/labels";
 import type { WorkerProfileDetail } from "@/lib/recruiter-access/worker-dto";
 import type { RecruiterAccessDto } from "@/lib/recruiter-access";
+import {
+  teaserContactCta,
+  teaserPlaceLabel,
+} from "@/lib/recruiter-access/teaser-cta";
+import { TeaserPhoto } from "@/components/recruiter/TeaserPhoto";
+import { formatWorkerExpectedPay } from "@/lib/profile/expected-pay";
 import type {
   HireConfirmationRequestStatus,
   HireConfirmationRequestedStatus,
@@ -48,107 +53,56 @@ interface InterestOutcomeData {
   } | null;
 }
 
-function verifyHref(access: RecruiterAccessDto | null): string {
-  if (access && access.identityStatus === "verified" && !access.hasApprovedVenue) {
-    return "/recruiter/venues";
-  }
-  return "/recruiter/verification";
-}
-
 function TeaserProfileView({
   profile,
-  verifyCtaHref,
+  access,
 }: {
   profile: Extract<WorkerProfileDetail, { mode: "teaser" }>;
-  verifyCtaHref: string;
+  access: RecruiterAccessDto | null;
 }): React.ReactElement {
-  const t = useTranslations("recruiter.workerDetail");
   const searchT = useTranslations("recruiter.search");
   const roleLabels = useTranslations("roles");
-  const locked =
-    profile.isTopTalent && profile.firstName == null;
+  const place = teaserPlaceLabel(profile);
+  const payLabel = formatWorkerExpectedPay(profile);
+  const role = profile.jobRoles[0];
+  const cta = teaserContactCta({
+    isVerified: access?.isVerified === true,
+    hasActivePlan: access?.tier === "pro",
+  });
 
   return (
     <Card padding="lg">
       <CardContent>
         <div className="flex flex-col items-center text-center gap-4">
-          <div className="w-28 h-28 rounded-full overflow-hidden bg-charcoal-700">
-            <img
-              src={profile.teaserPhotoPath}
-              alt=""
-              className="w-full h-full object-cover scale-150"
-            />
-          </div>
+          <TeaserPhoto src={profile.teaserPhotoPath} className="h-28 w-28" />
 
           <div className="flex items-center gap-2 flex-wrap justify-center">
-            {locked ? (
-              <>
-                <svg
-                  className="w-5 h-5 text-charcoal-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
-                <TopTalentBadge />
-              </>
-            ) : (
-              <>
-                <h1 className="text-2xl font-bold text-charcoal-100">
-                  {profile.firstName ?? searchT("teaserNameHidden")}
-                </h1>
-                {profile.isTopTalent ? <TopTalentBadge /> : null}
-                <Badge variant="success">{searchT("verified")}</Badge>
-              </>
-            )}
+            <h1 className="text-2xl font-bold text-charcoal-100">
+              {profile.firstName ?? searchT("teaserNameHidden")}
+            </h1>
+            {profile.isTopTalent ? <TopTalentBadge /> : null}
+            <Badge variant="success">{searchT("verified")}</Badge>
           </div>
 
-          {locked ? (
-            <p className="text-charcoal-400 text-sm max-w-md">
-              {searchT("lockedTopTalentHint")}
+          {place ? <p className="text-charcoal-400">{place}</p> : null}
+          {role ? (
+            <p className="text-charcoal-200">
+              {translateCatalogValue(roleLabels, JOB_ROLE_MESSAGE_KEYS, role)}
             </p>
-          ) : (
-            <>
-              {profile.area ? (
-                <p className="text-charcoal-400">{profile.area}</p>
-              ) : null}
-              {profile.jobRoles.length > 0 ? (
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {profile.jobRoles.map((role) => (
-                    <Badge key={role}>
-                      {translateCatalogValue(
-                        roleLabels,
-                        JOB_ROLE_MESSAGE_KEYS,
-                        role
-                      )}
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
-              {profile.availability.length > 0 ? (
-                <AvailabilityBadges values={profile.availability} />
-              ) : null}
-            </>
-          )}
+          ) : null}
+          {payLabel ? <p className="text-charcoal-300">{payLabel}</p> : null}
 
-          <div className="pt-2 w-full max-w-sm">
-            {locked ? (
-              <Link href="/recruiter/upgrade">
-                <Button fullWidth>{searchT("upgradeForTopTalent")}</Button>
+          {cta ? (
+            <div className="pt-2 w-full max-w-sm">
+              <Link href={cta.href} className="inline-flex w-full">
+                <Button fullWidth>
+                  {cta.kind === "verify"
+                    ? searchT("verifyVenueToUnlock")
+                    : searchT("subscribeToContact")}
+                </Button>
               </Link>
-            ) : (
-              <Link href={verifyCtaHref}>
-                <Button fullWidth>{t("verifyToSeeFull")}</Button>
-              </Link>
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
       </CardContent>
     </Card>
@@ -335,10 +289,7 @@ export default function ProfileDetailPage({
               </svg>
               {t("backToSearchLink")}
             </Link>
-            <TeaserProfileView
-              profile={profile}
-              verifyCtaHref={verifyHref(access)}
-            />
+            <TeaserProfileView profile={profile} access={access} />
           </div>
         </main>
         <Footer />

@@ -20,7 +20,7 @@ describe("admin capability derivation", () => {
     expect(header).toContain('t("admin")');
     expect(enMessages.navigation.admin).toBe("Admin");
     expect(header).not.toContain("Admin Dashboard");
-    expect(header).toContain("prefetch={false}");
+    expect(header).toContain("prefetch: false");
   });
 
   it("derives session isAdmin from the allowlist helper, not a client-supplied role", () => {
@@ -50,9 +50,10 @@ describe("admin capability derivation", () => {
 
   it("keeps AdminNav limited to pages that exist", () => {
     const nav = readSrc("components/admin/AdminNav.tsx");
-    expect(nav).toContain('href: "/admin/users"');
-    expect(nav).toContain('href: "/admin/activity"');
-    expect(nav).toContain('href: "/admin/settings"');
+    const items = readSrc("components/admin/admin-nav-items.ts");
+    expect(items).toContain('href: "/admin/users"');
+    expect(items).toContain('href: "/admin/activity"');
+    expect(items).toContain('href: "/admin/settings"');
     expect(nav).toContain("Back to app");
     expect(nav).toContain("Sign out");
     expect(nav).toContain("prefetch={false}");

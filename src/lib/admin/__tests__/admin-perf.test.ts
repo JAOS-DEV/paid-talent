@@ -21,8 +21,8 @@ describe("admin performance architecture", () => {
     expect(nav).toMatch(/href=\{item\.href\}\s+prefetch=\{false\}/);
 
     const header = readSrc("components/layout/Header.tsx");
-    expect(header).toContain('href="/admin"');
-    expect(header).toContain("prefetch={false}");
+    expect(header).toContain('href: "/admin"');
+    expect(header).toContain("prefetch: false");
   });
 
   it("loads verification and photo queues without eager signed media", () => {

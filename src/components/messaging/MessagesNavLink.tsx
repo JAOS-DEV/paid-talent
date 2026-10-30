@@ -6,9 +6,13 @@ import { useTranslations } from "next-intl";
 
 interface MessagesNavLinkProps {
   href: string;
+  variant?: "header" | "menu";
 }
 
-export function MessagesNavLink({ href }: MessagesNavLinkProps): React.ReactElement {
+export function MessagesNavLink({
+  href,
+  variant = "header",
+}: MessagesNavLinkProps): React.ReactElement {
   const t = useTranslations("navigation");
   const [unread, setUnread] = useState(0);
 
@@ -46,11 +50,13 @@ export function MessagesNavLink({ href }: MessagesNavLinkProps): React.ReactElem
   const label =
     unread > 0 ? t("messagesUnread", { count: unread }) : t("messages");
 
+  const className =
+    variant === "menu"
+      ? "flex min-h-11 w-full items-center rounded-lg px-3 text-base font-medium text-charcoal-100 hover:bg-charcoal-800"
+      : "inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 lg:px-2.5 lg:text-sm";
+
   return (
-    <Link
-      href={href}
-      className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium text-charcoal-200 hover:bg-charcoal-800 sm:px-2.5 sm:text-sm"
-    >
+    <Link href={href} className={className}>
       {label}
     </Link>
   );

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { AdminReasonAlertDialog } from "@/components/admin/AdminReasonAlertDialog";
 import { ConfirmReasonDialog } from "@/components/admin/ConfirmReasonDialog";
 
 type AccountStatus = "active" | "suspended" | "banned";
@@ -66,7 +67,7 @@ export function UserModerationPanel({
           {accountStatus === "active" && (
             <Button
               type="button"
-              variant="secondary"
+              variant="destructive"
               disabled={isSelf}
               onClick={() => setDialog("suspend")}
             >
@@ -85,6 +86,7 @@ export function UserModerationPanel({
           {accountStatus !== "banned" && (
             <Button
               type="button"
+              variant="destructive"
               disabled={isSelf}
               onClick={() => setDialog("ban")}
             >
@@ -103,23 +105,25 @@ export function UserModerationPanel({
         </div>
       </CardContent>
 
-      <ConfirmReasonDialog
+      <AdminReasonAlertDialog
         open={dialog === "suspend"}
         title="Suspend account"
         description="The account remains recorded but cannot sign in or use Paid Talent until reactivated. Public content is unpublished immediately."
         confirmLabel="Suspend"
         destructive
+        minLength={5}
         busy={busy}
         error={error}
         onCancel={() => setDialog(null)}
         onConfirm={(reason) => void submit("suspend", reason)}
       />
-      <ConfirmReasonDialog
+      <AdminReasonAlertDialog
         open={dialog === "ban"}
         title="Ban account"
         description="This verified identity cannot sign in or register again. The account is kept for moderation history."
         confirmLabel="Ban"
         destructive
+        minLength={5}
         busy={busy}
         error={error}
         onCancel={() => setDialog(null)}

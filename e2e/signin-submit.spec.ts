@@ -28,6 +28,11 @@ test.describe("Sign-In Form Submission", () => {
       !hasDatabaseUrl,
       "DATABASE_URL not set. Run `npm run db:migrate && npm run db:seed` with DATABASE_URL configured."
     );
+    const config = await (await page.request.get("/api/auth/config")).json();
+    test.skip(
+      !config.emailEnabled && !config.devBypassEnabled,
+      "Email sign-in is hidden when it is not configured"
+    );
   });
 
   test.describe("Valid Seed User Sign-In", () => {
@@ -190,6 +195,11 @@ test.describe("Sign-In Mobile Responsiveness", () => {
     test.skip(
       !hasDatabaseUrl,
       "DATABASE_URL not set. Run `npm run db:migrate && npm run db:seed` with DATABASE_URL configured."
+    );
+    const config = await (await page.request.get("/api/auth/config")).json();
+    test.skip(
+      !config.emailEnabled && !config.devBypassEnabled,
+      "Email sign-in is hidden when it is not configured"
     );
   });
 

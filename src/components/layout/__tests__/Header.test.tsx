@@ -96,7 +96,15 @@ describe("Header chrome", () => {
     expect(container.querySelector("header")).toHaveClass("h-14", "overflow-x-hidden");
     expect(screen.queryByText("Admin Dashboard")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Open menu" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open menu" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute(
+      "href",
+      "/recruiter/search"
+    );
+    expect(screen.getByRole("link", { name: "Billing" })).toHaveAttribute(
+      "href",
+      "/recruiter/billing"
+    );
 
     const admin = screen.getByRole("link", { name: "Admin" });
     expect(admin).toHaveAttribute("href", "/admin");
@@ -124,7 +132,10 @@ describe("Header chrome", () => {
       "href",
       "/worker/dashboard"
     );
-    expect(screen.queryByRole("link", { name: "Profile" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute(
+      "href",
+      "/worker/profile"
+    );
     expect(screen.queryByRole("link", { name: "Verification" })).not.toBeInTheDocument();
   });
 
@@ -133,7 +144,27 @@ describe("Header chrome", () => {
     render(<Header />);
 
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
+      "href",
+      "/worker/dashboard"
+    );
+    expect(screen.getByRole("link", { name: "Requests" })).toHaveAttribute(
+      "href",
+      "/worker/requests"
+    );
+    expect(screen.getByRole("link", { name: "Messages" })).toHaveAttribute(
+      "href",
+      "/worker/messages"
+    );
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute(
+      "href",
+      "/worker/profile"
+    );
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/settings/notifications"
+    );
+    expect(screen.getByRole("button", { name: "Open menu" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Interests" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Paid Talent" })).toHaveAttribute(
       "href",
@@ -149,7 +180,26 @@ describe("Header chrome", () => {
 
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Search Workers" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Openings" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute(
+      "href",
+      "/recruiter/search"
+    );
+    expect(screen.getByRole("link", { name: "Openings" })).toHaveAttribute(
+      "href",
+      "/recruiter/openings"
+    );
+    expect(screen.getByRole("link", { name: "Venues" })).toHaveAttribute(
+      "href",
+      "/recruiter/venues"
+    );
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute(
+      "href",
+      "/recruiter/profile"
+    );
+    expect(screen.getByRole("link", { name: "Billing" })).toHaveAttribute(
+      "href",
+      "/recruiter/billing"
+    );
     expect(screen.getByRole("link", { name: "Paid Talent" })).toHaveAttribute(
       "href",
       "/recruiter/dashboard"
