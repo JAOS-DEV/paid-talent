@@ -542,9 +542,8 @@ export default function WorkerProfilePage(): React.ReactElement {
             />
           ) : null}
 
-          <div className="mb-6 space-y-6">
+          <div className="mb-6">
             <BlockedAccountsSection />
-            <DeleteAccountSection />
           </div>
 
           <div className="space-y-6">
@@ -906,6 +905,10 @@ export default function WorkerProfilePage(): React.ReactElement {
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          <div className="mt-10">
+            <DeleteAccountSection />
           </div>
         </div>
       </main>

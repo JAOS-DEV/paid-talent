@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui";
 import type { WorkerOwnedPhoto } from "@/lib/worker-dashboard";
 
@@ -8,11 +9,11 @@ interface PhotoStatusPillProps {
   photo: WorkerOwnedPhoto;
 }
 
-export function photoStatusLabel(photo: WorkerOwnedPhoto): string {
-  if (photo.isCurrentApproved) return "Primary";
-  if (photo.moderationStatus === "pending") return "Pending review";
-  if (photo.moderationStatus === "rejected") return "Rejected";
-  return "Approved";
+function statusId(photo: WorkerOwnedPhoto): string {
+  if (photo.isCurrentApproved) return "primary";
+  if (photo.moderationStatus === "pending") return "pending-review";
+  if (photo.moderationStatus === "rejected") return "rejected";
+  return "approved";
 }
 
 function pillVariant(
@@ -30,9 +31,17 @@ function pillVariant(
 export function PhotoStatusPill({
   photo,
 }: PhotoStatusPillProps): React.ReactElement {
-  const label = photoStatusLabel(photo);
+  const t = useTranslations("gallery");
+  const label = photo.isCurrentApproved
+    ? t("statusPrimary")
+    : photo.moderationStatus === "pending"
+      ? t("statusPending")
+      : photo.moderationStatus === "rejected"
+        ? t("statusRejected")
+        : t("statusApproved");
+
   return (
-    <span data-testid={`photo-status-${label.replace(/\s+/g, "-").toLowerCase()}`}>
+    <span data-testid={`photo-status-${statusId(photo)}`}>
       <Badge variant={pillVariant(photo)}>{label}</Badge>
     </span>
   );

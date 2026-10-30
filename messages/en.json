@@ -200,7 +200,7 @@
     "unlockTopTalent": "Unlock Top Talent",
     "openAccessBody": "Top Talent badges and ranking stay visible so recruiters can see the most in-demand workers. Premium messaging and higher limits are currently open without a subscription.",
     "subscribeBody": "Message Top Talent, get higher daily contact-request limits, priority in their inbox with a Verified Pro badge, and a longer opening message.",
-    "subscribeCta": "Subscribe to Top Talent"
+    "subscribeCta": "Subscribe to Verified Pro"
   },
   "footer": {
     "tagline": "Connecting workers with recruiters. Find your next opportunity.",
@@ -235,21 +235,22 @@
   },
   "topTalentPage": {
     "title": "Top Talent",
-    "subtitle": "Subscription-gated messaging and priority for top-ranked verified workers.",
+    "subtitle": "The badge for the highest-ranked verified workers.",
     "whatItIsTitle": "What is Top Talent?",
-    "whatItIsBody": "Top Talent highlights the highest-ranked verified workers on Paid Talent. A Top Talent subscription or 7-day pass lets recruiters message these profiles, with higher limits, inbox priority, a Verified Pro badge, and a longer opener with an opening attached. Contact details stay private until talent share them in chat.",
+    "whatItIsBody": "Top Talent is a badge for the highest-ranked verified workers on Paid Talent. It is not a paid plan. Verified Pro lets recruiters message these profiles, with higher limits, inbox priority, and a longer opener with an opening attached. Contact details stay private until talent share them in chat.",
     "whoItsForTitle": "Who it's for",
     "whoItsForBody": "Venues and recruiters who want faster access to standout, verified talent — and workers who want to be discovered by serious hiring venues.",
     "howAccessTitle": "How access works",
-    "howAccessBody": "Top Talent badges and ranking stay visible to recruiters. Messaging Top Talent, higher contact-request limits, and inbox priority require a verified recruiter with a subscription or pass (unless the platform is temporarily in open-access mode). LINE, WhatsApp, and phone are never shown on profiles.",
+    "howAccessBody": "Top Talent badges and ranking stay visible to recruiters. Messaging Top Talent, higher contact-request limits, and inbox priority require a verified recruiter on Verified Pro (unless the platform is temporarily in open-access mode). LINE, WhatsApp, and phone are never shown on profiles.",
     "ctaSignup": "Sign up as a recruiter",
-    "ctaUpgrade": "Upgrade for Top Talent",
+    "ctaUpgrade": "View Verified Pro pricing",
     "ctaVerify": "Verify to upgrade",
-    "verifyRequiredNote": "Verify your identity and venue before you can upgrade to Top Talent.",
+    "verifyRequiredNote": "Verify your identity and venue before you can subscribe to Verified Pro.",
     "ctaOpenAccess": "Free during beta",
     "openAccessNote": "Premium Top Talent messaging and limits are currently free for all recruiters while we're in beta. Contact details remain private.",
     "ctaBrowse": "Browse Top Talent",
-    "signedInWorkerNote": "You're signed in as talent. Switch to a recruiter account to subscribe to Top Talent access."
+    "signedInWorkerNote": "You're signed in as talent. Switch to a recruiter account to subscribe to Verified Pro.",
+    "pricingLink": "View Verified Pro pricing"
   },
   "accountDeletion": {
     "title": "Delete my account",
@@ -258,7 +259,11 @@
     "confirmButton": "Delete my account",
     "cancel": "Cancel",
     "working": "Working…",
-    "failed": "Could not request deletion. Try again."
+    "failed": "Could not request deletion. Try again.",
+    "confirmPhrase": "DELETE MY ACCOUNT",
+    "dangerTitle": "Danger zone",
+    "dangerBody": "Deleting your account suspends it immediately. After you confirm, you cannot undo it from the app.",
+    "phraseError": "Type {phrase} to confirm."
   },
   "privacyPage": {
     "title": "Privacy Policy",
@@ -297,8 +302,8 @@
     "recruiterObligationsBody": "Recruiters must not charge talent fees or deposits, must not keep copies of identity documents, and must not use Paid Talent to recruit people for work outside Thailand. TODO: Legal entity name, registered address, and contact email.",
     "marketplaceTitle": "Marketplace conduct",
     "marketplaceBody": "Paid Talent helps venues discover talent. Hiring decisions, pay, and work arrangements happen directly between users. Do not post unlawful, harmful, or misleading content.",
-    "subscriptionsTitle": "Subscriptions and Top Talent",
-    "subscriptionsBody": "Top Talent access is a monthly or annual subscription, or a 7-day pass. It lets a verified recruiter message Top Talent, use higher contact-request limits, and appear with inbox priority. Paid Talent does not sell contact details. LINE, WhatsApp, and phone stay private until talent choose to share them in chat.",
+    "subscriptionsTitle": "Subscriptions and Verified Pro",
+    "subscriptionsBody": "Verified Pro is a monthly or annual subscription, or a 7-day pass. It lets a verified recruiter message workers who have the Top Talent badge, use higher contact-request limits, and appear with inbox priority. Paid Talent does not sell contact details. LINE, WhatsApp, and phone stay private until talent choose to share them in chat.",
     "reportingTitle": "Reporting and auto-pause",
     "reportingBody": "Anyone can report a contact request or conversation. Paid Talent may pause a recruiter's messaging automatically when reports reach the safety threshold. Staff review reports and automatic flags.",
     "liabilityTitle": "Liability",
@@ -307,14 +312,14 @@
     "contactBody": "TODO: Legal entity name and contact email for terms questions."
   },
   "recruiterUpgrade": {
-    "title": "Upgrade to Top Talent",
-    "subtitle": "Message Top Talent, get higher limits, a Verified Pro badge with inbox priority, and a longer opener with an opening attached.",
-    "body": "Top Talent access lets you message the highest-ranked verified talent, send more contact requests per day, appear with priority and a Verified Pro badge in their inbox, and send a longer opening message with an opening attached. Contact details stay private until talent share them in chat.",
-    "cta": "Subscribe to Top Talent",
+    "title": "Verified Pro",
+    "subtitle": "Message workers with the Top Talent badge, with higher limits, inbox priority, and a longer opener with an opening attached.",
+    "body": "Verified Pro lets you message the highest-ranked verified talent, send more contact requests per day, appear with priority in their inbox, and send a longer opening message with an opening attached. Contact details stay private until talent share them in chat.",
+    "cta": "Subscribe to Verified Pro",
     "buyCta": "Continue to checkout",
     "browseCta": "Browse workers",
-    "hasAccess": "You already have Top Talent access.",
-    "openAccess": "Premium Top Talent features are currently available without a subscription.",
+    "hasAccess": "You already have Verified Pro.",
+    "openAccess": "Premium messaging is currently available without a Verified Pro subscription.",
     "verifyRequired": "Verify your identity and venue to upgrade",
     "verifyCta": "Verify to upgrade",
     "monthlyLabel": "Monthly — {amount}",
@@ -322,7 +327,11 @@
     "annualHint": "2 months free",
     "passLabel": "7-day pass — {amount}",
     "launchHint": "Launch offer available on monthly",
-    "firstPassHint": "First-pass discount available"
+    "firstPassHint": "First-pass discount available",
+    "renewsMonthly": "Renews monthly, cancel anytime in Billing",
+    "renewsAnnual": "Renews annually, cancel anytime in Billing",
+    "oneOff": "One-off, no auto-renew",
+    "annualSaving": "Save {amount} compared with 12× monthly"
   },
   "auth": {
     "signInTitle": "Sign In",
@@ -760,15 +769,15 @@
       "fallbackVenue": "Your venue",
       "openingsSummary": "Openings: {published} published · {draft} draft",
       "openings": "Openings",
-      "topTalentAccess": "Top Talent Access",
+      "topTalentAccess": "Verified Pro",
       "openAccessBody": "Premium Top Talent messaging and higher limits are currently available without a subscription. Top Talent badges and ranking continue as normal. Contact details stay private.",
-      "hasAccessBody": "You can message Top Talent with higher limits, inbox priority, and a Verified Pro badge.",
-      "unlockBody": "Subscribe to message Top Talent, get higher daily contact-request limits, inbox priority with a Verified Pro badge, and a longer opening message.",
+      "hasAccessBody": "You have Verified Pro: message Top Talent with higher limits and inbox priority.",
+      "unlockBody": "Subscribe to Verified Pro to message Top Talent, get higher daily contact-request limits, inbox priority, and a longer opening message.",
       "browseTopTalent": "Browse Top Talent",
       "recentTopTalent": "Recent Top Talent",
       "noTopTalent": "No top talent profiles yet",
       "searchForWorkers": "Search for workers",
-      "subscribeSuccess": "Successfully subscribed to Top Talent! You can now message Top Talent with higher limits and priority.",
+      "subscribeSuccess": "Successfully subscribed to Verified Pro. You can now message Top Talent with higher limits and priority.",
       "subscribeCancelled": "Subscription was not completed. You can try again when ready.",
       "fallbackName": "Recruiter",
       "interested": "Interested",
@@ -860,10 +869,10 @@
       "verifyToSeeFull": "Verify to see full profiles",
       "teaserNameHidden": "Verified talent",
       "lockedTopTalentHint": "Verified Pro recruiters can view and message Top Talent",
-      "upgradeForTopTalent": "Upgrade for Top Talent",
+      "upgradeForTopTalent": "Upgrade to Verified Pro",
       "verifyIdentityToUnlock": "Verify your identity to unlock",
       "addVenueToUnlock": "Add a venue to unlock",
-      "subscribeToContact": "Subscribe to contact"
+      "subscribeToContact": "Subscribe to Verified Pro"
     },
     "workerDetail": {
       "profileNotFound": "Profile not found",
@@ -908,13 +917,13 @@
       "lifetime": "Lifetime",
       "manageOrCancel": "Manage or cancel",
       "manageFailed": "Could not open billing. Please try again.",
-      "noPlanBody": "Subscribe to contact Top Talent.",
+      "noPlanBody": "Subscribe to Verified Pro to contact Top Talent.",
       "pricingCta": "View pricing & subscribe",
       "plans": {
         "none": "No plan",
-        "monthly": "Monthly",
-        "annual": "Annual",
-        "pass_7d": "7-day pass",
+        "monthly": "Verified Pro · Monthly",
+        "annual": "Verified Pro · Annual",
+        "pass_7d": "Verified Pro · 7-day pass",
         "admin_grant": "Admin grant"
       },
       "statuses": {
@@ -1004,7 +1013,22 @@
       "hiringFor": "Interested in hiring for",
       "generalInterest": "General interest",
       "noPublished": "No published openings yet.",
-      "createOpening": "Create an opening"
+      "createOpening": "Create an opening",
+      "card": {
+        "published": "Published",
+        "draft": "Draft",
+        "noPay": "No pay set",
+        "deleteTitle": "Delete this opening?",
+        "deleteBody": "This removes the opening from your venue. Existing interests will remain, but will no longer be linked to this opening.",
+        "deleteOpening": "Delete opening",
+        "edit": "Edit opening",
+        "unpublish": "Unpublish",
+        "publish": "Publish opening",
+        "delete": "Delete",
+        "unpublishFailed": "Failed to unpublish",
+        "publishFailed": "Failed to publish",
+        "deleteFailed": "Failed to delete"
+      }
     },
     "interests": {
       "title": "Your Interests",
@@ -1097,12 +1121,16 @@
       "pendingBody": "Your ID documents are being reviewed. This usually takes 1-2 business days.",
       "rejected": "Verification rejected",
       "rejectedBody": "Your verification was rejected. Please resubmit with valid documents.",
-      "resubmit": "Resubmit verification"
+      "resubmit": "Resubmit verification",
+      "pillPending": "Pending",
+      "pillRejected": "Rejected",
+      "pillApproved": "Approved",
+      "pillUnverified": "Not verified"
     }
   },
   "subscription": {
     "free": "Free Plan",
-    "topTalentUnlock": "Top Talent Unlock",
+    "topTalentUnlock": "Verified Pro",
     "subscribe": "Subscribe",
     "manage": "Manage Subscription",
     "active": "Active",
@@ -1296,7 +1324,7 @@
         "asked_for_documents": "Asked for documents",
         "harassment": "Harassment",
         "sexual_content": "Sexual content",
-        "underage_concern": "Underage concern",
+        "underage_concern": "Under 20",
         "trafficking_concern": "Trafficking concern",
         "spam": "Spam",
         "other": "Other"
@@ -1307,7 +1335,7 @@
         "asked_for_documents": "They asked for your passport, ID, or other papers.",
         "harassment": "Threatening, bullying, or abusive messages.",
         "sexual_content": "Sexual requests or inappropriate content.",
-        "underage_concern": "You think someone may be under 18.",
+        "underage_concern": "You think someone may be under 20.",
         "trafficking_concern": "You worry about trafficking or forced work.",
         "spam": "Repeated unwanted or irrelevant messages.",
         "other": "Something else that feels unsafe."
@@ -1325,5 +1353,76 @@
       "loadFailed": "Could not load blocked accounts.",
       "unblockFailed": "Could not unblock this account."
     }
+  },
+  "badges": {
+    "topTalent": "Top Talent"
+  },
+  "payPeriods": {
+    "slashDay": "/ day",
+    "slashMonth": "/ month",
+    "slashNight": "/ night",
+    "slashHour": "/ hour",
+    "slashShift": "/ shift"
+  },
+  "places": {
+    "cities": {
+      "bangkok": "Bangkok",
+      "pattaya": "Pattaya",
+      "phuket": "Phuket",
+      "chiangMai": "Chiang Mai"
+    },
+    "areas": {
+      "sukhumvit": "Sukhumvit",
+      "silom": "Silom",
+      "walkingStreet": "Walking Street",
+      "thonglor": "Thonglor",
+      "khaoSan": "Khao San",
+      "pattaya": "Pattaya",
+      "phuket": "Phuket"
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "That link doesn't match a page on Paid Talent.",
+    "home": "Back to home"
+  },
+  "signOutPage": {
+    "title": "Sign out?",
+    "body": "You'll need to sign in again to use your account.",
+    "confirm": "Sign out",
+    "cancel": "Stay signed in"
+  },
+  "gallery": {
+    "count": "{count} of 5 photos",
+    "addPhoto": "Add photo",
+    "noPhotos": "No profile photos yet.",
+    "loadFailed": "Failed to load photos",
+    "removeFailed": "Failed to remove photo",
+    "reorderFailed": "Failed to reorder photo",
+    "primaryFailed": "Failed to set primary photo",
+    "unverified": "Additional photos are available after identity verification is approved.",
+    "primaryPending": "Additional photos are available after your primary photo is approved.",
+    "guidance": "Your primary verification photo is photo 1. You can add up to four more photos for recruiters{extra}. New photos stay private until they are approved.",
+    "guidanceExtra": ", including while others are under review ({count} remaining)",
+    "rules": "No nudes. We'll review each photo before it goes live.",
+    "pending": "This photo will appear on your profile after it is approved.",
+    "inReview": "In review",
+    "hidden": "Hidden",
+    "makePrimary": "Make primary",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "remove": "Remove",
+    "photoNumber": "Photo {number}",
+    "preparing": "Preparing photo…",
+    "uploading": "Uploading photo…",
+    "saving": "Saving photo…",
+    "statusPrimary": "Primary",
+    "statusPending": "Pending review",
+    "statusRejected": "Rejected",
+    "statusApproved": "Approved",
+    "tooLarge": "This photo is too large. Maximum size is 10 MB.",
+    "heic": "HEIC photos aren't supported yet. Please choose a JPG, PNG or WebP image.",
+    "invalidType": "Please choose a JPG, PNG or WebP image.",
+    "uploadFailed": "We couldn't upload your photo. Please try again."
   }
 }

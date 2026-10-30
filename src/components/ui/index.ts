@@ -21,3 +21,12 @@ export {
   AlertDialogDescription,
   AlertDialogCancel,
 } from "./alert-dialog";
+export { Checkbox } from "./checkbox";
+export { RadioGroup, RadioGroupItem } from "./radio-group";
+export {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "./select";

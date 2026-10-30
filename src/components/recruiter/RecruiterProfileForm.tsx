@@ -23,6 +23,10 @@ import {
   type VenueLogoChange,
 } from "@/components/recruiter/VenueLogoPicker";
 import { AccountVisibilityStrip } from "@/components/profile/AccountVisibilityStrip";
+import {
+  AREA_MESSAGE_KEYS,
+  translateCatalogValue,
+} from "@/lib/i18n/labels";
 
 interface RecruiterProfileFormProps {
   initialProfile: RecruiterProfile | null;
@@ -51,6 +55,7 @@ export function RecruiterProfileForm({
 }: RecruiterProfileFormProps): React.ReactElement {
   const t = useTranslations("recruiter.profile");
   const common = useTranslations("common");
+  const areaLabels = useTranslations("places.areas");
   const [organizationName, setOrganizationName] = useState(
     initialProfile?.organizationName || ""
   );
@@ -222,7 +227,7 @@ export function RecruiterProfileForm({
                         : "bg-charcoal-800 text-charcoal-300 hover:bg-charcoal-700"
                     }`}
                   >
-                    {chipArea}
+                    {translateCatalogValue(areaLabels, AREA_MESSAGE_KEYS, chipArea)}
                   </button>
                 ))}
               </div>

@@ -4,7 +4,15 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Header, Footer } from "@/components/layout";
-import { Button, Badge } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui";
 import { LiveLivenessRecorder } from "@/components/verification/LiveLivenessRecorder";
 import type { VerificationStatus, DocType } from "@/lib/db/schema";
 import {
@@ -475,26 +483,29 @@ export function IdentityVerificationFlow({
           </p>
         </div>
 
-        <select
-          className="w-full px-4 py-3 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+        <Select
           value={docType}
-          onChange={(e) => setDocType(e.target.value as DocType)}
-          aria-label={t("documentType")}
+          onValueChange={(value) => setDocType(value as DocType)}
         >
-          {DOC_TYPE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {t(
-                opt.value === "passport"
-                  ? "docPassport"
-                  : opt.value === "thai_id"
-                    ? "docThaiId"
-                    : opt.value === "drivers_license"
-                      ? "docLicense"
-                      : "docOther"
-              )}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger aria-label={t("documentType")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DOC_TYPE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {t(
+                  opt.value === "passport"
+                    ? "docPassport"
+                    : opt.value === "thai_id"
+                      ? "docThaiId"
+                      : opt.value === "drivers_license"
+                        ? "docLicense"
+                        : "docOther"
+                )}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <label className="block">
           <div className="bg-charcoal-800 border border-charcoal-600 rounded-xl p-4 text-center cursor-pointer hover:border-primary-500/50 transition-colors">

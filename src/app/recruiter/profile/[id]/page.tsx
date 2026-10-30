@@ -4,7 +4,7 @@ import React, { useState, useEffect, use, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Header, Footer } from "@/components/layout";
 import {
   Badge,
@@ -22,8 +22,11 @@ import { ReportDialog } from "@/components/safety";
 import { WorkerPublicProfileView } from "@/components/worker-profile";
 import {
   JOB_ROLE_MESSAGE_KEYS,
+  localizedPlaceParts,
   translateCatalogValue,
 } from "@/lib/i18n/labels";
+import { formatLocaleDate } from "@/lib/i18n/format-date";
+import { localizeTeaserPayBand } from "@/lib/profile/expected-pay";
 import type { WorkerProfileDetail } from "@/lib/recruiter-access/worker-dto";
 import type { RecruiterAccessDto } from "@/lib/recruiter-access";
 import {
@@ -62,7 +65,12 @@ function TeaserProfileView({
 }): React.ReactElement {
   const searchT = useTranslations("recruiter.search");
   const roleLabels = useTranslations("roles");
-  const place = teaserPlaceLabel(profile);
+  const cityLabels = useTranslations("places.cities");
+  const areaLabels = useTranslations("places.areas");
+  const periods = useTranslations("payPeriods");
+  const place = teaserPlaceLabel(
+    localizedPlaceParts(profile.location, profile.area, cityLabels, areaLabels)
+  );
   const role = profile.jobRoles[0];
   const cta = teaserContactCta({
     isVerified: access?.isVerified === true,
@@ -91,7 +99,12 @@ function TeaserProfileView({
             </p>
           ) : null}
           {profile.payBand ? (
-            <p className="text-charcoal-300">{profile.payBand}</p>
+            <p className="text-charcoal-300">
+              {localizeTeaserPayBand(profile.payBand, {
+                night: periods("slashNight"),
+                month: periods("slashMonth"),
+              })}
+            </p>
           ) : null}
 
           {cta ? (
@@ -119,6 +132,7 @@ export default function ProfileDetailPage({
   const { id } = use(params);
   const { data: session, status } = useSession();
   const t = useTranslations("recruiter.workerDetail");
+  const locale = useLocale();
   const [profile, setProfile] = useState<WorkerProfileDetail | null>(null);
   const [access, setAccess] = useState<RecruiterAccessDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -404,12 +418,12 @@ export default function ProfileDetailPage({
                   </div>
                   {interestOutcome.hiredAt && (
                     <p className="text-charcoal-500 text-xs mt-2">
-                      {t("hiredOn")} {new Date(interestOutcome.hiredAt).toLocaleDateString()}
+                      {t("hiredOn")} {formatLocaleDate(interestOutcome.hiredAt, locale)}
                     </p>
                   )}
                   {interestOutcome.startedAt && (
                     <p className="text-charcoal-500 text-xs mt-1">
-                      {t("startedOn")} {new Date(interestOutcome.startedAt).toLocaleDateString()}
+                      {t("startedOn")} {formatLocaleDate(interestOutcome.startedAt, locale)}
                     </p>
                   )}
                 </div>

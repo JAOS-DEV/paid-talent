@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, TopTalentBadge } from "@/components/ui";
+import { Button } from "@/components/ui";
 
 type BillingProduct = "monthly" | "annual" | "pass_7d";
 
@@ -91,6 +91,10 @@ export function RecruiterUpgradePanel(): React.ReactElement {
   const priceFor = (product: BillingProduct): PriceOption | undefined =>
     prices.find((p) => p.product === product);
 
+  const monthlyUnit = priceFor("monthly")?.unitAmount ?? 99_000;
+  const annualUnit = priceFor("annual")?.unitAmount ?? 990_000;
+  const annualSaving = monthlyUnit * 12 - annualUnit;
+
   if (loading) {
     return (
       <div className="h-40 animate-pulse rounded-xl bg-charcoal-800" />
@@ -99,9 +103,6 @@ export function RecruiterUpgradePanel(): React.ReactElement {
 
   return (
     <div className="rounded-xl border border-charcoal-700 bg-charcoal-900/60 p-5 sm:p-6">
-      <div className="mb-4">
-        <TopTalentBadge />
-      </div>
       <h1 className="text-2xl font-bold text-charcoal-100 sm:text-3xl">
         {t("title")}
       </h1>
@@ -141,9 +142,15 @@ export function RecruiterUpgradePanel(): React.ReactElement {
                   : product === "annual"
                     ? t("annualLabel", { amount })
                     : t("passLabel", { amount });
+              const renewal =
+                product === "monthly"
+                  ? t("renewsMonthly")
+                  : product === "annual"
+                    ? t("renewsAnnual")
+                    : t("oneOff");
               const hint =
-                product === "annual"
-                  ? t("annualHint")
+                product === "annual" && annualSaving > 0
+                  ? t("annualSaving", { amount: formatThb(annualSaving) })
                   : product === "monthly" && option?.launchAvailable
                     ? t("launchHint")
                     : product === "pass_7d" && option?.firstPassDiscountAvailable
@@ -159,11 +166,12 @@ export function RecruiterUpgradePanel(): React.ReactElement {
                     <div>
                       <p className="font-medium text-charcoal-100">{label}</p>
                       {hint ? (
-                        <p className="text-sm text-charcoal-400">{hint}</p>
+                        <p className="text-sm text-charcoal-300">{hint}</p>
                       ) : null}
+                      <p className="text-sm text-charcoal-300">{renewal}</p>
                     </div>
                     <Button
-                      variant={product === "monthly" ? "gold" : "secondary"}
+                      variant="primary"
                       size="md"
                       loading={checkingOut === product}
                       disabled={checkingOut !== null || option?.configured === false}

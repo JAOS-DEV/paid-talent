@@ -64,11 +64,11 @@ describe("public signup entry points", () => {
     expect(enMessages.home.startRecruiting).toBe("Start Recruiting");
   });
 
-  it("Subscribe to Top Talent goes to age-gate with role=recruiter", () => {
+  it("Subscribe to Verified Pro goes to age-gate with role=recruiter", () => {
     const home = readSrc("app/page.tsx");
     expect(home).toMatch(/href=["']\/auth\/age-gate\?role=recruiter["']/);
     expect(home).toContain('t("subscribeCta")');
-    expect(enMessages.home.subscribeCta).toBe("Subscribe to Top Talent");
+    expect(enMessages.home.subscribeCta).toBe("Subscribe to Verified Pro");
   });
 
   it("no public signup CTA links directly to /auth/age-verification", () => {

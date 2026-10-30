@@ -2,7 +2,18 @@
 
 import React, { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Checkbox,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui";
 
 export interface InboundPrefs {
   dailyLimit: number;
@@ -60,31 +71,34 @@ export function InboundRequestControls({
           >
             {t("settings.dailyLimit")}
           </label>
-          <select
-            id="inbound-daily-limit"
-            value={prefs.dailyLimit}
+          <Select
+            value={String(prefs.dailyLimit)}
             disabled={saving}
-            onChange={(e) =>
-              void savePrefs({ dailyLimit: Number(e.target.value) })
+            onValueChange={(value) =>
+              void savePrefs({ dailyLimit: Number(value) })
             }
-            className="w-full rounded-lg border border-charcoal-600 bg-charcoal-800 px-4 py-2.5 text-charcoal-100 sm:max-w-xs"
           >
-            {Array.from({ length: prefs.defaultLimit }, (_, i) => i + 1).map(
-              (n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              )
-            )}
-          </select>
+            <SelectTrigger id="inbound-daily-limit" className="sm:max-w-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: prefs.defaultLimit }, (_, i) => i + 1).map(
+                (n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                )
+              )}
+            </SelectContent>
+          </Select>
         </div>
         <label className="flex items-center gap-3 text-sm text-charcoal-200">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={prefs.paused}
             disabled={saving}
-            onChange={(e) => void savePrefs({ paused: e.target.checked })}
-            className="h-4 w-4"
+            onCheckedChange={(checked) =>
+              void savePrefs({ paused: checked === true })
+            }
           />
           {t("settings.pause")}
         </label>

@@ -103,12 +103,23 @@ function resolveDisplayCurrency(value: string | null | undefined): string {
 const TEASER_PAY_BAND_STEP = 500;
 
 /**
- * Rounded-down pay floor for locked non-Top-Talent teasers, e.g. "฿1,000+".
+ * Short worker period is shown as a night on teasers. Monthly stays monthly.
  * Exact amounts stay off the teaser payload.
+ */
+export function teaserPayPeriodWord(
+  period: string | null | undefined
+): "night" | "month" {
+  return period === "month" ? "month" : "night";
+}
+
+/**
+ * Rounded-down pay floor for locked non-Top-Talent teasers,
+ * e.g. "฿1,000+ / night" or "฿1,000+ / month".
  */
 export function formatTeaserPayBand(
   amount: number | null | undefined,
-  currency: string | null | undefined
+  currency: string | null | undefined,
+  period?: string | null
 ): string | null {
   if (amount == null || !Number.isFinite(amount)) {
     return null;
@@ -119,14 +130,33 @@ export function formatTeaserPayBand(
     return null;
   }
   const symbol = getCurrencySymbol(resolveDisplayCurrency(currency));
-  return `${symbol}${rounded.toLocaleString("en-US")}+`;
+  const word = teaserPayPeriodWord(period);
+  return `${symbol}${rounded.toLocaleString("en-US")}+ / ${word}`;
+}
+
+/** Swap the English teaser suffix for the active locale. The amount floor stays. */
+export function localizeTeaserPayBand(
+  payBand: string,
+  labels: { night: string; month: string }
+): string {
+  const suffixes = [" / month", " / night", " / day"] as const;
+  for (const suffix of suffixes) {
+    if (payBand.endsWith(suffix)) {
+      const amount = payBand.slice(0, -suffix.length);
+      const label = suffix === " / month" ? labels.month : labels.night;
+      return `${amount} ${label}`;
+    }
+  }
+  return payBand;
 }
 
 /**
  * Formats worker expected pay as "฿15,000 / day" or "฿15,000 / month".
+ * Pass localized suffixes (including the leading slash) for Thai.
  */
 export function formatWorkerExpectedPay(
-  fields: WorkerExpectedPayFields
+  fields: WorkerExpectedPayFields,
+  periodLabels?: { day: string; month: string }
 ): string | null {
   const amount = getWorkerExpectedPayAmount(fields);
   if (amount == null) {
@@ -139,8 +169,13 @@ export function formatWorkerExpectedPay(
   const period =
     parseWorkerExpectedPayPeriod(fields.expectedPayPeriod) ??
     DEFAULT_WORKER_EXPECTED_PAY_PERIOD;
+  const suffix = periodLabels
+    ? period === "month"
+      ? periodLabels.month
+      : periodLabels.day
+    : `/ ${period}`;
 
-  return `${symbol}${amountLabel} / ${period}`;
+  return `${symbol}${amountLabel} ${suffix}`;
 }
 
 /**

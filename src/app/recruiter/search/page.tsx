@@ -29,7 +29,9 @@ import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import { AVAILABILITY_OPTIONS } from "@/lib/profile/availability";
 import {
   AVAILABILITY_MESSAGE_KEYS,
+  CITY_MESSAGE_KEYS,
   JOB_ROLE_MESSAGE_KEYS,
+  localizedPlaceParts,
   translateCatalogValue,
 } from "@/lib/i18n/labels";
 import {
@@ -38,6 +40,7 @@ import {
   WORKER_EXPECTED_PAY_PERIOD_OPTIONS,
   type WorkerExpectedPayPeriod,
   formatWorkerExpectedPay,
+  localizeTeaserPayBand,
 } from "@/lib/profile/expected-pay";
 
 interface WorkerCardProps {
@@ -55,9 +58,19 @@ function WorkerCard({
 }: WorkerCardProps): React.ReactElement {
   const t = useTranslations("recruiter.search");
   const roleLabels = useTranslations("roles");
+  const cityLabels = useTranslations("places.cities");
+  const areaLabels = useTranslations("places.areas");
+  const periods = useTranslations("payPeriods");
+  const place = teaserPlaceLabel(
+    localizedPlaceParts(worker.location, worker.area, cityLabels, areaLabels)
+  );
+  const periodLabels = {
+    day: periods("slashDay"),
+    month: periods("slashMonth"),
+    night: periods("slashNight"),
+  };
 
   if (worker.mode === "teaser") {
-    const place = teaserPlaceLabel(worker);
     const role = worker.jobRoles[0];
     return (
       <Card hover padding="lg">
@@ -83,7 +96,9 @@ function WorkerCard({
                 </p>
               ) : null}
               {worker.payBand ? (
-                <p className="text-charcoal-300 text-sm">{worker.payBand}</p>
+                <p className="text-charcoal-300 text-sm">
+                  {localizeTeaserPayBand(worker.payBand, periodLabels)}
+                </p>
               ) : null}
             </div>
           </div>
@@ -106,7 +121,7 @@ function WorkerCard({
     );
   }
 
-  const expectedPayLabel = formatWorkerExpectedPay(worker);
+  const expectedPayLabel = formatWorkerExpectedPay(worker, periodLabels);
 
   return (
     <Card hover padding="lg">
@@ -147,11 +162,9 @@ function WorkerCard({
               )}
             </div>
 
-            {(worker.location || worker.area) && (
-              <p className="text-charcoal-400 text-sm mb-2">
-                {worker.location || worker.area}
-              </p>
-            )}
+            {place ? (
+              <p className="text-charcoal-400 text-sm mb-2">{place}</p>
+            ) : null}
 
             {worker.jobRoles.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-3">
@@ -227,6 +240,7 @@ export default function SearchPage(): React.ReactElement {
   const t = useTranslations("recruiter.search");
   const roleLabels = useTranslations("roles");
   const availabilityLabels = useTranslations("availability");
+  const cityLabels = useTranslations("places.cities");
   const { data: session, status } = useSession();
   const [filters, setFilters] = useState<SearchFilters>({
     query: "",
@@ -414,10 +428,11 @@ export default function SearchPage(): React.ReactElement {
                       className="w-full px-4 py-2.5 bg-charcoal-800 border border-charcoal-600 rounded-lg text-charcoal-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     >
                       <option value="">{t("allAreas")}</option>
-                      <option value="Bangkok">Bangkok</option>
-                      <option value="Pattaya">Pattaya</option>
-                      <option value="Phuket">Phuket</option>
-                      <option value="Chiang Mai">Chiang Mai</option>
+                      {["Bangkok", "Pattaya", "Phuket", "Chiang Mai"].map((city) => (
+                        <option key={city} value={city}>
+                          {translateCatalogValue(cityLabels, CITY_MESSAGE_KEYS, city)}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

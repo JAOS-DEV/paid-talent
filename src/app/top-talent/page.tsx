@@ -1,6 +1,8 @@
 import React from "react";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Header, Footer } from "@/components/layout";
+import { PRICING_HREF } from "@/lib/recruiter-access/teaser-cta";
 import { TopTalentBadge } from "@/components/ui";
 import { TopTalentCta } from "@/components/marketing";
 
@@ -52,8 +54,14 @@ export default async function TopTalentPage(): Promise<React.ReactElement> {
               </section>
             </div>
 
-            <div className="mt-10">
+            <div className="mt-10 space-y-4">
               <TopTalentCta />
+              <Link
+                href={PRICING_HREF}
+                className="inline-flex min-h-11 items-center text-sm font-medium text-primary-300 hover:text-primary-200"
+              >
+                {t("pricingLink")}
+              </Link>
             </div>
           </div>
         </section>

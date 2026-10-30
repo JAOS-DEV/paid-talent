@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
+import { BrandMark } from "./BrandMark";
 
 export function Footer(): React.ReactElement {
   const t = useTranslations("footer");
@@ -16,9 +17,8 @@ export function Footer(): React.ReactElement {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <span className="text-lg font-bold text-primary-500">Paid</span>
-              <span className="text-lg font-bold text-gold-500">Talent</span>
+            <div className="mb-4">
+              <BrandMark href="/" />
             </div>
             <p className="text-charcoal-400 text-sm">{t("tagline")}</p>
           </div>

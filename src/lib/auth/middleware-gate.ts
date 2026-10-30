@@ -20,8 +20,36 @@ export const AUTH_PUBLIC_ROUTES = [
   "/auth/verify-request",
   "/auth/error",
   "/auth/account-restricted",
+  "/auth/signout",
   "/api/auth",
 ] as const;
+
+const PROTECTED_PREFIXES = ["/worker", "/recruiter", "/admin", "/settings"] as const;
+
+export const AGE_VERIFICATION_PATH = "/auth/age-verification";
+
+/** Signed-in product areas. Unknown URLs are not included, so guests can 404. */
+export function isProtectedAppRoute(pathname: string): boolean {
+  if (
+    pathname === AGE_VERIFICATION_PATH ||
+    pathname.startsWith(`${AGE_VERIFICATION_PATH}/`)
+  ) {
+    return true;
+  }
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+function isUnknownPage(pathname: string, isApiRoute: boolean): boolean {
+  if (isApiRoute || isMachineApiRoute(pathname)) {
+    return false;
+  }
+  if (isPublicAuthRoute(pathname) || isProtectedAppRoute(pathname)) {
+    return false;
+  }
+  return true;
+}
 
 /** Machine/webhook routes that authenticate themselves (no session required). */
 export const MACHINE_API_ROUTES = [
@@ -29,8 +57,6 @@ export const MACHINE_API_ROUTES = [
   "/api/line/webhook",
   "/api/cron",
 ] as const;
-
-export const AGE_VERIFICATION_PATH = "/auth/age-verification";
 
 export type MiddlewareGateResult =
   | { action: "allow" }
@@ -123,6 +149,10 @@ export function resolveMiddlewareGate(input: {
       return { action: "json", status: 401, error: "Unauthorized" };
     }
 
+    if (isUnknownPage(pathname, isApiRoute)) {
+      return { action: "allow" };
+    }
+
     return {
       action: "redirect",
       destination: "/auth/signin",
@@ -132,7 +162,7 @@ export function resolveMiddlewareGate(input: {
 
   // Authenticated but not age-verified
   if (!ageVerified) {
-    if (pathname === AGE_VERIFICATION_PATH) {
+    if (pathname === AGE_VERIFICATION_PATH || pathname === "/auth/signout") {
       return { action: "allow" };
     }
 
@@ -142,6 +172,10 @@ export function resolveMiddlewareGate(input: {
         status: 403,
         error: "Age verification required",
       };
+    }
+
+    if (isUnknownPage(pathname, isApiRoute)) {
+      return { action: "allow" };
     }
 
     return {

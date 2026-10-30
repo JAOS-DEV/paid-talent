@@ -79,7 +79,11 @@ export function RecruiterVerificationBanner(): React.ReactElement | null {
                   : t("required")}
             </h3>
             <Badge variant={isPending ? "warning" : isRejected ? "error" : "default"}>
-              {status}
+              {isPending
+                ? t("pillPending")
+                : isRejected
+                  ? t("pillRejected")
+                  : t("pillUnverified")}
             </Badge>
           </div>
           <p className={`text-sm ${bodyClass}`}>

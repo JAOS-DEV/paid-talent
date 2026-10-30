@@ -4,8 +4,10 @@ import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { Button, Card, CardContent } from "@/components/ui";
+import Link from "next/link";
+import { Button, Card, CardContent, Checkbox } from "@/components/ui";
 import { AuthLocaleBar } from "@/components/i18n";
+import { BrandMark } from "@/components/layout/BrandMark";
 import { persistSignupIntentRole } from "@/lib/auth/signup-intent-action";
 import { isPendingSignupUser } from "@/lib/auth/pending-signup";
 import { isValidSignupIntentRole } from "@/lib/auth/sign-in-decision";
@@ -27,11 +29,10 @@ function AgeGateForm(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleConfirmedChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ): void => {
-    setConfirmed(event.target.checked);
-    if (event.target.checked) setError(null);
+  const handleConfirmedChange = (checked: boolean | "indeterminate"): void => {
+    const next = checked === true;
+    setConfirmed(next);
+    if (next) setError(null);
   };
 
   const handleContinue = async (): Promise<void> => {
@@ -72,12 +73,11 @@ function AgeGateForm(): React.ReactElement {
         <div className="space-y-6">
           <div className="space-y-3">
             <div className="flex items-start space-x-3">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="age-confirm"
                 checked={confirmed}
-                onChange={handleConfirmedChange}
-                className="mt-1 w-5 h-5 min-w-[20px] rounded border-charcoal-600 bg-charcoal-800 text-primary-600 focus:ring-primary-500 focus:ring-offset-charcoal-900"
+                onCheckedChange={handleConfirmedChange}
+                className="mt-0.5"
               />
               <label
                 htmlFor="age-confirm"
@@ -86,7 +86,7 @@ function AgeGateForm(): React.ReactElement {
                 {t("confirm")}
               </label>
             </div>
-            <p className="text-charcoal-500 text-xs">
+            <p className="text-charcoal-200 text-xs">
               {t("mustBe20")}
             </p>
           </div>
@@ -114,11 +114,21 @@ function AgeGateForm(): React.ReactElement {
 
 export default function AgeGatePage(): React.ReactElement {
   const t = useTranslations("ageGate");
+  const common = useTranslations("common");
 
   return (
     <div className="min-h-screen bg-charcoal-950 flex items-center justify-center p-4">
       <AuthLocaleBar />
       <div className="w-full max-w-md min-w-0">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <Link
+            href="/auth/role-select"
+            className="inline-flex min-h-11 items-center text-sm font-medium text-charcoal-100 hover:text-white"
+          >
+            {common("back")}
+          </Link>
+          <BrandMark href="/" />
+        </div>
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-full bg-primary-600/20 flex items-center justify-center mx-auto mb-4">
             <svg
@@ -158,7 +168,7 @@ export default function AgeGatePage(): React.ReactElement {
           <AgeGateForm />
         </Suspense>
 
-        <p className="text-center text-charcoal-500 text-xs mt-6">
+        <p className="text-center text-charcoal-200 text-xs mt-6">
           {t("footnote")}
         </p>
       </div>

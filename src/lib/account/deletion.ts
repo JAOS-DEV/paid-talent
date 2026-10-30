@@ -14,10 +14,13 @@ import {
 } from "@/lib/admin/account-moderation";
 import { deleteFile, deletePrivateFile } from "@/lib/storage/s3";
 import {
-  ACCOUNT_DELETION_CONFIRM_PHRASE,
+  ACCOUNT_DELETION_CONFIRM_PHRASES,
   ACCOUNT_PURGE_DAYS,
   MS_PER_DAY,
 } from "./constants";
+import type { Locale } from "@/lib/i18n/config";
+import enMessages from "../../../messages/en.json";
+import thMessages from "../../../messages/th.json";
 
 export interface AccountDeletionResult {
   ok: true;
@@ -29,8 +32,19 @@ export interface AccountDeletionFailure {
   error: string;
 }
 
-export function isAccountDeletionConfirmPhrase(phrase: string): boolean {
-  return phrase.trim() === ACCOUNT_DELETION_CONFIRM_PHRASE;
+export function isAccountDeletionConfirmPhrase(
+  phrase: string,
+  locale: Locale = "en"
+): boolean {
+  return phrase.trim() === ACCOUNT_DELETION_CONFIRM_PHRASES[locale];
+}
+
+export function accountDeletionPhraseError(locale: Locale): string {
+  const template =
+    locale === "th"
+      ? thMessages.accountDeletion.phraseError
+      : enMessages.accountDeletion.phraseError;
+  return template.replace("{phrase}", ACCOUNT_DELETION_CONFIRM_PHRASES[locale]);
 }
 
 export function isUserDueForAccountPurge(
@@ -48,14 +62,16 @@ export async function requestAccountDeletion(input: {
   userId: string;
   email: string;
   confirmPhrase: string;
+  locale?: Locale;
   now?: Date;
   client?: AppDatabase;
 }): Promise<AccountDeletionResult | AccountDeletionFailure> {
-  if (!isAccountDeletionConfirmPhrase(input.confirmPhrase)) {
+  const locale = input.locale ?? "en";
+  if (!isAccountDeletionConfirmPhrase(input.confirmPhrase, locale)) {
     return {
       ok: false,
       status: 400,
-      error: `Type ${ACCOUNT_DELETION_CONFIRM_PHRASE} to confirm.`,
+      error: accountDeletionPhraseError(locale),
     };
   }
 

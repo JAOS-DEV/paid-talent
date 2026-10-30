@@ -61,13 +61,13 @@ test.describe("Canonical signup entry points", () => {
     await expect(page).not.toHaveURL(/age-verification/);
   });
 
-  test("Subscribe to Top Talent goes to age-gate with role=recruiter", async ({
+  test("Subscribe to Verified Pro goes to age-gate with role=recruiter", async ({
     page,
   }) => {
     await page.goto("/");
 
     const subscribeCta = page.getByRole("link", {
-      name: /subscribe to top talent/i,
+      name: /subscribe to verified pro/i,
     });
     await expect(subscribeCta).toHaveAttribute(
       "href",

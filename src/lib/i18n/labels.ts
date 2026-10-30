@@ -1,3 +1,20 @@
+export const CITY_MESSAGE_KEYS: Record<string, string> = {
+  Bangkok: "bangkok",
+  Pattaya: "pattaya",
+  Phuket: "phuket",
+  "Chiang Mai": "chiangMai",
+};
+
+export const AREA_MESSAGE_KEYS: Record<string, string> = {
+  Sukhumvit: "sukhumvit",
+  Silom: "silom",
+  "Walking Street": "walkingStreet",
+  Thonglor: "thonglor",
+  "Khao San": "khaoSan",
+  Pattaya: "pattaya",
+  Phuket: "phuket",
+};
+
 export const JOB_ROLE_MESSAGE_KEYS: Record<string, string> = {
   Bartender: "bartender",
   Server: "server",
@@ -47,6 +64,20 @@ export const LANGUAGE_MESSAGE_KEYS: Record<string, string> = {
   Portuguese: "portuguese",
   Other: "other",
 };
+
+export function localizedPlaceParts(
+  location: string | null | undefined,
+  area: string | null | undefined,
+  cities: (key: string) => string,
+  areas: (key: string) => string
+): { location: string | null; area: string | null } {
+  return {
+    location: location
+      ? translateCatalogValue(cities, CITY_MESSAGE_KEYS, location)
+      : null,
+    area: area ? translateCatalogValue(areas, AREA_MESSAGE_KEYS, area) : null,
+  };
+}
 
 export function translateCatalogValue(
   translate: (key: string) => string,

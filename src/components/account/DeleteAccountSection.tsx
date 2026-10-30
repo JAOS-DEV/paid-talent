@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import { signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
-import { ACCOUNT_DELETION_CONFIRM_PHRASE } from "@/lib/account/constants";
 
 export function DeleteAccountSection(): React.ReactElement {
   const t = useTranslations("accountDeletion");
+  const confirmPhrase = t("confirmPhrase");
   const [phrase, setPhrase] = useState("");
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -36,16 +36,17 @@ export function DeleteAccountSection(): React.ReactElement {
   };
 
   return (
-    <Card padding="lg">
+    <Card padding="lg" className="border-red-500/40">
       <CardHeader>
-        <CardTitle>{t("title")}</CardTitle>
+        <CardTitle>{t("dangerTitle")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-charcoal-400">{t("body")}</p>
+        <p className="text-sm text-charcoal-200">{t("dangerBody")}</p>
+        <p className="text-sm text-charcoal-300">{t("body")}</p>
         {open ? (
           <div className="space-y-3">
-            <label className="block text-sm text-charcoal-300" htmlFor="delete-account-phrase">
-              {t("confirmLabel", { phrase: ACCOUNT_DELETION_CONFIRM_PHRASE })}
+            <label className="block text-sm text-charcoal-200" htmlFor="delete-account-phrase">
+              {t("confirmLabel", { phrase: confirmPhrase })}
             </label>
             <input
               id="delete-account-phrase"
@@ -55,10 +56,12 @@ export function DeleteAccountSection(): React.ReactElement {
               className="w-full rounded-lg border border-charcoal-600 bg-charcoal-900 px-3 py-3 text-sm text-charcoal-100"
             />
             {error ? <p className="text-sm text-red-400">{error}</p> : null}
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2">
               <Button
                 type="button"
-                disabled={busy || phrase.trim() !== ACCOUNT_DELETION_CONFIRM_PHRASE}
+                variant="destructive"
+                fullWidth
+                disabled={busy || phrase.trim() !== confirmPhrase}
                 onClick={() => {
                   void submit();
                 }}
@@ -68,6 +71,7 @@ export function DeleteAccountSection(): React.ReactElement {
               <Button
                 type="button"
                 variant="secondary"
+                fullWidth
                 disabled={busy}
                 onClick={() => {
                   setOpen(false);
@@ -80,7 +84,7 @@ export function DeleteAccountSection(): React.ReactElement {
             </div>
           </div>
         ) : (
-          <Button type="button" variant="secondary" onClick={() => setOpen(true)}>
+          <Button type="button" variant="destructive" onClick={() => setOpen(true)}>
             {t("title")}
           </Button>
         )}

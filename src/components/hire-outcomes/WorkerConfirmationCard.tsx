@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
+import { useLocale } from "next-intl";
+import { formatLocaleDate } from "@/lib/i18n/format-date";
 import { Button, Card, CardContent } from "@/components/ui";
 import { VenueLogo } from "@/components/media/VenueLogo";
 import {
@@ -39,9 +41,10 @@ export function WorkerConfirmationCard({
   );
   const [error, setError] = useState<string | null>(null);
 
+  const locale = useLocale();
   const copy = getWorkerConfirmationCopy(venueName, requestedStatus);
   const requestedDate = requestedAt
-    ? new Date(requestedAt).toLocaleDateString()
+    ? formatLocaleDate(requestedAt, locale)
     : null;
 
   const handleRespond = useCallback(

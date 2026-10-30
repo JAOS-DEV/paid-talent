@@ -4,7 +4,15 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Card, CardContent } from "@/components/ui";
 import type { OpeningTag } from "@/lib/interests/context";
-import { formatOpeningPay } from "@/lib/recruiter-profile/opening-pay";
+import {
+  AREA_MESSAGE_KEYS,
+  JOB_ROLE_MESSAGE_KEYS,
+  translateCatalogValue,
+} from "@/lib/i18n/labels";
+import {
+  formatOpeningPay,
+  localizedOpeningPeriod,
+} from "@/lib/recruiter-profile/opening-pay";
 
 interface WorkerOpeningListProps {
   openings: OpeningTag[];
@@ -15,16 +23,23 @@ function WorkerOpeningCard({
 }: {
   opening: OpeningTag;
 }): React.ReactElement {
-  const payLabel = formatOpeningPay(opening);
+  const roles = useTranslations("roles");
+  const areas = useTranslations("places.areas");
+  const periods = useTranslations("payPeriods");
+  const payLabel = formatOpeningPay(opening, (period) =>
+    localizedOpeningPeriod(period, periods)
+  );
 
   return (
     <Card padding="md" className="min-w-0">
       <CardContent>
         <h3 className="text-base font-semibold text-white break-words">
-          {opening.role}
+          {translateCatalogValue(roles, JOB_ROLE_MESSAGE_KEYS, opening.role)}
         </h3>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Badge variant="default">{opening.area}</Badge>
+          <Badge variant="default">
+            {translateCatalogValue(areas, AREA_MESSAGE_KEYS, opening.area)}
+          </Badge>
           {payLabel ? (
             <p
               className="text-lg font-bold text-primary-400"

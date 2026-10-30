@@ -1,19 +1,16 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import {
   PROFILE_PHOTO_ACCEPT,
   PROFILE_PHOTO_ERRORS,
-  PROFILE_PHOTO_STATUS,
   type ProfilePhotoUploadStage,
 } from "@/lib/media/profile-photo";
 import { uploadProfilePhoto } from "@/lib/media/upload-profile-photo";
 import {
   checkPhotoLimits,
-  GALLERY_PRIMARY_PENDING_REASON,
-  GALLERY_UNVERIFIED_REASON,
-  PHOTO_POLICY_COPY,
 } from "@/lib/moderation/photo-policy";
 import type { WorkerOwnedPhoto } from "@/lib/worker-dashboard";
 import { PhotoStatusPill } from "@/components/media/PhotoStatusPill";
@@ -25,6 +22,19 @@ interface ProfilePhotoGalleryManagerProps {
 
 function thumbnailUrl(photo: WorkerOwnedPhoto): string | null {
   return photo.photoUrl ?? photo.previewUrl;
+}
+
+function galleryErrorMessage(
+  message: string,
+  t: (
+    key: "tooLarge" | "heic" | "invalidType" | "uploadFailed"
+  ) => string
+): string {
+  if (message === PROFILE_PHOTO_ERRORS.tooLarge) return t("tooLarge");
+  if (message === PROFILE_PHOTO_ERRORS.heic) return t("heic");
+  if (message === PROFILE_PHOTO_ERRORS.invalidType) return t("invalidType");
+  if (message === PROFILE_PHOTO_ERRORS.uploadFailed) return t("uploadFailed");
+  return message;
 }
 
 function sortForDisplay(photos: WorkerOwnedPhoto[]): WorkerOwnedPhoto[] {
@@ -40,6 +50,7 @@ export function ProfilePhotoGalleryManager({
   isVerified,
   hasApprovedPrimaryPhoto = false,
 }: ProfilePhotoGalleryManagerProps): React.ReactElement {
+  const t = useTranslations("gallery");
   const [photos, setPhotos] = useState<WorkerOwnedPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +63,7 @@ export function ProfilePhotoGalleryManager({
   const loadPhotos = useCallback(async (): Promise<void> => {
     const response = await fetch("/api/worker/photos");
     if (!response.ok) {
-      setError("Failed to load photos");
+      setError(t("loadFailed"));
       setLoading(false);
       return;
     }
@@ -60,7 +71,7 @@ export function ProfilePhotoGalleryManager({
     setPhotos(sortForDisplay(data.photos ?? []));
     setError(null);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +79,7 @@ export function ProfilePhotoGalleryManager({
       const response = await fetch("/api/worker/photos");
       if (cancelled) return;
       if (!response.ok) {
-        setError("Failed to load photos");
+        setError(t("loadFailed"));
         setLoading(false);
         return;
       }
@@ -82,7 +93,7 @@ export function ProfilePhotoGalleryManager({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const approvedCount = photos.filter(
     (photo) => photo.moderationStatus === "approved"
@@ -108,14 +119,12 @@ export function ProfilePhotoGalleryManager({
   const canAdd = galleryLimit.canUpload && !uploading;
   const canChoosePrimary = approvedCount > 1;
   const galleryGuidance = !isVerified
-    ? GALLERY_UNVERIFIED_REASON
+    ? t("unverified")
     : !hasApprovedPrimary
-      ? GALLERY_PRIMARY_PENDING_REASON
-      : `Your primary verification photo is photo 1. You can add up to four more photos for recruiters${
-          remaining > 0
-            ? `, including while others are under review (${remaining} remaining)`
-            : ""
-        }. New photos stay private until they are approved.`;
+      ? t("primaryPending")
+      : t("guidance", {
+          extra: remaining > 0 ? t("guidanceExtra", { count: remaining }) : "",
+        });
 
   async function handleUpload(
     event: React.ChangeEvent<HTMLInputElement>
@@ -134,8 +143,8 @@ export function ProfilePhotoGalleryManager({
     } catch (uploadError) {
       setError(
         uploadError instanceof Error
-          ? uploadError.message
-          : PROFILE_PHOTO_ERRORS.uploadFailed
+          ? galleryErrorMessage(uploadError.message, t)
+          : t("uploadFailed")
       );
     } finally {
       setUploading(false);
@@ -153,7 +162,7 @@ export function ProfilePhotoGalleryManager({
       const body = (await response.json().catch(() => null)) as {
         error?: string;
       } | null;
-      setError(body?.error ?? "Failed to remove photo");
+      setError(body?.error ?? t("removeFailed"));
       return;
     }
     await loadPhotos();
@@ -173,7 +182,7 @@ export function ProfilePhotoGalleryManager({
       const body = (await response.json().catch(() => null)) as {
         error?: string;
       } | null;
-      setError(body?.error ?? "Failed to reorder photo");
+      setError(body?.error ?? t("reorderFailed"));
       return;
     }
     await loadPhotos();
@@ -190,7 +199,7 @@ export function ProfilePhotoGalleryManager({
       const body = (await response.json().catch(() => null)) as {
         error?: string;
       } | null;
-      setError(body?.error ?? "Failed to set primary photo");
+      setError(body?.error ?? t("primaryFailed"));
       return;
     }
     await loadPhotos();
@@ -205,7 +214,7 @@ export function ProfilePhotoGalleryManager({
     <div id="photos" data-testid="profile-photo-gallery">
       <div className="flex items-center justify-between gap-3 mb-4">
         <p className="text-sm text-charcoal-400">
-          {slotCount} of 5 photos
+          {t("count", { count: slotCount })}
         </p>
         {canAdd ? (
           <Button
@@ -216,7 +225,7 @@ export function ProfilePhotoGalleryManager({
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
           >
-            Add photo
+            {t("addPhoto")}
           </Button>
         ) : null}
       </div>
@@ -232,11 +241,11 @@ export function ProfilePhotoGalleryManager({
       />
 
       <p className="text-sm text-charcoal-400 mb-4">{galleryGuidance}</p>
-      <p className="text-sm text-charcoal-400 mb-4">{PHOTO_POLICY_COPY.rules}</p>
+      <p className="text-sm text-charcoal-200 mb-4">{t("rules")}</p>
 
       {uploadStage ? (
         <p className="text-charcoal-300 text-sm mb-3" aria-live="polite">
-          {PROFILE_PHOTO_STATUS[uploadStage]}
+          {t(uploadStage)}
         </p>
       ) : null}
       {error ? <p className="text-error text-sm mb-3">{error}</p> : null}
@@ -244,7 +253,7 @@ export function ProfilePhotoGalleryManager({
       {loading ? (
         <div className="h-24 rounded-xl bg-charcoal-800 animate-pulse" />
       ) : photos.length === 0 ? (
-        <p className="text-sm text-charcoal-500">No profile photos yet.</p>
+        <p className="text-sm text-charcoal-300">{t("noPhotos")}</p>
       ) : (
         <ul className="space-y-3">
           {photos.map((photo, index) => {
@@ -258,8 +267,8 @@ export function ProfilePhotoGalleryManager({
               photo.moderationStatus === "rejected" && photo.moderationReason
                 ? photo.moderationReason
                 : photo.moderationStatus === "pending"
-                  ? PHOTO_POLICY_COPY.pending
-                  : PHOTO_POLICY_COPY.rules;
+                  ? t("pending")
+                  : t("rules");
             return (
               <li
                 key={photo.id}
@@ -276,8 +285,8 @@ export function ProfilePhotoGalleryManager({
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-charcoal-500 text-xs px-1 text-center">
                       {photo.moderationStatus === "pending"
-                        ? "In review"
-                        : "Hidden"}
+                        ? t("inReview")
+                        : t("hidden")}
                     </div>
                   )}
                 </div>
@@ -306,7 +315,7 @@ export function ProfilePhotoGalleryManager({
                           void handleMakePrimary(photo.id);
                         }}
                       >
-                        Make primary
+                        {t("makePrimary")}
                       </Button>
                     ) : null}
                     {canMove && siblingIndex > 0 ? (
@@ -318,7 +327,7 @@ export function ProfilePhotoGalleryManager({
                           void handleMove(photo.id, "up");
                         }}
                       >
-                        Move up
+                        {t("moveUp")}
                       </Button>
                     ) : null}
                     {canMove && siblingIndex >= 0 && siblingIndex < additionalApproved.length - 1 ? (
@@ -330,7 +339,7 @@ export function ProfilePhotoGalleryManager({
                           void handleMove(photo.id, "down");
                         }}
                       >
-                        Move down
+                        {t("moveDown")}
                       </Button>
                     ) : null}
                     {photo.isCurrentApproved ? null : (
@@ -342,12 +351,12 @@ export function ProfilePhotoGalleryManager({
                           void handleDelete(photo.id);
                         }}
                       >
-                        Remove
+                        {t("remove")}
                       </Button>
                     )}
                   </div>
                 </div>
-                <span className="sr-only">Photo {index + 1}</span>
+                <span className="sr-only">{t("photoNumber", { number: index + 1 })}</span>
               </li>
             );
           })}

@@ -21,6 +21,7 @@ describe("resolveMiddlewareGate", () => {
         "/auth/verify-request",
         "/auth/error",
         "/auth/account-restricted",
+        "/auth/signout",
       ]) {
         expect(
           resolveMiddlewareGate({
@@ -48,6 +49,18 @@ describe("resolveMiddlewareGate", () => {
         destination: "/auth/signin",
         setCallbackUrl: true,
       });
+    });
+
+    it("lets guests reach unknown pages so Next can render 404", () => {
+      expect(
+        resolveMiddlewareGate({
+          pathname: "/no-such-page",
+          hasSession: false,
+          ageVerified: false,
+          isApiRoute: false,
+          isAuthApiRoute: false,
+        })
+      ).toEqual({ action: "allow" });
     });
 
     it("redirects protected worker routes to signin", () => {
@@ -116,6 +129,27 @@ describe("resolveMiddlewareGate", () => {
   });
 
   describe("authenticated unverified users (ageVerified=false)", () => {
+    it("lets age-unverified users open unknown pages and sign out", () => {
+      expect(
+        resolveMiddlewareGate({
+          pathname: "/no-such-page",
+          hasSession: true,
+          ageVerified: false,
+          isApiRoute: false,
+          isAuthApiRoute: false,
+        })
+      ).toEqual({ action: "allow" });
+      expect(
+        resolveMiddlewareGate({
+          pathname: "/auth/signout",
+          hasSession: true,
+          ageVerified: false,
+          isApiRoute: false,
+          isAuthApiRoute: false,
+        })
+      ).toEqual({ action: "allow" });
+    });
+
     it("permits /auth/age-verification", () => {
       expect(
         resolveMiddlewareGate({

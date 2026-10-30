@@ -551,7 +551,7 @@ const SEED_USERS: {
       name: "Pass Recruiter",
       organizationName: "Pass Access Bar",
       organizationType: "Bar",
-      description: "Verified recruiter with an active Top Talent pass",
+      description: "Verified recruiter with an active Verified Pro pass",
       location: "Bangkok",
       area: "Asoke",
       blurb: "Exercises Verified Pro access via a 7-day pass.",
@@ -1467,7 +1467,7 @@ async function seed(): Promise<void> {
           amountTotal: 49000,
           usedFirstPassCoupon: false,
         });
-        console.log(`   🎟️  Top Talent pass active for: ${recruiter.email}`);
+        console.log(`   🎟️  Verified Pro pass active for: ${recruiter.email}`);
       }
 
       if (recruiter.email === "admin@example.com") {
