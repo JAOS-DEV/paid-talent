@@ -58,7 +58,7 @@ describe("worker-dto teaser contract", () => {
     expect(firstNameFromDisplayName("  Nattaya  B. ")).toBe("Nattaya");
   });
 
-  it("teaser DTO JSON has pay and place but no photoUrl/photos/bio/userId/contact keys", () => {
+  it("teaser DTO JSON has a rounded pay band and place but no exact pay or photoUrl/photos/bio/userId/contact keys", () => {
     const teaser = toRecruiterWorkerTeaserDto(profileWithSecrets(), false);
     const json = JSON.stringify(teaser);
 
@@ -67,9 +67,12 @@ describe("worker-dto teaser contract", () => {
     expect(teaser.location).toBe("Bangkok");
     expect(teaser.area).toBe("Sukhumvit");
     expect(teaser.jobRoles).toEqual(["Server"]);
-    expect(teaser.expectedPayMin).toBe(15000);
-    expect(teaser.expectedPayPeriod).toBe("month");
-    expect(teaser.payCurrency).toBe("THB");
+    expect(teaser.payBand).toBe("฿15,000+");
+    expect(teaser).not.toHaveProperty("expectedPayMin");
+    expect(teaser).not.toHaveProperty("expectedPayPeriod");
+    expect(teaser).not.toHaveProperty("payCurrency");
+    expect(json).not.toContain("expectedPayMin");
+    expect(json).not.toContain("15000");
     expect(teaser.teaserPhotoPath).toBe("/api/workers/profile-1/teaser-photo");
 
     expect(json).not.toContain("photoUrl");
@@ -88,7 +91,24 @@ describe("worker-dto teaser contract", () => {
     expect(teaser).not.toHaveProperty("whatsappNumber");
   });
 
-  it("locked Top Talent teaser keeps first name, place, role, and pay", () => {
+  it("rounds a normal teaser pay band down to the nearest 500", () => {
+    const banded = toRecruiterWorkerTeaserDto(
+      profileWithSecrets({ expectedPayMin: 1499 }),
+      false
+    );
+    expect(banded.payBand).toBe("฿1,000+");
+    expect(banded).not.toHaveProperty("expectedPayMin");
+    expect(JSON.stringify(banded)).not.toContain("1499");
+
+    const belowStep = toRecruiterWorkerTeaserDto(
+      profileWithSecrets({ expectedPayMin: 499 }),
+      false
+    );
+    expect(belowStep.payBand).toBeNull();
+    expect(belowStep).not.toHaveProperty("expectedPayMin");
+  });
+
+  it("locked Top Talent teaser keeps first name, place, and role and omits pay", () => {
     const locked = toRecruiterWorkerTeaserDto(profileWithSecrets(), true);
     expect(locked).toEqual({
       mode: "teaser",
@@ -98,15 +118,19 @@ describe("worker-dto teaser contract", () => {
       area: "Sukhumvit",
       jobRoles: ["Server"],
       availability: ["Full-time"],
-      expectedPayMin: 15000,
-      expectedPayPeriod: "month",
-      payCurrency: "THB",
       isTopTalent: true,
       isVerified: true,
       teaserPhotoPath: "/api/workers/profile-1/teaser-photo",
     });
-    expect(JSON.stringify(locked)).not.toContain(SECRET_LINE);
-    expect(JSON.stringify(locked)).not.toContain(SECRET_PHONE);
+    expect(locked).not.toHaveProperty("expectedPayMin");
+    expect(locked).not.toHaveProperty("expectedPayPeriod");
+    expect(locked).not.toHaveProperty("payCurrency");
+    expect(locked).not.toHaveProperty("payBand");
+    const json = JSON.stringify(locked);
+    expect(json).not.toContain("expectedPayMin");
+    expect(json).not.toContain("15000");
+    expect(json).not.toContain(SECRET_LINE);
+    expect(json).not.toContain(SECRET_PHONE);
   });
 
   it("unverified access maps regular workers to teaser and TT to locked", () => {
@@ -134,7 +158,13 @@ describe("worker-dto teaser contract", () => {
       expect(topTalent.firstName).toBe("Somchai");
       expect(topTalent.area).toBe("Sukhumvit");
       expect(topTalent.jobRoles).toEqual(["Server"]);
-      expect(topTalent.expectedPayMin).toBe(15000);
+      expect(topTalent).not.toHaveProperty("expectedPayMin");
+      expect(topTalent).not.toHaveProperty("payBand");
+      expect(JSON.stringify(topTalent)).not.toContain("15000");
+      expect(regular).not.toHaveProperty("expectedPayMin");
+      if (regular.mode === "teaser") {
+        expect(regular.payBand).toBe("฿15,000+");
+      }
       expect(topTalent).not.toHaveProperty("lineId");
       expect(topTalent).not.toHaveProperty("phoneNumber");
     }

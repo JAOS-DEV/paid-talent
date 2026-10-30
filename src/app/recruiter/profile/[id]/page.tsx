@@ -27,11 +27,11 @@ import {
 import type { WorkerProfileDetail } from "@/lib/recruiter-access/worker-dto";
 import type { RecruiterAccessDto } from "@/lib/recruiter-access";
 import {
+  ADD_VENUE_HREF,
   teaserContactCta,
   teaserPlaceLabel,
 } from "@/lib/recruiter-access/teaser-cta";
 import { TeaserPhoto } from "@/components/recruiter/TeaserPhoto";
-import { formatWorkerExpectedPay } from "@/lib/profile/expected-pay";
 import type {
   HireConfirmationRequestStatus,
   HireConfirmationRequestedStatus,
@@ -63,10 +63,10 @@ function TeaserProfileView({
   const searchT = useTranslations("recruiter.search");
   const roleLabels = useTranslations("roles");
   const place = teaserPlaceLabel(profile);
-  const payLabel = formatWorkerExpectedPay(profile);
   const role = profile.jobRoles[0];
   const cta = teaserContactCta({
     isVerified: access?.isVerified === true,
+    identityVerified: access?.identityStatus === "verified",
     hasActivePlan: access?.tier === "pro",
   });
 
@@ -90,15 +90,19 @@ function TeaserProfileView({
               {translateCatalogValue(roleLabels, JOB_ROLE_MESSAGE_KEYS, role)}
             </p>
           ) : null}
-          {payLabel ? <p className="text-charcoal-300">{payLabel}</p> : null}
+          {profile.payBand ? (
+            <p className="text-charcoal-300">{profile.payBand}</p>
+          ) : null}
 
           {cta ? (
             <div className="pt-2 w-full max-w-sm">
               <Link href={cta.href} className="inline-flex w-full">
                 <Button fullWidth>
-                  {cta.kind === "verify"
-                    ? searchT("verifyVenueToUnlock")
-                    : searchT("subscribeToContact")}
+                  {cta.kind === "subscribe"
+                    ? searchT("subscribeToContact")
+                    : cta.href === ADD_VENUE_HREF
+                      ? searchT("addVenueToUnlock")
+                      : searchT("verifyIdentityToUnlock")}
                 </Button>
               </Link>
             </div>

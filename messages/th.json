@@ -861,7 +861,8 @@
       "teaserNameHidden": "ผู้ทำงานที่ยืนยันแล้ว",
       "lockedTopTalentHint": "ผู้รับสมัคร Verified Pro สามารถดูและส่งข้อความถึง Top Talent ได้",
       "upgradeForTopTalent": "อัปเกรดเพื่อดู Top Talent",
-      "verifyVenueToUnlock": "ยืนยันสถานที่ของคุณเพื่อปลดล็อก",
+      "verifyIdentityToUnlock": "ยืนยันตัวตนของคุณเพื่อปลดล็อก",
+      "addVenueToUnlock": "เพิ่มสถานที่เพื่อปลดล็อก",
       "subscribeToContact": "สมัครสมาชิกเพื่อติดต่อ"
     },
     "workerDetail": {

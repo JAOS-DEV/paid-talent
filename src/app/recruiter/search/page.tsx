@@ -20,6 +20,7 @@ import { SendContactRequestDialog } from "@/components/contact-requests";
 import type { SearchWorkerResult } from "@/lib/recruiter-access/worker-dto";
 import type { RecruiterAccessDto } from "@/lib/recruiter-access";
 import {
+  ADD_VENUE_HREF,
   teaserContactCta,
   teaserPlaceLabel,
   type TeaserCta,
@@ -57,7 +58,6 @@ function WorkerCard({
 
   if (worker.mode === "teaser") {
     const place = teaserPlaceLabel(worker);
-    const payLabel = formatWorkerExpectedPay(worker);
     const role = worker.jobRoles[0];
     return (
       <Card hover padding="lg">
@@ -82,8 +82,8 @@ function WorkerCard({
                   {translateCatalogValue(roleLabels, JOB_ROLE_MESSAGE_KEYS, role)}
                 </p>
               ) : null}
-              {payLabel ? (
-                <p className="text-charcoal-300 text-sm">{payLabel}</p>
+              {worker.payBand ? (
+                <p className="text-charcoal-300 text-sm">{worker.payBand}</p>
               ) : null}
             </div>
           </div>
@@ -92,9 +92,11 @@ function WorkerCard({
             <div className="mt-4 pt-4 border-t border-charcoal-700">
               <Link href={teaserCta.href} className="inline-flex">
                 <Button size="sm">
-                  {teaserCta.kind === "verify"
-                    ? t("verifyVenueToUnlock")
-                    : t("subscribeToContact")}
+                  {teaserCta.kind === "subscribe"
+                    ? t("subscribeToContact")
+                    : teaserCta.href === ADD_VENUE_HREF
+                      ? t("addVenueToUnlock")
+                      : t("verifyIdentityToUnlock")}
                 </Button>
               </Link>
             </div>
@@ -248,6 +250,7 @@ export default function SearchPage(): React.ReactElement {
   const canBrowseFull = access?.canBrowseFull === true;
   const teaserCta = teaserContactCta({
     isVerified: access?.isVerified === true,
+    identityVerified: access?.identityStatus === "verified",
     hasActivePlan: access?.tier === "pro",
   });
 

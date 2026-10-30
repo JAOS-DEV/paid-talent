@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { db, subscriptions } from "@/lib/db";
 import {
   deniedVerifiedRecruiterResponse,
@@ -8,7 +9,7 @@ import {
 } from "@/lib/recruiter-access";
 import { isStripeConfigured, stripe } from "@/lib/stripe";
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(_request: NextRequest): Promise<NextResponse> {
   const actor = await requireVerifiedRecruiter();
   if (!actor.ok) {
     return deniedVerifiedRecruiterResponse(actor);
@@ -34,10 +35,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const origin = request.headers.get("origin") || "http://localhost:3000";
   const session = await stripe.billingPortal.sessions.create({
     customer: sub.stripeCustomerId,
-    return_url: `${origin}/recruiter/billing`,
+    return_url: `${getAppBaseUrl()}/recruiter/billing`,
   });
 
   if (!session.url) {

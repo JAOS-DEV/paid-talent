@@ -861,7 +861,8 @@
       "teaserNameHidden": "Verified talent",
       "lockedTopTalentHint": "Verified Pro recruiters can view and message Top Talent",
       "upgradeForTopTalent": "Upgrade for Top Talent",
-      "verifyVenueToUnlock": "Verify your venue to unlock",
+      "verifyIdentityToUnlock": "Verify your identity to unlock",
+      "addVenueToUnlock": "Add a venue to unlock",
       "subscribeToContact": "Subscribe to contact"
     },
     "workerDetail": {

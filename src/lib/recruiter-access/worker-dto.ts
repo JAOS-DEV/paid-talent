@@ -8,6 +8,7 @@ import {
   mapApprovedPhotosToPublic,
   type PublicWorkerPhoto,
 } from "@/lib/worker-profile/public-profile";
+import { formatTeaserPayBand } from "@/lib/profile/expected-pay";
 import type { RecruiterAccess } from "./index";
 
 export type WorkerPhoto = PublicWorkerPhoto;
@@ -84,9 +85,11 @@ export interface WorkerTeaserDto {
   area: string | null;
   jobRoles: string[];
   availability: string[];
-  expectedPayMin: number | null;
-  expectedPayPeriod: string | null;
-  payCurrency: string | null;
+  /**
+   * Rounded pay floor for locked non-Top-Talent cards.
+   * Omitted for locked Top Talent, which shows no pay.
+   */
+  payBand?: string | null;
   isTopTalent: boolean;
   isVerified: true;
   teaserPhotoPath: string;
@@ -145,7 +148,6 @@ function teaserFromProfile(
     | "jobRoles"
     | "availability"
     | "expectedPayMin"
-    | "expectedPayPeriod"
     | "payCurrency"
   >,
   isTopTalent: boolean
@@ -158,9 +160,14 @@ function teaserFromProfile(
     area: profile.area,
     jobRoles: (profile.jobRoles as string[]) ?? [],
     availability: profile.availability ?? [],
-    expectedPayMin: profile.expectedPayMin,
-    expectedPayPeriod: profile.expectedPayPeriod,
-    payCurrency: profile.payCurrency,
+    ...(isTopTalent
+      ? {}
+      : {
+          payBand: formatTeaserPayBand(
+            profile.expectedPayMin,
+            profile.payCurrency
+          ),
+        }),
     isTopTalent,
     isVerified: true,
     teaserPhotoPath: teaserPhotoPathForWorker(profile.id),
@@ -303,7 +310,6 @@ export function toRecruiterWorkerTeaserDto(
     | "jobRoles"
     | "availability"
     | "expectedPayMin"
-    | "expectedPayPeriod"
     | "payCurrency"
   >,
   isTopTalent: boolean

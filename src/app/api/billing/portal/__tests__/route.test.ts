@@ -50,7 +50,10 @@ import { POST } from "../route";
 
 function request(): NextRequest {
   return {
-    headers: { get: () => "http://localhost:3000" },
+    headers: {
+      get: (name: string) =>
+        name.toLowerCase() === "origin" ? "https://evil.example" : null,
+    },
   } as unknown as NextRequest;
 }
 
@@ -92,6 +95,9 @@ describe("POST /api/billing/portal", () => {
   });
 
   it("creates a portal session for a verified recruiter with a Stripe customer", async () => {
+    vi.stubEnv("AUTH_URL", "https://app.example");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://public.example");
+
     const response = await POST(request());
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -99,8 +105,23 @@ describe("POST /api/billing/portal", () => {
     });
     expect(createPortal).toHaveBeenCalledWith({
       customer: "cus_123",
-      return_url: "http://localhost:3000/recruiter/billing",
+      return_url: "https://app.example/recruiter/billing",
     });
+    expect(JSON.stringify(createPortal.mock.calls)).not.toContain("evil.example");
+    vi.unstubAllEnvs();
+  });
+
+  it("uses NEXT_PUBLIC_APP_URL when AUTH_URL is unset and still ignores Origin", async () => {
+    vi.stubEnv("AUTH_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://public.example");
+
+    await POST(request());
+    expect(createPortal).toHaveBeenCalledWith({
+      customer: "cus_123",
+      return_url: "https://public.example/recruiter/billing",
+    });
+    expect(JSON.stringify(createPortal.mock.calls)).not.toContain("evil.example");
+    vi.unstubAllEnvs();
   });
 
   it("does not open the portal when Stripe is not configured", async () => {

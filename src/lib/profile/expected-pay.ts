@@ -100,6 +100,28 @@ function resolveDisplayCurrency(value: string | null | undefined): string {
   return DEFAULT_WORKER_PAY_CURRENCY;
 }
 
+const TEASER_PAY_BAND_STEP = 500;
+
+/**
+ * Rounded-down pay floor for locked non-Top-Talent teasers, e.g. "฿1,000+".
+ * Exact amounts stay off the teaser payload.
+ */
+export function formatTeaserPayBand(
+  amount: number | null | undefined,
+  currency: string | null | undefined
+): string | null {
+  if (amount == null || !Number.isFinite(amount)) {
+    return null;
+  }
+  const rounded =
+    Math.floor(amount / TEASER_PAY_BAND_STEP) * TEASER_PAY_BAND_STEP;
+  if (rounded < TEASER_PAY_BAND_STEP) {
+    return null;
+  }
+  const symbol = getCurrencySymbol(resolveDisplayCurrency(currency));
+  return `${symbol}${rounded.toLocaleString("en-US")}+`;
+}
+
 /**
  * Formats worker expected pay as "฿15,000 / day" or "฿15,000 / month".
  */

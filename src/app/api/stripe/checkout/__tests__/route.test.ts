@@ -100,7 +100,10 @@ function settings(overrides: Record<string, unknown> = {}) {
 function request(body?: unknown): NextRequest {
   return {
     json: async () => body ?? {},
-    headers: { get: () => "http://localhost:3000" },
+    headers: {
+      get: (name: string) =>
+        name.toLowerCase() === "origin" ? "https://evil.example" : null,
+    },
   } as unknown as NextRequest;
 }
 
@@ -130,6 +133,46 @@ describe("POST /api/stripe/checkout", () => {
     const response = await POST(request({ product: "monthly" }));
     expect(response.status).toBe(403);
     expect(deniedVerifiedRecruiterResponse).toHaveBeenCalled();
+  });
+
+  it("builds checkout URLs from the app base and ignores Origin", async () => {
+    vi.stubEnv("AUTH_URL", "https://app.example");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://public.example");
+    selectLimit.mockResolvedValue([]);
+
+    await POST(request({ product: "monthly" }));
+
+    expect(createCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        successUrl: "https://app.example/recruiter/dashboard?subscription=success",
+        cancelUrl: "https://app.example/recruiter/dashboard?subscription=cancelled",
+      })
+    );
+    expect(JSON.stringify(createCheckoutSession.mock.calls)).not.toContain(
+      "evil.example"
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("uses NEXT_PUBLIC_APP_URL for checkout when AUTH_URL is unset", async () => {
+    vi.stubEnv("AUTH_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://public.example");
+    selectLimit.mockResolvedValue([]);
+
+    await POST(request({ product: "annual" }));
+
+    expect(createCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        successUrl:
+          "https://public.example/recruiter/dashboard?subscription=success",
+        cancelUrl:
+          "https://public.example/recruiter/dashboard?subscription=cancelled",
+      })
+    );
+    expect(JSON.stringify(createCheckoutSession.mock.calls)).not.toContain(
+      "evil.example"
+    );
+    vi.unstubAllEnvs();
   });
 
   it("returns 409 when open_access", async () => {
