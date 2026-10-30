@@ -2,7 +2,8 @@
 
 import React, { useCallback } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { formatLocaleDate } from "@/lib/i18n/format-date";
 import { Button, Card, CardContent } from "@/components/ui";
 import {
   HireOutcomeStatusBadge,
@@ -53,8 +54,9 @@ export function RecruiterInterestCard({
   ) => void;
 }): React.ReactElement {
   const t = useTranslations("recruiter.interests");
+  const locale = useLocale();
   const effectiveStatus = getEffectiveStatus(interest);
-  const createdDate = new Date(interest.createdAt).toLocaleDateString();
+  const createdDate = formatLocaleDate(interest.createdAt, locale);
 
   const handleRequestCreated = useCallback(
     (requestedStatus: HireConfirmationRequestedStatus) => {
@@ -123,15 +125,13 @@ export function RecruiterInterestCard({
                 {interest.hireOutcome?.hiredAt && (
                   <p className="text-charcoal-500 text-xs">
                     {t("hiredOn")}{" "}
-                    {new Date(interest.hireOutcome.hiredAt).toLocaleDateString()}
+                    {formatLocaleDate(interest.hireOutcome.hiredAt, locale)}
                   </p>
                 )}
                 {interest.hireOutcome?.startedAt && (
                   <p className="text-charcoal-500 text-xs">
                     {t("startedOn")}{" "}
-                    {new Date(
-                      interest.hireOutcome.startedAt
-                    ).toLocaleDateString()}
+                    {formatLocaleDate(interest.hireOutcome.startedAt, locale)}
                   </p>
                 )}
               </div>

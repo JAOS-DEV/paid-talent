@@ -2,7 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui";
 import { LanguageToggle } from "@/components/i18n";
@@ -38,6 +39,8 @@ export function Header(): React.ReactElement {
   const t = useTranslations("navigation");
   const { data: session, status } = useSession();
 
+  const router = useRouter();
+
   const getDashboardLink = (): string => {
     if (!session?.user || session.user.signupPending) {
       return "/auth/role-select";
@@ -53,7 +56,7 @@ export function Header(): React.ReactElement {
     status === "authenticated" && session?.user ? getDashboardLink() : "/";
 
   const handleSignOut = (): void => {
-    void signOut({ callbackUrl: "/" });
+    router.push("/auth/signout");
   };
 
   const navItems: AccountNavItem[] = [];

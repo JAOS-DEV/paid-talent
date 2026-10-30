@@ -134,10 +134,13 @@ function resolveDisplayCurrency(value: string | null | undefined): string {
   return DEFAULT_OPENING_PAY_CURRENCY;
 }
 
-function formatPeriodPhrase(period: string | null | undefined): string | null {
+function formatPeriodPhrase(
+  period: string | null | undefined,
+  periodSuffix?: (period: OpeningPayPeriodPreset) => string
+): string | null {
   const parsed = parseStoredPayPeriod(period);
   if (parsed.kind === "preset") {
-    return `/ ${parsed.value}`;
+    return periodSuffix ? periodSuffix(parsed.value) : `/ ${parsed.value}`;
   }
   return null;
 }
@@ -157,9 +160,21 @@ function formatAmountWithCurrencyAndPeriod(
   return `${symbol}${amountLabel} ${periodPhrase}`;
 }
 
-export function formatOpeningPay(opening: OpeningPayFields): string | null {
+export function localizedOpeningPeriod(
+  period: OpeningPayPeriodPreset,
+  translate: (key: "slashHour" | "slashShift" | "slashNight") => string
+): string {
+  if (period === "hour") return translate("slashHour");
+  if (period === "shift") return translate("slashShift");
+  return translate("slashNight");
+}
+
+export function formatOpeningPay(
+  opening: OpeningPayFields,
+  periodSuffix?: (period: OpeningPayPeriodPreset) => string
+): string | null {
   const currency = resolveDisplayCurrency(opening.payCurrency);
-  const periodPhrase = formatPeriodPhrase(opening.payPeriod);
+  const periodPhrase = formatPeriodPhrase(opening.payPeriod, periodSuffix);
 
   if (hasLegacyPayRange(opening) && opening.payMin != null && opening.payMax != null) {
     const amountLabel = `${formatPayNumber(opening.payMin)} – ${formatPayNumber(opening.payMax)}`;

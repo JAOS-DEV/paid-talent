@@ -2,8 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 import { Button, Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui";
 import { LanguageToggle } from "@/components/i18n";
 import { NotificationsBell } from "@/components/notifications";
@@ -28,6 +27,7 @@ export function AdminNav({
   openFlagCount = 0,
 }: AdminNavProps): React.ReactElement {
   const pathname = usePathname();
+  const router = useRouter();
 
   const items: AdminNavItemWithCount[] = ADMIN_NAV_ITEMS.map((item) => {
     if (item.href === "/admin/reports") {
@@ -40,7 +40,7 @@ export function AdminNav({
   });
 
   const signOutAdmin = (): void => {
-    void signOut({ callbackUrl: "/" });
+    router.push("/auth/signout");
   };
 
   return (

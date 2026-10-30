@@ -13,6 +13,7 @@ import {
   ShareContactMenu,
 } from "@/components/messaging";
 import { ReportDialog } from "@/components/safety";
+import { BlockAlertDialog } from "@/components/safety/BlockAlertDialog";
 import type { ConversationDetail } from "@/lib/conversations/service";
 import type { ContactShareChannel } from "@/lib/db/schema";
 
@@ -30,7 +31,6 @@ export function ChatView({
   profileSettingsHref,
 }: ChatViewProps): React.ReactElement {
   const t = useTranslations("messaging");
-  const tSafety = useTranslations("safety");
   const router = useRouter();
   const [conversation, setConversation] = useState<ConversationDetail | null>(
     null
@@ -38,6 +38,8 @@ export function ChatView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blockBusy, setBlockBusy] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -119,13 +121,15 @@ export function ChatView({
   };
 
   const blockUser = async (): Promise<void> => {
-    if (!window.confirm(tSafety("blocks.confirm"))) return;
+    setBlockBusy(true);
     const res = await fetch("/api/blocks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ conversationId }),
     });
+    setBlockBusy(false);
     if (res.ok) {
+      setBlockOpen(false);
       router.push(listHref);
     }
   };
@@ -150,7 +154,7 @@ export function ChatView({
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => void blockUser()}
+                onClick={() => setBlockOpen(true)}
               >
                 {t("thread.block")}
               </Button>
@@ -206,6 +210,12 @@ export function ChatView({
           ) : null}
         </div>
       </main>
+      <BlockAlertDialog
+        open={blockOpen}
+        onOpenChange={setBlockOpen}
+        busy={blockBusy}
+        onConfirm={() => void blockUser()}
+      />
       <Footer />
     </div>
   );

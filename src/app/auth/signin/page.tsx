@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Card, CardContent, Input } from "@/components/ui";
 import { AuthLocaleBar } from "@/components/i18n";
+import { BrandMark } from "@/components/layout/BrandMark";
 
 interface AuthConfig {
   emailEnabled: boolean;
@@ -206,9 +207,8 @@ function SignInPageContent(): React.ReactElement {
   return (
     <div className="w-full max-w-md">
       <div className="text-center mb-8">
-        <div className="flex items-center justify-center space-x-2 mb-4">
-          <span className="text-2xl font-bold text-primary-500">Paid</span>
-          <span className="text-2xl font-bold text-gold-500">Talent</span>
+        <div className="mb-4 flex justify-center">
+          <BrandMark href="/" />
         </div>
         <h1 className="text-xl font-semibold text-charcoal-100 mb-2">
           {t("signInSubtitle")}
@@ -249,9 +249,8 @@ export default function SignInPage(): React.ReactElement {
       <Suspense fallback={
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <span className="text-2xl font-bold text-primary-500">Paid</span>
-              <span className="text-2xl font-bold text-gold-500">Talent</span>
+            <div className="mb-4 flex justify-center">
+              <BrandMark href="/" />
             </div>
             <div className="h-8 bg-charcoal-700 rounded animate-pulse w-48 mx-auto" />
           </div>

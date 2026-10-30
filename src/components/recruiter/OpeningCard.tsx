@@ -3,7 +3,19 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Badge, Button, Card } from "@/components/ui";
+import { useTranslations } from "next-intl";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Badge,
+  Button,
+  Card,
+} from "@/components/ui";
 import {
   deleteOpening,
   publishOpening,
@@ -11,7 +23,12 @@ import {
 } from "@/lib/recruiter-profile/actions";
 import type { RecruiterOpening } from "@/lib/db/schema";
 import { VenueLogo } from "@/components/media/VenueLogo";
-import { formatOpeningPay } from "./format-pay";
+import {
+  JOB_ROLE_MESSAGE_KEYS,
+  AREA_MESSAGE_KEYS,
+  translateCatalogValue,
+} from "@/lib/i18n/labels";
+import { formatOpeningPay, localizedOpeningPeriod } from "./format-pay";
 
 interface OpeningCardProps {
   opening: RecruiterOpening;
@@ -43,6 +60,11 @@ export function OpeningCard({
   venueName = null,
 }: OpeningCardProps): React.ReactElement {
   const router = useRouter();
+  const t = useTranslations("recruiter.openings.card");
+  const common = useTranslations("common");
+  const roles = useTranslations("roles");
+  const areas = useTranslations("places.areas");
+  const periods = useTranslations("payPeriods");
   const [busy, setBusy] = useState<"publish" | "unpublish" | "delete" | null>(
     null
   );
@@ -50,7 +72,11 @@ export function OpeningCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  const payLabel = formatOpeningPay(opening);
+  const payLabel = formatOpeningPay(opening, (period) =>
+    localizedOpeningPeriod(period, periods)
+  );
+  const roleLabel = translateCatalogValue(roles, JOB_ROLE_MESSAGE_KEYS, opening.role);
+  const areaLabel = translateCatalogValue(areas, AREA_MESSAGE_KEYS, opening.area);
 
   const runPublishToggle = async (): Promise<void> => {
     setError(null);
@@ -59,7 +85,7 @@ export function OpeningCard({
       const result = await unpublishOpening(opening.id);
       setBusy(null);
       if (!result.success) {
-        setError(result.error || "Failed to unpublish");
+        setError(result.error || t("unpublishFailed"));
         return;
       }
     } else {
@@ -67,7 +93,7 @@ export function OpeningCard({
       const result = await publishOpening(opening.id);
       setBusy(null);
       if (!result.success) {
-        setError(result.error || "Failed to publish");
+        setError(result.error || t("publishFailed"));
         return;
       }
     }
@@ -80,7 +106,7 @@ export function OpeningCard({
     const result = await deleteOpening(opening.id);
     setBusy(null);
     if (!result.success) {
-      setError(result.error || "Failed to delete");
+      setError(result.error || t("deleteFailed"));
       setConfirmDelete(false);
       return;
     }
@@ -102,25 +128,25 @@ export function OpeningCard({
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-base font-semibold text-charcoal-100 break-words">
-              {opening.role}
+              {roleLabel}
             </h3>
             <Badge
               variant={opening.isPublished ? "success" : "warning"}
               className="text-xs"
             >
-              {opening.isPublished ? "Published" : "Draft"}
+              {opening.isPublished ? t("published") : t("draft")}
             </Badge>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="default" className="text-xs">
-              {opening.area}
+              {areaLabel}
             </Badge>
             {payLabel ? (
               <span className="text-lg font-bold text-primary-400">
                 {payLabel}
               </span>
             ) : (
-              <span className="text-sm text-charcoal-500">No pay set</span>
+              <span className="text-sm text-charcoal-300">{t("noPay")}</span>
             )}
           </div>
           {opening.notes && (
@@ -144,72 +170,53 @@ export function OpeningCard({
             </p>
           )}
 
-          {confirmDelete ? (
-            <div
-              className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 space-y-3"
-              role="alertdialog"
-              aria-labelledby={`delete-title-${opening.id}`}
+          <div className="flex flex-col gap-2">
+            <Link href={`/recruiter/openings/${opening.id}/edit`}>
+              <Button variant="outline" fullWidth>
+                {t("edit")}
+              </Button>
+            </Link>
+            <Button
+              variant={opening.isPublished ? "secondary" : "primary"}
+              fullWidth
+              loading={busy === "publish" || busy === "unpublish"}
+              onClick={() => void runPublishToggle()}
             >
-              <div>
-                <p
-                  id={`delete-title-${opening.id}`}
-                  className="font-medium text-red-300"
-                >
-                  Delete this opening?
-                </p>
-                <p className="text-sm text-charcoal-400 mt-1">
-                  This removes the opening from your venue. Existing interests
-                  will remain, but will no longer be linked to this opening.
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button
-                  variant="outline"
-                  fullWidth
-                  disabled={busy !== null}
-                  onClick={() => setConfirmDelete(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  loading={busy === "delete"}
-                  onClick={() => void runDelete()}
-                  className="border-red-500/30 text-red-300 hover:bg-red-500/10"
-                >
-                  Delete opening
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <Link href={`/recruiter/openings/${opening.id}/edit`}>
-                <Button variant="outline" fullWidth>
-                  Edit opening
-                </Button>
-              </Link>
-              <Button
-                variant={opening.isPublished ? "secondary" : "primary"}
-                fullWidth
-                loading={busy === "publish" || busy === "unpublish"}
-                onClick={() => void runPublishToggle()}
-              >
-                {opening.isPublished ? "Unpublish" : "Publish opening"}
-              </Button>
-              <Button
-                variant="ghost"
-                fullWidth
-                disabled={busy !== null}
-                onClick={() => setConfirmDelete(true)}
-                className="text-charcoal-400 hover:text-red-300"
-              >
-                Delete
-              </Button>
-            </div>
-          )}
+              {opening.isPublished ? t("unpublish") : t("publish")}
+            </Button>
+            <Button
+              variant="destructive"
+              fullWidth
+              disabled={busy !== null}
+              onClick={() => setConfirmDelete(true)}
+            >
+              {t("delete")}
+            </Button>
+          </div>
         </div>
       )}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("deleteBody")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy !== null}>
+              {common("cancel")}
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              fullWidth
+              loading={busy === "delete"}
+              onClick={() => void runDelete()}
+            >
+              {t("deleteOpening")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

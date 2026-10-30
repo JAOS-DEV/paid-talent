@@ -5,7 +5,19 @@ import { useSession } from "next-auth/react";
 import { redirect, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Header, Footer } from "@/components/layout";
-import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Checkbox,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui";
 import {
   InboundRequestControls,
   type InboundPrefs,
@@ -153,25 +165,22 @@ export default function NotificationSettingsPage(): React.ReactElement {
               </CardHeader>
               <CardContent className="space-y-4">
                 <label className="flex items-center gap-3 text-sm text-charcoal-200">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={prefs.emailEnabled}
                     disabled={saving}
-                    onChange={(e) =>
-                      void save({ emailEnabled: e.target.checked })
+                    onCheckedChange={(checked) =>
+                      void save({ emailEnabled: checked === true })
                     }
-                    className="h-4 w-4"
                   />
                   {t("settings.emailEnabled")}
                 </label>
 
                 {!prefs.lineConfigured ? (
                   <label className="flex items-start gap-3 text-sm text-charcoal-200">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={prefs.lineEnabled}
                       disabled
-                      className="mt-0.5 h-4 w-4"
+                      className="mt-0.5"
                     />
                     <span>
                       {t("settings.lineEnabled")}
@@ -237,14 +246,12 @@ export default function NotificationSettingsPage(): React.ReactElement {
                             : t("settings.lineConnected")}
                         </p>
                         <label className="flex items-center gap-3 text-sm text-charcoal-200">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={prefs.lineEnabled}
                             disabled={!lineToggleEnabled}
-                            onChange={(e) =>
-                              void save({ lineEnabled: e.target.checked })
+                            onCheckedChange={(checked) =>
+                              void save({ lineEnabled: checked === true })
                             }
-                            className="h-4 w-4"
                           />
                           {t("settings.lineEnabled")}
                         </label>
@@ -274,20 +281,21 @@ export default function NotificationSettingsPage(): React.ReactElement {
                   >
                     {t("settings.locale")}
                   </label>
-                  <select
-                    id="notification-locale"
+                  <Select
                     value={prefs.locale}
                     disabled={saving}
-                    onChange={(e) =>
-                      void save({
-                        locale: e.target.value === "th" ? "th" : "en",
-                      })
+                    onValueChange={(value) =>
+                      void save({ locale: value === "th" ? "th" : "en" })
                     }
-                    className="w-full rounded-lg border border-charcoal-600 bg-charcoal-800 px-4 py-2.5 text-charcoal-100 sm:max-w-xs"
                   >
-                    <option value="en">{t("settings.localeEn")}</option>
-                    <option value="th">{t("settings.localeTh")}</option>
-                  </select>
+                    <SelectTrigger id="notification-locale" className="sm:max-w-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">{t("settings.localeEn")}</SelectItem>
+                      <SelectItem value="th">{t("settings.localeTh")}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {message ? (

@@ -67,7 +67,7 @@ describe("worker-dto teaser contract", () => {
     expect(teaser.location).toBe("Bangkok");
     expect(teaser.area).toBe("Sukhumvit");
     expect(teaser.jobRoles).toEqual(["Server"]);
-    expect(teaser.payBand).toBe("฿15,000+");
+    expect(teaser.payBand).toBe("฿15,000+ / month");
     expect(teaser).not.toHaveProperty("expectedPayMin");
     expect(teaser).not.toHaveProperty("expectedPayPeriod");
     expect(teaser).not.toHaveProperty("payCurrency");
@@ -96,7 +96,7 @@ describe("worker-dto teaser contract", () => {
       profileWithSecrets({ expectedPayMin: 1499 }),
       false
     );
-    expect(banded.payBand).toBe("฿1,000+");
+    expect(banded.payBand).toBe("฿1,000+ / month");
     expect(banded).not.toHaveProperty("expectedPayMin");
     expect(JSON.stringify(banded)).not.toContain("1499");
 
@@ -163,7 +163,7 @@ describe("worker-dto teaser contract", () => {
       expect(JSON.stringify(topTalent)).not.toContain("15000");
       expect(regular).not.toHaveProperty("expectedPayMin");
       if (regular.mode === "teaser") {
-        expect(regular.payBand).toBe("฿15,000+");
+        expect(regular.payBand).toBe("฿15,000+ / month");
       }
       expect(topTalent).not.toHaveProperty("lineId");
       expect(topTalent).not.toHaveProperty("phoneNumber");

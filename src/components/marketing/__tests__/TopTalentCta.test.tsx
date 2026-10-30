@@ -74,7 +74,7 @@ describe("TopTalentCta", () => {
     render(<TopTalentCta />);
 
     const link = await screen.findByRole("link", {
-      name: "Upgrade for Top Talent",
+      name: "View Verified Pro pricing",
     });
     expect(link).toHaveAttribute("href", "/recruiter/upgrade");
     expect(
@@ -95,7 +95,7 @@ describe("TopTalentCta", () => {
     const link = await screen.findByRole("link", { name: "Verify to upgrade" });
     expect(link).toHaveAttribute("href", "/recruiter/verification");
     expect(
-      screen.queryByRole("link", { name: "Upgrade for Top Talent" })
+      screen.queryByRole("link", { name: "View Verified Pro pricing" })
     ).not.toBeInTheDocument();
   });
 
@@ -113,7 +113,7 @@ describe("TopTalentCta", () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "Upgrade for Top Talent" })
+      screen.queryByRole("link", { name: "View Verified Pro pricing" })
     ).not.toBeInTheDocument();
   });
 

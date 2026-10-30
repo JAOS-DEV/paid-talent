@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Button, Textarea } from "@/components/ui";
+import { Button, RadioGroup, RadioGroupItem, Textarea } from "@/components/ui";
 
 const REASON_KEYS = [
   "scam_or_fake_job",
@@ -130,19 +130,19 @@ export function ReportDialog({
             </h2>
             <p className="mt-2 text-sm text-charcoal-400">{t("description")}</p>
 
-            <fieldset className="mt-4 space-y-3">
-              <legend className="sr-only">{t("reasonLegend")}</legend>
+            <RadioGroup
+              className="mt-4 space-y-3"
+              value={reason || undefined}
+              onValueChange={(value) => setReason(value as ReportReasonKey)}
+              aria-label={t("reasonLegend")}
+            >
               {REASON_KEYS.map((key) => (
                 <label
                   key={key}
                   className="flex cursor-pointer gap-3 rounded-lg border border-charcoal-700 p-3 hover:bg-charcoal-800/60"
                 >
-                  <input
-                    type="radio"
-                    name="report-reason"
+                  <RadioGroupItem
                     value={key}
-                    checked={reason === key}
-                    onChange={() => setReason(key)}
                     className="mt-1"
                     data-testid={`report-reason-${key}`}
                   />
@@ -156,7 +156,7 @@ export function ReportDialog({
                   </span>
                 </label>
               ))}
-            </fieldset>
+            </RadioGroup>
 
             <div className="mt-4">
               <Textarea

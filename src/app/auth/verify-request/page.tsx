@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Card, CardContent, Button } from "@/components/ui";
 import { AuthLocaleBar } from "@/components/i18n";
+import { BrandMark } from "@/components/layout/BrandMark";
 
 export default function VerifyRequestPage(): React.ReactElement {
   const t = useTranslations("auth");
@@ -19,9 +20,8 @@ export default function VerifyRequestPage(): React.ReactElement {
       <AuthLocaleBar />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <span className="text-2xl font-bold text-primary-500">Paid</span>
-            <span className="text-2xl font-bold text-gold-500">Talent</span>
+          <div className="mb-4 flex justify-center">
+            <BrandMark href="/" />
           </div>
           <h1 className="text-xl font-semibold text-charcoal-100 mb-2">
             {t("checkEmail")}

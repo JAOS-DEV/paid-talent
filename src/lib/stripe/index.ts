@@ -14,7 +14,7 @@ export { isStripeConfigured, stripe } from "./client";
 
 export const STRIPE_PLANS = {
   TOP_TALENT_UNLOCK: {
-    name: "Top Talent Unlock",
+    name: "Verified Pro",
     priceId: process.env.STRIPE_TOP_TALENT_PRICE_ID || "price_top_talent_stub",
     description: "Message Top Talent",
     features: [

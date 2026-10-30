@@ -12,6 +12,7 @@ import { resolveSessionIsAdmin } from "@/lib/admin/allowlist";
  */
 export const authPages = {
   signIn: "/auth/signin",
+  signOut: "/auth/signout",
   verifyRequest: "/auth/verify-request",
   error: "/auth/error",
 } as const;

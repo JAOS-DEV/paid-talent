@@ -13,6 +13,8 @@ import {
 import { WorkerPhotoGallery } from "./WorkerPhotoGallery";
 import { AvailabilityBadges } from "@/components/profile/AvailabilityBadges";
 import {
+  AREA_MESSAGE_KEYS,
+  CITY_MESSAGE_KEYS,
   JOB_ROLE_MESSAGE_KEYS,
   LANGUAGE_MESSAGE_KEYS,
   translateCatalogValue,
@@ -59,7 +61,18 @@ export function WorkerPublicProfileView({
   const t = useTranslations("worker.publicProfile");
   const roleLabels = useTranslations("roles");
   const languageLabels = useTranslations("languages");
-  const expectedPayLabel = formatWorkerExpectedPay(profile);
+  const cityLabels = useTranslations("places.cities");
+  const areaLabels = useTranslations("places.areas");
+  const periods = useTranslations("payPeriods");
+  const expectedPayLabel = formatWorkerExpectedPay(profile, {
+    day: periods("slashDay"),
+    month: periods("slashMonth"),
+  });
+  const placeLabel = profile.location
+    ? translateCatalogValue(cityLabels, CITY_MESSAGE_KEYS, profile.location)
+    : profile.area
+      ? translateCatalogValue(areaLabels, AREA_MESSAGE_KEYS, profile.area)
+      : null;
   const ownContact = mode === "preview" ? profile.ownContact : undefined;
   const hasOwnContactValues = Boolean(
     ownContact?.lineId || ownContact?.whatsappNumber || ownContact?.phoneNumber
@@ -115,7 +128,7 @@ export function WorkerPublicProfileView({
                       d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                     />
                   </svg>
-                  {profile.location || profile.area}
+                  {placeLabel}
                 </p>
               )}
 

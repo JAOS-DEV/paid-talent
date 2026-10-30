@@ -148,6 +148,7 @@ function teaserFromProfile(
     | "jobRoles"
     | "availability"
     | "expectedPayMin"
+    | "expectedPayPeriod"
     | "payCurrency"
   >,
   isTopTalent: boolean
@@ -165,7 +166,8 @@ function teaserFromProfile(
       : {
           payBand: formatTeaserPayBand(
             profile.expectedPayMin,
-            profile.payCurrency
+            profile.payCurrency,
+            profile.expectedPayPeriod
           ),
         }),
     isTopTalent,
@@ -310,6 +312,7 @@ export function toRecruiterWorkerTeaserDto(
     | "jobRoles"
     | "availability"
     | "expectedPayMin"
+    | "expectedPayPeriod"
     | "payCurrency"
   >,
   isTopTalent: boolean

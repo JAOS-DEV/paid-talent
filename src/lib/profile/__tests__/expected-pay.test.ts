@@ -1,12 +1,38 @@
 import { describe, it, expect } from "vitest";
 import {
+  formatTeaserPayBand,
   formatWorkerExpectedPay,
+  localizeTeaserPayBand,
   matchesExpectedPayFilter,
   toWorkerExpectedPayStorage,
   getWorkerExpectedPayAmount,
 } from "../expected-pay";
 
 describe("expected-pay helpers", () => {
+  describe("formatTeaserPayBand", () => {
+    it("adds the period without the exact amount", () => {
+      expect(formatTeaserPayBand(1499, "THB", "day")).toBe("฿1,000+ / night");
+      expect(formatTeaserPayBand(1499, "THB", "month")).toBe("฿1,000+ / month");
+      expect(formatTeaserPayBand(15000, "THB", "month")).toBe("฿15,000+ / month");
+      expect(formatTeaserPayBand(499, "THB", "night")).toBeNull();
+    });
+
+    it("localizes only the period suffix", () => {
+      expect(
+        localizeTeaserPayBand("฿1,000+ / night", {
+          night: "/ คืน",
+          month: "/ เดือน",
+        })
+      ).toBe("฿1,000+ / คืน");
+      expect(
+        localizeTeaserPayBand("฿1,000+ / month", {
+          night: "/ คืน",
+          month: "/ เดือน",
+        })
+      ).toBe("฿1,000+ / เดือน");
+    });
+  });
+
   describe("formatWorkerExpectedPay", () => {
     it("formats amount with currency symbol and period", () => {
       expect(

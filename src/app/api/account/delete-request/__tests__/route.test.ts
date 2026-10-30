@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
-import { ACCOUNT_DELETION_CONFIRM_PHRASE, SELF_DELETION_REASON } from "@/lib/account/constants";
+import {
+  ACCOUNT_DELETION_CONFIRM_PHRASE,
+  ACCOUNT_DELETION_CONFIRM_PHRASES,
+  SELF_DELETION_REASON,
+} from "@/lib/account/constants";
 
 const requireActiveAppUser = vi.fn();
 const sets: Array<Record<string, unknown>> = [];
@@ -75,6 +79,37 @@ describe("POST /api/account/delete-request", () => {
     );
     expect(response.status).toBe(400);
     expect(sets).toHaveLength(0);
+  });
+
+  it("accepts only the Thai phrase when the locale cookie is th", async () => {
+    const { POST } = await import("../route");
+    const rejected = await POST(
+      new Request("http://localhost/api/account/delete-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          cookie: "NEXT_LOCALE=th",
+        },
+        body: JSON.stringify({
+          confirmPhrase: ACCOUNT_DELETION_CONFIRM_PHRASE,
+        }),
+      })
+    );
+    expect(rejected.status).toBe(400);
+
+    const accepted = await POST(
+      new Request("http://localhost/api/account/delete-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          cookie: "NEXT_LOCALE=th",
+        },
+        body: JSON.stringify({
+          confirmPhrase: ACCOUNT_DELETION_CONFIRM_PHRASES.th,
+        }),
+      })
+    );
+    expect(accepted.status).toBe(200);
   });
 
   it("suspends the account and withdraws open requests", async () => {

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button, Badge } from "@/components/ui";
 import { ReportDialog } from "@/components/safety";
+import { BlockAlertDialog } from "@/components/safety/BlockAlertDialog";
 import type { InboxContactRequestDto } from "@/lib/contact-requests/queries";
 
 interface WorkerRequestCardProps {
@@ -22,6 +23,7 @@ export function WorkerRequestCard({
   const [busy, setBusy] = useState<"accept" | "decline" | "block" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
 
   const act = async (action: "accept" | "decline"): Promise<void> => {
     setBusy(action);
@@ -45,9 +47,6 @@ export function WorkerRequestCard({
   };
 
   const block = async (): Promise<void> => {
-    if (!window.confirm(tSafety("blocks.confirm"))) {
-      return;
-    }
     setBusy("block");
     setError(null);
     try {
@@ -65,6 +64,7 @@ export function WorkerRequestCard({
         setError(data.error ?? t("errors.generic"));
         return;
       }
+      setBlockOpen(false);
       onChanged?.();
     } catch {
       setError(t("errors.generic"));
@@ -156,7 +156,7 @@ export function WorkerRequestCard({
             variant="ghost"
             fullWidth
             disabled={busy != null}
-            onClick={() => void block()}
+            onClick={() => setBlockOpen(true)}
           >
             {tSafety("blocks.block")}
           </Button>
@@ -200,6 +200,12 @@ export function WorkerRequestCard({
         </p>
       ) : null}
 
+      <BlockAlertDialog
+        open={blockOpen}
+        onOpenChange={setBlockOpen}
+        busy={busy === "block"}
+        onConfirm={() => void block()}
+      />
       <ReportDialog
         open={reportOpen}
         onClose={() => setReportOpen(false)}
